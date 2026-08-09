@@ -5,11 +5,12 @@ RGBFIX = rgbfix
 
 BUILD_DIR = build
 SRC_DIR = src
-ASM_DIR = asm
 
 TARGET = $(BUILD_DIR)/game.gb
 
-SRCS = $(wildcard $(SRC_DIR)/*.c)
+INCLUDES = -I$(SRC_DIR) -I$(SRC_DIR)/core -I$(SRC_DIR)/world -I$(SRC_DIR)/battle -I$(SRC_DIR)/input -I$(SRC_DIR)/audio -I$(SRC_DIR)/ui
+
+SRCS = $(wildcard $(SRC_DIR)/*.c) $(wildcard $(SRC_DIR)/*/*.c)
 OBJS = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(SRCS))
 
 # Emulator detection
@@ -23,7 +24,8 @@ $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
-	$(CC) -c -I$(SRC_DIR) -o $@ $<
+	@mkdir -p $(dir $@)
+	$(CC) -c $(INCLUDES) -o $@ $<
 
 $(TARGET): $(OBJS) | $(BUILD_DIR)
 	$(CC) -no-crt -Wm-yc -o $@ $(GBDKDIR)lib/gb/crt0.o $(OBJS) $(GBDKDIR)lib/gb/gb.lib $(GBDKDIR)lib/sm83/sm83.lib
@@ -39,7 +41,7 @@ run: $(TARGET)
 test: $(TARGET)
 	@echo "Validating Game Boy ROM header..."
 	@if command -v $(RGBFIX) >/dev/null 2>&1; then \
-		$(RGBFIX) -v -C -t "BRUNOTETRIS" $(TARGET); \
+		$(RGBFIX) -v -C -t "GBCARDRPG" $(TARGET); \
 	else \
 		test -s $(TARGET); \
 	fi
@@ -49,6 +51,4 @@ screenshot: $(TARGET)
 	@bash tools/screenshot.sh $(BUILD_DIR)/screenshot.png $(TARGET)
 
 clean:
-	rm -f $(BUILD_DIR)/*.o $(BUILD_DIR)/*.gb $(BUILD_DIR)/*.map $(BUILD_DIR)/*.sym \
-	      $(BUILD_DIR)/*.noi $(BUILD_DIR)/*.lst $(BUILD_DIR)/*.ihx $(BUILD_DIR)/*.cdb \
-	      $(BUILD_DIR)/screenshot.png
+	rm -rf $(BUILD_DIR)

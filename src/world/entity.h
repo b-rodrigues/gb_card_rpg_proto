@@ -1,0 +1,27 @@
+#ifndef ENTITY_H
+#define ENTITY_H
+
+#include <stdint.h>
+#include <stdbool.h>
+
+typedef struct {
+    uint8_t x;
+    uint8_t y;
+} Position;
+
+typedef enum {
+    ENTITY_PLAYER,
+    ENTITY_ENEMY
+} EntityType;
+
+typedef struct {
+    Position position;
+    EntityType type;
+    uint8_t hp;
+    uint8_t max_hp;
+    bool active;
+} Entity;
+
+void entity_init(Entity *e, EntityType type, uint8_t x, uint8_t y, uint8_t hp, uint8_t max_hp);
+
+#endif /* ENTITY_H */

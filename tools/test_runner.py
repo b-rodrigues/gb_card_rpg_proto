@@ -10,10 +10,32 @@ import json
 import glob
 import os
 import sys
-from emulator import EmulatorSession
+from emulator import EmulatorSession, STORY_FLAG_ID_MAP, SCENARIO_IDS
+
+VALID_ASSERTION_TYPES = {
+    "game_state", "player_position", "player_hp", "music_track",
+    "enemy_hp", "battle_turn", "battle_result", "story_flag",
+    "event_occurred", "event_not_occurred", "dialogue_active", "dialogue_line"
+}
+
+VALID_STORY_FLAGS = set(STORY_FLAG_ID_MAP.values())
+
+def validate_scenario(data, filepath):
+    scen_id = data.get("scenario_id")
+    if scen_id and scen_id not in SCENARIO_IDS:
+        raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown scenario_id '{scen_id}'. Valid IDs: {list(SCENARIO_IDS.keys())}")
+
+    for a in data.get("assertions", []):
+        a_type = a.get("type")
+        if a_type not in VALID_ASSERTION_TYPES:
+            raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown assertion type '{a_type}'. Valid types: {sorted(list(VALID_ASSERTION_TYPES))}")
+
+        flag = a.get("flag")
+        if flag and flag not in VALID_STORY_FLAGS:
+            raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown story flag '{flag}'. Valid flags: {sorted(list(VALID_STORY_FLAGS))}")
 
 def load_scenarios(scenarios_dir="tools/scenarios"):
-    """Load all JSON scenario files from directory and subdirectories."""
+    """Load all JSON scenario files from directory and subdirectories with strict validation."""
     scenarios = []
     pattern = os.path.join(scenarios_dir, "**", "*.json")
     for filepath in sorted(glob.glob(pattern, recursive=True)):
@@ -21,9 +43,11 @@ def load_scenarios(scenarios_dir="tools/scenarios"):
             with open(filepath, 'r') as f:
                 data = json.load(f)
                 data['_filepath'] = filepath
+                validate_scenario(data, filepath)
                 scenarios.append(data)
         except Exception as e:
             print(f"Error loading scenario {filepath}: {e}", file=sys.stderr)
+            raise
     return scenarios
 
 def run_scenario(scenario):
@@ -107,12 +131,18 @@ def run_scenario(scenario):
             exp_flag = a.get("flag")
             exp_val = a.get("expected", True)
             expected = f"{exp_flag}={exp_val}"
-            flag_masks = {"ARRIVED_TOWN": (1 << 0), "MET_MAYOR": (1 << 1)}
-            mask = flag_masks.get(exp_flag, 0)
-            cur_flags = snap.get("story_flags", 0)
-            has_flag = (cur_flags & mask) != 0
+            active_flags = snap.get("story_flags_active", [])
+            has_flag = exp_flag in active_flags
             passed = (has_flag == exp_val)
             actual = f"{exp_flag}={has_flag}"
+
+        elif a_type == "dialogue_active":
+            actual = snap.get("dialogue_active", False)
+            passed = (actual == bool(expected))
+
+        elif a_type == "dialogue_line":
+            actual = snap.get("dialogue_line", 0)
+            passed = (actual == int(expected))
 
         elif a_type == "event_occurred":
             exp_event = a.get("event", expected)

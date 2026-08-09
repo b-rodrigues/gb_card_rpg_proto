@@ -1,7 +1,7 @@
 {
   "name": "mayor_encounter",
   "test": true,
-  "description": "Approach Mayor NPC in Town to trigger MET_MAYOR story event",
+  "description": "Approach Mayor NPC in Town to trigger dialogue overlay",
   "scenario_id": "MAYOR_ENCOUNTER",
   "actions": [
     {
@@ -16,13 +16,15 @@
     },
     {
       "type": "event_occurred",
-      "event": "STORY_FLAG_SET",
-      "flag": "MET_MAYOR"
+      "event": "DIALOGUE_STARTED"
     },
     {
-      "type": "story_flag",
-      "flag": "MET_MAYOR",
+      "type": "dialogue_active",
       "expected": true
+    },
+    {
+      "type": "dialogue_line",
+      "expected": 0
     }
   ]
 }

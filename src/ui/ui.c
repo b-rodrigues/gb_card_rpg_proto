@@ -146,3 +146,17 @@ void ui_update_battle(const Battle *battle)
         printf("ENEMY TURN...       ");
     }
 }
+
+void ui_draw_dialogue(const DialogueState *dialogue)
+{
+    if (!dialogue || !dialogue->active) return;
+
+    gotoxy(0, 13);
+    printf("====================");
+    gotoxy(1, 14);
+    printf("MAYOR:              ");
+    gotoxy(1, 15);
+    printf("%-18s", dialogue->lines[dialogue->current_line]);
+    gotoxy(0, 17);
+    printf("[A] CONTINUE        ");
+}

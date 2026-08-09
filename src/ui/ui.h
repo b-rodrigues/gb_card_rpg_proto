@@ -3,6 +3,7 @@
 
 #include "world.h"
 #include "battle.h"
+#include "dialogue.h"
 #include <stdint.h>
 
 void ui_init(void);
@@ -13,5 +14,7 @@ void ui_update_player_position(uint8_t old_x, uint8_t old_y, uint8_t new_x, uint
 
 void ui_draw_battle_full(const Battle *battle);
 void ui_update_battle(const Battle *battle);
+
+void ui_draw_dialogue(const DialogueState *dialogue);
 
 #endif /* UI_H */

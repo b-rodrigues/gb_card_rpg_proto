@@ -89,8 +89,17 @@ SCENARIO_IDS = {
     "TOWN_ARRIVAL": 3,
     "TOWN_DEPARTURE": 4,
     "TOWN_REENTRY": 5,
-    "MAYOR_ENCOUNTER": 6
+    "MAYOR_ENCOUNTER": 6,
+    "MAYOR_DIALOGUE": 7
 }
+
+def decode_story_flags(flags_mask):
+    """Decodes uint32 story flags bitfield mask into active flag names."""
+    active = []
+    for flag_id, name in STORY_FLAG_ID_MAP.items():
+        if (flags_mask & (1 << (flag_id - 1))) != 0:
+            active.append(name)
+    return active
 
 def load_sym_map(sym_path):
     syms = {}
@@ -313,8 +322,11 @@ class EmulatorSession:
                 "battle_result":    BATTLE_RESULT_MAP.get(snap_bytes[8], f"UNKNOWN_{snap_bytes[8]}"),
                 "battle_player_hp": snap_bytes[9],
                 "battle_enemy_hp":  snap_bytes[10],
-                "map_id":           MAP_NAME_MAP.get(snap_bytes[11], f"UNKNOWN_{snap_bytes[11]}"),
-                "story_flags":      snap_bytes[12]
+                "map_id":              MAP_NAME_MAP.get(snap_bytes[11], f"UNKNOWN_{snap_bytes[11]}"),
+                "story_flags":         snap_bytes[12],
+                "story_flags_active":  decode_story_flags(snap_bytes[12]),
+                "dialogue_active":     bool(snap_bytes[13]) if len(snap_bytes) >= 15 else False,
+                "dialogue_line":       snap_bytes[14] if len(snap_bytes) >= 15 else 0
             }
             self.current_snapshot = parsed
             return parsed

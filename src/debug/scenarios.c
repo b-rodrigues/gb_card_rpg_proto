@@ -3,6 +3,7 @@
 #include "telemetry.h"
 #include "game.h"
 #include "story.h"
+#include "dialogue.h"
 #include "world.h"
 #include "entity.h"
 #include "state.h"
@@ -22,6 +23,7 @@ static void load_new_game(void)
 
     world_init(w);   /* sets player (4,4) hp=10, enemy (14,8) hp=5 */
     w->encounter_triggered = false;
+    dialogue_init(&g_game.dialogue);
 
     g_game.frame = 0;
     g_game.story_flags = 0;
@@ -49,6 +51,7 @@ static void load_first_encounter(void)
     w->enemy.position.x = 14;
     w->enemy.position.y = 8;
     w->encounter_triggered = false;
+    dialogue_init(&g_game.dialogue);
 
     g_game.frame = 0;
     g_game.story_flags = 0;
@@ -74,6 +77,7 @@ static void load_town_arrival(void)
     w->player.position.x = 17;
     w->player.position.y = 7;
     w->encounter_triggered = false;
+    dialogue_init(&g_game.dialogue);
 
     g_game.frame = 0;
     g_game.story_flags = 0;
@@ -100,6 +104,7 @@ static void load_town_departure(void)
     w->player.position.x = 2;
     w->player.position.y = 7;
     w->encounter_triggered = false;
+    dialogue_init(&g_game.dialogue);
 
     g_game.frame = 0;
     g_game.story_flags = STORY_FLAG_ARRIVED_TOWN;
@@ -125,6 +130,7 @@ static void load_town_reentry(void)
     w->player.position.x = 17;
     w->player.position.y = 7;
     w->encounter_triggered = false;
+    dialogue_init(&g_game.dialogue);
 
     g_game.frame = 0;
     g_game.story_flags = STORY_FLAG_ARRIVED_TOWN;
@@ -151,11 +157,39 @@ static void load_mayor_encounter(void)
     w->player.position.x = 9;
     w->player.position.y = 5;
     w->encounter_triggered = false;
+    dialogue_init(&g_game.dialogue);
 
     g_game.frame = 0;
     g_game.story_flags = STORY_FLAG_ARRIVED_TOWN;
 
     rng_set_seed(1002);
+    input_reset();
+    telemetry_init();
+    telemetry_set_frame_ptr(&g_game.frame);
+    audio_play_music(MUSIC_OVERWORLD);
+    debug_snapshot();
+}
+
+static void load_mayor_dialogue(void)
+{
+    World *w = &g_game.world;
+    GameStateMachine *sm = &g_game.state_machine;
+
+    sm->current = GAME_STATE_OVERWORLD;
+    sm->previous = GAME_STATE_OVERWORLD;
+    sm->state_changed = false;
+
+    world_init(w);
+    world_load_map(w, MAP_TOWN);
+    w->player.position.x = 9;
+    w->player.position.y = 5;
+    w->encounter_triggered = false;
+    dialogue_init(&g_game.dialogue);
+
+    g_game.frame = 0;
+    g_game.story_flags = STORY_FLAG_ARRIVED_TOWN;
+
+    rng_set_seed(1003);
     input_reset();
     telemetry_init();
     telemetry_set_frame_ptr(&g_game.frame);
@@ -184,5 +218,8 @@ void scenario_check_and_load(void)
     } else if (sc == 6) {
         g_scen_load = 0;
         load_mayor_encounter();
+    } else if (sc == 7) {
+        g_scen_load = 0;
+        load_mayor_dialogue();
     }
 }

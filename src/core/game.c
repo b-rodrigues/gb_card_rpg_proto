@@ -1,7 +1,13 @@
 #include "game.h"
 #include "story.h"
+#include "dialogue.h"
 #include "telemetry.h"
 #include "scenarios.h"
+
+static const char *g_mayor_lines[2] = {
+    "Welcome, traveler.",
+    "Road is dangerous."
+};
 
 void game_init(Game *g)
 {
@@ -12,6 +18,7 @@ void game_init(Game *g)
     telemetry_set_frame_ptr(&g->frame);
     state_init(&g->state_machine);
     world_init(&g->world);
+    dialogue_init(&g->dialogue);
     audio_play_music(MUSIC_OVERWORLD);
     telemetry_emit(EVENT_MUSIC_CHANGED, MUSIC_OVERWORLD, 0, 0, 0);
     ui_draw_world_full(&g->world);
@@ -26,6 +33,18 @@ static void update_overworld(Game *g)
     int8_t dx = 0;
     int8_t dy = 0;
     uint8_t old_x, old_y;
+
+    if (g->dialogue.active) {
+        if (input_pressed(INPUT_A)) {
+            if (dialogue_next(&g->dialogue)) {
+                ui_draw_dialogue(&g->dialogue);
+            } else {
+                story_set_flag(&g->story_flags, STORY_FLAG_ID_MET_MAYOR);
+                ui_draw_world_full(&g->world);
+            }
+        }
+        return;
+    }
 
     if (input_pressed(INPUT_UP))    dy = -1;
     if (input_pressed(INPUT_DOWN))  dy = 1;
@@ -57,7 +76,9 @@ static void update_overworld(Game *g)
         uint8_t dist_y = (py > ny) ? (py - ny) : (ny - py);
 
         if ((dist_x + dist_y == 1) && (input_pressed(INPUT_A) || (dx != 0 || dy != 0))) {
-            story_set_flag(&g->story_flags, STORY_FLAG_ID_MET_MAYOR);
+            dialogue_start(&g->dialogue, "Mayor", g_mayor_lines, 2);
+            ui_draw_dialogue(&g->dialogue);
+            return;
         }
     }
 

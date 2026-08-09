@@ -8,10 +8,13 @@
 #include "input.h"
 #include "ui.h"
 
+#include "dialogue.h"
+
 typedef struct {
     GameStateMachine state_machine;
     World world;
     Battle battle;
+    DialogueState dialogue;
     uint32_t story_flags;
     uint32_t frame;
 } Game;

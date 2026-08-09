@@ -1,16 +1,23 @@
 #include "story.h"
 #include "telemetry.h"
 
+bool story_flag_id_valid(StoryFlagId flag_id)
+{
+    return (flag_id >= 1 && flag_id < STORY_FLAG_ID_COUNT);
+}
+
 bool story_has_flag(uint32_t flags, StoryFlagId flag_id)
 {
-    uint32_t mask = 1UL << (flag_id - 1);
+    uint32_t mask;
+    if (!story_flag_id_valid(flag_id)) return false;
+    mask = 1UL << (flag_id - 1);
     return (flags & mask) != 0;
 }
 
 void story_set_flag(uint32_t *flags, StoryFlagId flag_id)
 {
     uint32_t mask;
-    if (!flags) return;
+    if (!flags || !story_flag_id_valid(flag_id)) return;
     mask = 1UL << (flag_id - 1);
     if (!(*flags & mask)) {
         *flags |= mask;
@@ -21,7 +28,7 @@ void story_set_flag(uint32_t *flags, StoryFlagId flag_id)
 void story_clear_flag(uint32_t *flags, StoryFlagId flag_id)
 {
     uint32_t mask;
-    if (!flags) return;
+    if (!flags || !story_flag_id_valid(flag_id)) return;
     mask = 1UL << (flag_id - 1);
     if (*flags & mask) {
         *flags &= ~mask;

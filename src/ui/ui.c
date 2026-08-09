@@ -1,17 +1,37 @@
 #include "ui.h"
 #include <gb/gb.h>
+#include <gb/cgb.h>
 #include <gbdk/font.h>
 #include <gbdk/console.h>
 #include <stdio.h>
 
 static font_t min_font;
 
+static const palette_color_t cgb_palette[4] = {
+    RGB8(255, 255, 255),
+    RGB8(170, 170, 170),
+    RGB8(85, 85, 85),
+    RGB8(0, 0, 0)
+};
+
 void ui_init(void)
 {
     font_init();
-    min_font = font_load(font_min);
+    min_font = font_load(font_ibm);
     font_set(min_font);
+
+    /* Set DMG palettes: 0xE4 = 11 10 01 00 (Lightest to Darkest) */
+    BGP_REG = 0xE4;
+    OBP0_REG = 0xE4;
+    OBP1_REG = 0xE4;
+
+    /* Set CGB Palette 0 if running on CGB hardware */
+    if (_cpu == CGB_TYPE) {
+        set_bkg_palette(0, 1, cgb_palette);
+    }
+
     SHOW_BKG;
+    DISPLAY_ON;
 }
 
 void ui_clear_screen(void)

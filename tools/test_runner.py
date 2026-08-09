@@ -2,7 +2,8 @@
 """
 Real scenario test runner and assertion evaluator for Game Boy RPG development harness.
 Connects to SameBoy emulator via EmulatorSession, executes input sequences,
-captures snapshots, evaluates assertions, and prints structured PASS/FAIL diagnostic reports.
+captures full 16-byte snapshots and telemetry event streams, evaluates assertions,
+and prints structured PASS/FAIL diagnostic reports per dev-harness.md specification.
 """
 
 import json
@@ -35,10 +36,10 @@ def run_scenario(scenario):
     scenario_id = scenario.get("scenario_id", "NEW_GAME")
     actions = scenario.get("actions", [])
     assertions = scenario.get("assertions", [])
-    
+
     session = EmulatorSession()
     session.connect()
-    
+
     # Load requested scenario
     session.load_scenario(scenario_id)
 
@@ -50,12 +51,12 @@ def run_scenario(scenario):
         elif act_type == "wait":
             session.wait(act.get("frames", 1))
 
-    # Read final snapshot from ROM memory
+    # Read final snapshot and telemetry buffer from ROM memory
     snap = session.snapshot()
-    print(f"RAW SNAPSHOT [{name}]: {snap}")
+    telemetry = session.get_telemetry()
     session.disconnect()
 
-    # Evaluate assertions against snapshot
+    # Evaluate assertions against snapshot & telemetry
     assertion_results = []
     passed_all = True
     failure_detail = None
@@ -69,9 +70,11 @@ def run_scenario(scenario):
         if a_type == "game_state":
             actual = snap.get("game_state", "UNKNOWN")
             passed = (actual == expected)
+
         elif a_type == "player_hp":
             actual = snap.get("player_hp", 0)
             passed = (actual == int(expected))
+
         elif a_type == "player_position":
             exp_x = a.get("expected_x")
             exp_y = a.get("expected_y")
@@ -80,17 +83,36 @@ def run_scenario(scenario):
             actual = f"({act_x},{act_y})"
             expected = f"({exp_x},{exp_y})"
             passed = (act_x == exp_x and act_y == exp_y)
+
         elif a_type == "music_track":
             actual = snap.get("music_track", "UNKNOWN")
             passed = (actual == expected)
+
         elif a_type == "enemy_hp":
             actual = snap.get("enemy_hp", 0)
             passed = (actual == int(expected))
+
+        elif a_type == "battle_turn":
+            actual = snap.get("battle_turn", "UNKNOWN")
+            passed = (actual == expected)
+
+        elif a_type == "battle_result":
+            actual = snap.get("battle_result", "UNKNOWN")
+            passed = (actual == expected)
+
         elif a_type == "event_occurred":
-            # For encounter event, if state is BATTLE, encounter occurred
-            actual = snap.get("game_state")
-            passed = (actual == "BATTLE")
-            expected = "ENCOUNTER_STARTED"
+            exp_event = a.get("event", expected)
+            expected = exp_event
+            matching_events = [ev for ev in telemetry if ev.get("type") == exp_event]
+            passed = len(matching_events) > 0
+            actual = f"EMITTED ({len(matching_events)} time(s))" if passed else "NOT_EMITTED"
+
+        elif a_type == "event_not_occurred":
+            exp_event = a.get("event", expected)
+            expected = f"NOT {exp_event}"
+            matching_events = [ev for ev in telemetry if ev.get("type") == exp_event]
+            passed = len(matching_events) == 0
+            actual = "NOT_EMITTED" if passed else f"EMITTED ({len(matching_events)} time(s))"
 
         status_str = "PASS" if passed else "FAIL"
         assertion_results.append({
@@ -100,14 +122,12 @@ def run_scenario(scenario):
             "status": status_str
         })
 
-        if not passed:
-            passed_all = False
-            if not failure_detail:
-                failure_detail = {
-                    "assertion": f"{a_type} == {expected}",
-                    "expected": str(expected),
-                    "actual": str(actual)
-                }
+        if not passed and not failure_detail:
+            failure_detail = {
+                "assertion": f"{a_type}: {expected}",
+                "expected": str(expected),
+                "actual": str(actual)
+            }
 
     return {
         "scenario": name,
@@ -115,6 +135,7 @@ def run_scenario(scenario):
         "status": "PASS" if passed_all else "FAIL",
         "failure": failure_detail,
         "snapshot": snap,
+        "telemetry": telemetry,
         "assertions": assertion_results
     }
 
@@ -124,18 +145,34 @@ def print_result(result):
     print(f"STATUS:   {result['status']}")
     if result.get("description"):
         print(f"DESC:     {result['description']}")
-    
+
     print("ASSERTIONS:")
     for a in result.get("assertions", []):
         mark = "✓" if a['status'] == "PASS" else "✗"
         print(f"  {mark} [{a['status']}] {a['type']}: expected={a['expected']}, actual={a['actual']}")
-    
+
     if result["status"] == "FAIL" and result.get("failure"):
         print("\nFAILED ASSERTION:")
         print(f"  {result['failure']['assertion']}")
         print(f"  EXPECTED: {result['failure']['expected']}")
         print(f"  ACTUAL:   {result['failure']['actual']}")
-    
+
+        snap = result.get("snapshot", {})
+        print("\nCURRENT SEMANTIC STATE:")
+        print(f"  game_state: {snap.get('game_state')}")
+        print(f"  player_pos: ({snap.get('player_x')},{snap.get('player_y')}) HP: {snap.get('player_hp')}")
+        print(f"  enemy_hp:   {snap.get('enemy_hp')} Active: {snap.get('enemy_active')}")
+        print(f"  music:      {snap.get('music_track')}")
+
+        telemetry = result.get("telemetry", [])
+        print("\nRECENT TELEMETRY EVENTS:")
+        if not telemetry:
+            print("  (no events recorded)")
+        else:
+            for ev in telemetry[-10:]:
+                d_str = " ".join(f"{b:02x}" for b in ev['data'])
+                print(f"  #{ev['seq']:03d} [f:{ev['frame']:05d}] {ev['type']} ({d_str})")
+
     print()
 
 def run_all(scenarios_dir="tools/scenarios"):

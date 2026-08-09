@@ -24,7 +24,7 @@ typedef enum {
 typedef struct {
     uint16_t seq;
     uint32_t frame;
-    GameEventType type;
+    uint8_t type;
     uint8_t data[4];
 } GameEvent;
 

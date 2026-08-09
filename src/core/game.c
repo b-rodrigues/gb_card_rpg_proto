@@ -80,7 +80,9 @@ void game_update(Game *g)
 {
     if (!g) return;
     
+#ifdef DEBUG_BUILD
     scenario_check_and_load();
+#endif
     g->frame++;
 
     if (g->state_machine.state_changed) {
@@ -97,7 +99,9 @@ void game_update(Game *g)
             break;
     }
 
+#ifdef DEBUG_BUILD
     debug_snapshot();
+#endif
 }
 
 void game_render(const Game *g)

@@ -9,10 +9,6 @@
 extern Game g_game;
 volatile uint8_t g_scen_load = 0;
 
-void scenario_load(void)
-{
-    /* intentionally empty */
-}
 
 static void load_new_game(void)
 {
@@ -60,6 +56,7 @@ static void load_first_encounter(void)
     input_reset();
     telemetry_init();
     telemetry_set_frame_ptr(&g_game.frame);
+    audio_play_music(MUSIC_OVERWORLD);
     debug_snapshot();
 }
 

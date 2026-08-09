@@ -2,7 +2,11 @@
 
 This file defines the operational contract and constraints for AI coding agents working on this project.
 
-## Environment
+The project is an experimental Game Boy RPG. The development workflow is intentionally **LLM-first**: AI coding agents must be able to build, execute, inspect, test, and debug gameplay through deterministic machine-readable interfaces without relying on a human to play the game or interpret the screen.
+
+---
+
+# 1. Environment
 
 This repository uses Nix flakes for complete, reproducible environment management.
 
@@ -14,117 +18,1745 @@ Enter the development environment with:
 nix develop
 ```
 
-## Primary Commands
+All development commands must work inside the Nix development environment.
 
-All operations are exposed via standard `make` targets:
+Do not introduce dependencies that are unavailable from the project's Nix environment without first updating the flake appropriately.
 
-* **Build Release ROM**:
-  ```bash
-  make release
-  ```
-  Produces `build/rpg_card_proto.gb`.
+---
 
-* **Build Debug ROM**:
-  ```bash
-  make debug
-  ```
-  Produces `build/rpg_card_proto_debug.gb` with telemetry, assertions, and scenario loading enabled.
+# 2. Primary Commands
 
-* **Run Harness Scenario Tests**:
-  ```bash
-  make test-harness
-  ```
-  Builds the debug ROM and executes all JSON scenario tests in `tools/scenarios/` via `python3 tools/dev.py test`.
+All common operations are exposed through standard `make` targets.
 
-* **Run Specific Harness Scenario**:
-  ```bash
-  make test-scenario SCENARIO=first_encounter
-  ```
-  Runs a specific scenario test by name.
+## Build Release ROM
 
-* **Automated ROM Validation**:
-  ```bash
-  make test
-  ```
-  Builds the release ROM and validates header/checksum integrity.
+```bash
+make release
+```
 
-* **Run in Emulator**:
-  ```bash
-  make run
-  ```
-  Builds the ROM (if needed) and launches it in the emulator.
+Produces:
 
-* **Capture Visual Screenshot**:
-  ```bash
-  make screenshot
-  ```
-  Produces `build/screenshot.png` for visual inspection of gameplay.
+```text
+build/rpg_card_proto.gb
+```
 
-* **Clean Build Artifacts**:
-  ```bash
-  make clean
-  ```
-  Removes generated artifacts in `build/`.
+The release ROM must not depend on debug-only functionality.
 
-## Target Platform & Toolchain
+---
 
-* **Target Hardware**: Nintendo Game Boy (DMG) / Game Boy Color (CGB)
-* **C Toolchain**: GBDK-4 (`lcc`)
-* **Assembly Toolchain**: RGBDS (`rgbasm`, `rgblink`, `rgbfix`)
+## Build Debug ROM
 
-## Project Structure
+```bash
+make debug
+```
 
-* `src/main.c`: Entry point and main game loop
-* `src/core/`: Game state machine, core update/render loop (`game.c`, `state.c`)
-* `src/world/`: Overworld map, entity positions, collision detection (`world.c`, `entity.c`)
-* `src/battle/`: Turn-based card RPG battle engine and combatant stats (`battle.c`, `combatant.c`)
-* `src/input/`: Joypad button reading, state tracking, and debug injection (`input.c`)
-* `src/audio/`: Hardware APU sound engine & VBlank music player (`audio.c`)
-* `src/ui/`: ASCII background tile rendering and font management (`ui.c`)
-* `src/debug/`: Development harness — telemetry ring buffer, PRNG, scenario loader, assertions (`telemetry.c`, `rng.c`, `scenarios.c`, `assertions.c`)
-* `tools/`: Host-side testing harness scripts (`dev.py`, `test_runner.py`, `emulator.py`, `scenarios/*.json`)
-* `build/`: Generated artifacts (`build/rpg_card_proto.gb`, `build/rpg_card_proto_debug.gb`, `build/*.o`)
+Produces:
 
-## Code Philosophy
+```text
+build/rpg_card_proto_debug.gb
+```
 
-1. **Simple C**: Prefer clear, explicit C code over complex macro magic or indirect callbacks.
-2. **Small Functions**: Keep functions short and focused on a single responsibility.
-3. **Explicit State**: Represent state using plain C structs and enums.
-4. **Game Boy-Native**: Operate directly on 8-bit integers, tiles, and VRAM concepts.
-5. **No External Dependencies**: Do not introduce modern engines, scripting runtimes, or non-Nix packages.
+The debug ROM includes development harness functionality such as:
 
-## Game Boy Engineering & Harness Insights & Rules
+* telemetry;
+* semantic state inspection;
+* event logging;
+* deterministic RNG;
+* scenario loading;
+* assertions;
+* debug input;
+* development diagnostics.
 
-1. **Development Harness First**:
-   - Every state transition, movement, collision, encounter, battle turn, damage roll, or audio track change MUST emit a telemetry event via `telemetry_emit(...)`.
-   - Never rely exclusively on screen visual inspection to diagnose bugs — inspect telemetry events, game snapshots, and scenario test results first.
+---
 
-2. **Hardware VBlank Sound Timing (`add_VBL`)**:
-   - Never update music step timers directly inside the main `while(1)` loop. Main loop CPU variations cause music to play at variable tempos between menus and gameplay.
-   - Always hook the sound update function to the hardware VBlank interrupt vector (`add_VBL(audio_update)`). Always call `enable_interrupts()` after initializing VBL interrupt handlers.
+## Run All Harness Scenario Tests
 
-3. **Targeted Redrawing vs. Full Screen Clears**:
-   - Avoid calling full-screen clears (`ui_clear_screen()`) during frequent interactive events like menu navigation or UI cursor updates. Full clears cause visual screen flicker.
-   - Perform full clears only on major screen transitions (e.g. Overworld -> Battle). Update specific tile coordinates for incremental UI updates.
+```bash
+make test-harness
+```
 
-4. **Joypad Startup State Initialization (`input_init`)**:
-   - Initialize both `pad_state` and `prev_pad_state` to the hardware `joypad()` value in `input_init()` before entering the main loop.
-   - Leaving `prev_pad_state = 0` causes `input_pressed()` to return `true` on boot, immediately skipping title screens.
+This must:
 
-5. **Game Boy Color (CGB) Palette & Attribute Mapping**:
-   - Use `-Wm-yc` compiler flag and `rgbfix -C` header flags for CGB dual compatibility (Header 0x143 = 0x80).
-   - Check `_cpu == CGB_TYPE` before initializing palettes (`set_bkg_palette`) or writing tile attributes to VRAM Bank 1 (`VBK_REG = 1`). Always reset `VBK_REG = 0` for tile indices.
+1. build the debug ROM;
+2. execute the host-side harness;
+3. run all scenarios in `tools/scenarios/`;
+4. evaluate their assertions;
+5. return a non-zero exit code if any scenario fails.
 
-6. **SDCC C89 Compiler Scope Rules**:
-   - GBDK-4 uses SDCC (C89 dialect). Declare all variables at the beginning of function blocks. Avoid variable declarations inside nested `if`/`for` blocks or using non-constant array initializers.
+Equivalent underlying command:
 
-7. **Automated Screenshot Capture**:
-   - Allow at least 4 seconds (`sleep 4`) in automated screenshot capture scripts to let the Game Boy Color boot animation finish before taking screenshots.
+```bash
+python3 tools/dev.py test
+```
 
-## Validation Workflow
+---
 
-After modifying code or gameplay logic, always validate your changes using the harness:
+## Run One Harness Scenario
 
-1. Run `make test-harness` to run all scenario assertion tests.
-2. Run `make test` to verify release compilation, linking, and ROM header integrity.
-3. Run `make screenshot` or `make run` to visually inspect rendering and gameplay state if visual verification is needed.
+```bash
+make test-scenario SCENARIO=first_encounter
+```
+
+Example:
+
+```bash
+make test-scenario SCENARIO=town_event_01
+```
+
+The scenario must be deterministic and reproducible.
+
+---
+
+## Automated ROM Validation
+
+```bash
+make test
+```
+
+This validates the release build, including compilation, linking, ROM header, and checksum integrity.
+
+---
+
+## Run in Emulator
+
+```bash
+make run
+```
+
+Builds the ROM if necessary and launches it in the configured emulator.
+
+---
+
+## Capture Visual Screenshot
+
+```bash
+make screenshot
+```
+
+Produces:
+
+```text
+build/screenshot.png
+```
+
+Screenshots are useful for visual validation, but they are **not the primary debugging interface**.
+
+Agents must inspect semantic state and telemetry first.
+
+---
+
+## Clean Build Artifacts
+
+```bash
+make clean
+```
+
+Removes generated artifacts in:
+
+```text
+build/
+```
+
+---
+
+# 3. Target Platform & Toolchain
+
+* Target Hardware: Nintendo Game Boy (DMG) / Game Boy Color (CGB)
+* C Toolchain: GBDK-4 (`lcc`)
+* Assembly Toolchain: RGBDS (`rgbasm`, `rgblink`, `rgbfix`)
+* Development Emulator: SameBoy
+* Build Environment: Nix
+
+The code must remain compatible with the actual Game Boy target.
+
+Do not accidentally introduce desktop-only assumptions into gameplay code.
+
+---
+
+# 4. Project Structure
+
+The project is organized by gameplay responsibility.
+
+```text
+src/
+├── main.c
+│
+├── core/
+│   ├── game.c
+│   └── state.c
+│
+├── world/
+│   ├── world.c
+│   └── entity.c
+│
+├── battle/
+│   ├── battle.c
+│   └── combatant.c
+│
+├── input/
+│   └── input.c
+│
+├── audio/
+│   └── audio.c
+│
+├── ui/
+│   └── ui.c
+│
+└── debug/
+    ├── telemetry.c
+    ├── rng.c
+    ├── scenarios.c
+    └── assertions.c
+
+tools/
+├── dev.py
+├── test_runner.py
+├── emulator.py
+└── scenarios/
+    └── *.json
+
+build/
+└── generated artifacts
+```
+
+The exact file structure may evolve, but responsibilities must remain separated.
+
+---
+
+# 5. Core Code Philosophy
+
+## 5.1 Simple C
+
+Prefer clear, explicit C over complex macro systems, excessive indirection, or clever abstractions.
+
+Game Boy code should be understandable to another developer or coding agent.
+
+---
+
+## 5.2 Small Functions
+
+Functions should have one clear responsibility.
+
+Prefer:
+
+```c
+battle_start();
+battle_update();
+battle_end();
+```
+
+over giant functions containing an entire gameplay system.
+
+---
+
+## 5.3 Explicit State
+
+Represent gameplay state using plain C structs and enums.
+
+Prefer:
+
+```c
+typedef enum {
+    GAME_STATE_OVERWORLD,
+    GAME_STATE_BATTLE
+} GameState;
+```
+
+over implicit state encoded through unrelated booleans.
+
+---
+
+## 5.4 Game Boy Native
+
+Be conscious of:
+
+* 8-bit arithmetic;
+* RAM limits;
+* VRAM access;
+* VBlank timing;
+* tile memory;
+* stack usage;
+* ROM/RAM layout.
+
+Do not write desktop-style code and assume the compiler will make it appropriate for Game Boy hardware.
+
+---
+
+## 5.5 No Unnecessary Dependencies
+
+Do not introduce modern game engines, scripting runtimes, JavaScript environments, Python runtime dependencies, or external libraries into the ROM.
+
+Host-side tooling may use Python standard-library functionality where appropriate.
+
+---
+
+# 6. LLM-First Development Principle
+
+The development harness is a **first-class game subsystem**.
+
+The goal is not merely to provide convenient debugging tools for humans.
+
+The goal is:
+
+> An LLM must be able to start the game in a known state, control it, inspect what happened, determine whether behavior was correct, and reproduce failures without needing a human to interpret the screen.
+
+The game screen is the player-facing interface.
+
+The semantic debug interface is the development-agent-facing interface.
+
+---
+
+# 7. Semantic Observability Is Authoritative
+
+When debugging or testing, prefer:
+
+1. structured game state;
+2. telemetry events;
+3. scenario results;
+4. semantic map/entity information;
+5. screenshots.
+
+Do not infer gameplay state from pixels when authoritative semantic information is available.
+
+For example, this is insufficient:
+
+```text
+SCREEN:
+@     E
+```
+
+The harness should expose information such as:
+
+```text
+GAME:
+  state: OVERWORLD
+
+PLAYER:
+  map: field
+  position: (8,5)
+  facing: EAST
+
+ENTITY:
+  id: slime_01
+  type: enemy
+  position: (9,5)
+```
+
+Visual rendering is presentation.
+
+Semantic state is authoritative.
+
+---
+
+# 8. Every Important Gameplay Event Must Be Observable
+
+The following kinds of behavior MUST emit telemetry:
+
+* game-state transitions;
+* map transitions;
+* player movement;
+* collisions;
+* encounter detection;
+* encounter start;
+* battle start;
+* battle actions;
+* damage;
+* healing;
+* entity defeat;
+* battle victory;
+* battle defeat;
+* story event triggers;
+* story flag changes;
+* dialogue start/end;
+* card actions;
+* deck changes;
+* random outcomes when relevant;
+* audio track changes.
+
+Use:
+
+```c
+telemetry_emit(...)
+```
+
+or the project's equivalent telemetry API.
+
+Do not create important gameplay behavior that is invisible to the harness.
+
+---
+
+# 9. Telemetry Events
+
+Events must have stable semantic names.
+
+Prefer:
+
+```text
+PLAYER_MOVED
+COLLISION
+ENCOUNTER_STARTED
+BATTLE_STARTED
+DAMAGE_DEALT
+STORY_FLAG_SET
+GAME_STATE_CHANGED
+MUSIC_CHANGED
+```
+
+Do not use vague messages such as:
+
+```text
+"something happened"
+"battle!"
+"hit"
+```
+
+Events should contain relevant structured information.
+
+Example:
+
+```text
+PLAYER_MOVED
+  entity: player
+  from: (12,8)
+  to: (13,8)
+```
+
+Example:
+
+```text
+COLLISION
+  entity_a: player
+  entity_b: town_guard_01
+```
+
+Example:
+
+```text
+GAME_STATE_CHANGED
+  from: OVERWORLD
+  to: BATTLE
+```
+
+---
+
+# 10. Telemetry Ring Buffer
+
+Game Boy memory is limited.
+
+Telemetry must use a bounded ring buffer.
+
+The initial target is approximately 32 recent events, unless the implementation demonstrates that another size is more appropriate.
+
+Telemetry must never grow without bound.
+
+The harness should expose recent events and, where supported:
+
+```text
+EVENTS SINCE <sequence>
+```
+
+This allows an LLM to inspect only what happened after its previous action.
+
+---
+
+# 11. Stable Entity IDs
+
+Gameplay entities must have semantic IDs.
+
+Examples:
+
+```text
+player
+slime_01
+town_guard_01
+mayor
+boss_01
+```
+
+Do not identify entities by their visual representation.
+
+An enemy being rendered as:
+
+```text
+E
+```
+
+does not make `"E"` its identity.
+
+The semantic entity may be:
+
+```text
+id: town_guard_01
+type: enemy
+```
+
+This ensures tests continue working when ASCII graphics are eventually replaced by sprites.
+
+---
+
+# 12. Explicit Coordinates
+
+World entities must have inspectable world coordinates.
+
+Always report:
+
+```text
+map
+x
+y
+```
+
+and, where relevant:
+
+```text
+facing
+```
+
+Example:
+
+```text
+PLAYER
+  map: town
+  x: 12
+  y: 8
+  facing: EAST
+```
+
+Coordinates must represent world/game coordinates, not screen-pixel coordinates.
+
+---
+
+# 13. Machine-Readable Game Inspection
+
+The debug harness must support semantic inspection.
+
+Conceptual commands include:
+
+```text
+INSPECT
+INSPECT AREA <radius>
+SNAPSHOT
+EVENTS
+```
+
+A snapshot should expose enough information for an LLM to understand the current gameplay state without seeing the screen.
+
+Minimum information:
+
+```text
+GAME
+PLAYER
+PARTY
+MAP
+ENTITIES
+STORY FLAGS
+BATTLE
+AUDIO
+RNG
+FRAME
+RECENT EVENTS
+```
+
+Do not add large irrelevant data to every response.
+
+Prefer concise, layered information.
+
+---
+
+# 14. Spatial Inspection
+
+The harness must support a machine-readable representation of the current map/area.
+
+For the current ASCII prototype, an ASCII representation is acceptable and useful.
+
+Example:
+
+```text
+    01234567890123456789
+00  ####################
+01  #..................#
+02  #..................#
+03  #.......@..........#
+04  #..................#
+05  #.............E....#
+06  #..................#
+07  ####################
+```
+
+The harness should additionally provide semantic entity information.
+
+Do not make spatial understanding dependent solely on ASCII.
+
+---
+
+# 15. Input Control
+
+The development harness must support programmatic input.
+
+At minimum:
+
+```text
+PRESS UP
+PRESS DOWN
+PRESS LEFT
+PRESS RIGHT
+PRESS A
+PRESS B
+PRESS START
+PRESS SELECT
+```
+
+It must also support:
+
+```text
+WAIT <frames>
+STEP <frames>
+```
+
+The test runner must be able to reproduce the exact same sequence of inputs.
+
+---
+
+# 16. Frame Control
+
+Debug builds must support deterministic frame advancement.
+
+Examples:
+
+```text
+STEP 1
+STEP 10
+STEP 60
+```
+
+This is required for investigating:
+
+* timing bugs;
+* state transitions;
+* animation logic;
+* audio transitions;
+* input problems;
+* race-like behavior between systems.
+
+---
+
+# 17. Deterministic Randomness
+
+All gameplay randomness must go through a game RNG abstraction.
+
+Do not directly use uncontrolled random functions throughout gameplay code.
+
+The debug harness must support:
+
+```text
+SET_RNG <seed>
+```
+
+and scenarios must be able to define an initial seed.
+
+The current RNG state/seed must be inspectable.
+
+The same scenario, seed, and input sequence must produce the same behavior.
+
+This becomes particularly important for:
+
+* enemy behavior;
+* damage;
+* card draws;
+* deck shuffling;
+* random encounters;
+* loot;
+* critical hits;
+* future procedural systems.
+
+---
+
+# 18. Scenarios Are First-Class Test Fixtures
+
+A scenario represents a deterministic, named gameplay situation.
+
+Examples:
+
+```text
+new_game
+first_encounter
+town_arrival
+town_event_01
+town_event_repeat
+battle_basic
+battle_victory
+```
+
+A scenario must establish state rather than bypass the behavior being tested.
+
+Bad:
+
+```text
+scenario_town_event_01()
+{
+    start_town_event();
+}
+```
+
+Good:
+
+```text
+scenario_town_event_01()
+{
+    set_map(TOWN);
+    set_player_position(...);
+    set_flag(MET_MAYOR);
+    clear_flag(TOWN_ATTACK_STARTED);
+}
+```
+
+Then normal game logic must detect the trigger and start the event.
+
+This distinction is mandatory.
+
+---
+
+# 19. Every New Gameplay Feature Should Have a Scenario
+
+When adding a significant gameplay feature, agents should add at least one reproducible scenario demonstrating it.
+
+Examples:
+
+```text
+movement_wall_collision
+first_encounter
+town_arrival
+town_event_01
+town_event_repeat
+battle_basic_attack
+battle_victory
+battle_defeat
+card_draw
+card_play
+card_combo
+boss_phase_02
+```
+
+The scenario becomes executable documentation of the feature.
+
+---
+
+# 20. Scenario Determinism
+
+A scenario must specify enough state to reproduce its behavior.
+
+This may include:
+
+```text
+map
+player position
+player facing
+HP
+party
+inventory
+story flags
+enemy state
+battle state
+RNG seed
+audio state
+```
+
+Do not rely on whatever state happened to remain in RAM from a previous test.
+
+Every scenario must begin from a known state.
+
+---
+
+# 21. Assertions
+
+Scenarios must support machine-checkable assertions.
+
+Examples:
+
+```text
+game.state == BATTLE
+
+player.hp == 20
+
+story.TOWN_ATTACK_STARTED == true
+
+audio.track == BATTLE
+
+player.position == (12,8)
+
+event_occurred("ENCOUNTER_STARTED")
+```
+
+Supported assertion categories should include:
+
+```text
+equals
+not_equals
+greater_than
+less_than
+contains
+exists
+event_occurred
+event_not_occurred
+```
+
+Assertions must produce clear expected/actual information.
+
+---
+
+# 22. Scenario Test Results
+
+A scenario must return one of:
+
+```text
+PASS
+FAIL
+```
+
+Failure output must contain enough information for an LLM to diagnose the problem.
+
+Example:
+
+```text
+SCENARIO: town_event_01
+STATUS: FAIL
+
+FAILED ASSERTION:
+  game.state == BATTLE
+
+EXPECTED:
+  BATTLE
+
+ACTUAL:
+  OVERWORLD
+
+PLAYER:
+  map: town
+  position: (16,8)
+
+RECENT EVENTS:
+  PLAYER_MOVED
+  COLLISION
+
+STORY:
+  TOWN_ATTACK_STARTED: false
+
+AUDIO:
+  track: TOWN
+```
+
+The harness should report facts.
+
+Do not fabricate explanations that cannot be supported by telemetry.
+
+---
+
+# 23. Host-Side Test Runner
+
+The host-side harness in `tools/` is responsible for:
+
+1. building the debug ROM;
+2. launching SameBoy;
+3. establishing the debug transport;
+4. loading scenarios;
+5. sending inputs;
+6. advancing frames;
+7. retrieving semantic state;
+8. retrieving telemetry;
+9. evaluating assertions;
+10. producing machine-readable and human-readable results;
+11. returning a meaningful process exit code.
+
+The test runner must be independent of the game's visual presentation.
+
+---
+
+# 24. Emulator Transport
+
+The Game Boy does not have a normal command-line interface.
+
+Therefore the host-side harness must use an emulator-supported communication/control mechanism.
+
+The transport must be isolated behind an abstraction.
+
+Conceptually:
+
+```text
+DebugProtocol
+      |
+      v
+Transport
+      |
+      +-- SameBoy implementation
+      |
+      +-- future hardware implementation
+```
+
+Do not spread SameBoy-specific details throughout gameplay or test logic.
+
+Before changing the transport, inspect the actual SameBoy version/configuration available in the Nix environment.
+
+Never assume an emulator feature exists without verifying it.
+
+---
+
+# 25. Debug Protocol
+
+The development protocol should expose operations equivalent to:
+
+```text
+connect()
+disconnect()
+
+load_scenario(name)
+
+press(button)
+
+wait(frames)
+
+step(frames)
+
+inspect()
+
+snapshot()
+
+events()
+
+assert(expression)
+```
+
+The exact wire format may change.
+
+The semantic contract must remain stable.
+
+---
+
+# 26. Release/Debug Separation
+
+Debug functionality must not alter the normal game architecture.
+
+Prefer:
+
+```text
+GAME SYSTEMS
+    |
+    +---- normal gameplay APIs
+    |
+DEBUG HARNESS
+    |
+    +---- observes and controls normal systems
+```
+
+Avoid embedding large amounts of test-specific behavior directly into gameplay logic.
+
+Debug code may construct state and invoke normal APIs.
+
+It should not create an entirely separate implementation of gameplay.
+
+---
+
+# 27. Debug Commands
+
+The initial debug command vocabulary should include:
+
+```text
+HELP
+
+LOAD_SCENARIO <name>
+
+RESET
+
+PRESS <button>
+
+WAIT <frames>
+
+STEP <frames>
+
+INSPECT
+
+INSPECT AREA <radius>
+
+SNAPSHOT
+
+EVENTS
+
+EVENTS SINCE <sequence>
+
+ASSERT <expression>
+
+SET_FLAG <flag>
+
+CLEAR_FLAG <flag>
+
+TELEPORT <map> <x> <y>
+
+SET_HP <entity> <value>
+
+SET_RNG <seed>
+```
+
+Commands should have stable names and predictable results.
+
+---
+
+# 28. Debug UI
+
+A minimal in-ROM debug UI may exist for human developers.
+
+It may expose:
+
+```text
+DEBUG MENU
+
+> SCENARIO
+  TELEPORT
+  FLAGS
+  STATE
+  EVENTS
+  AUDIO
+  RNG
+```
+
+However, this UI is secondary.
+
+The machine-readable harness is the primary development interface.
+
+---
+
+# 29. Layered Diagnostics
+
+Diagnostics should have three levels.
+
+## Summary
+
+```text
+STATE: BATTLE
+PLAYER: 18/20 HP
+ENEMY: 7/10 HP
+```
+
+## Full semantic state
+
+All relevant state.
+
+## Trace
+
+Frame/event-level information.
+
+Do not dump enormous amounts of information when a concise answer is sufficient.
+
+Agents should be able to request more detail when necessary.
+
+---
+
+# 30. Trace Categories
+
+Where useful, support selectively enabled trace categories:
+
+```text
+TRACE_INPUT
+TRACE_WORLD
+TRACE_COLLISION
+TRACE_STORY
+TRACE_BATTLE
+TRACE_AUDIO
+TRACE_STATE
+```
+
+This allows targeted investigation without overwhelming the test output.
+
+---
+
+# 31. Game Boy Memory Constraints
+
+The harness must respect the target hardware.
+
+Avoid:
+
+* dynamic allocation where unnecessary;
+* unbounded logs;
+* giant strings;
+* giant JSON buffers in Game Boy RAM;
+* formatting large diagnostic reports every frame;
+* unnecessary per-frame telemetry.
+
+The Game Boy-side representation should remain compact.
+
+The host-side tools should perform expensive formatting and aggregation.
+
+---
+
+# 32. Serialization
+
+Do not build large JSON documents inside Game Boy RAM unless there is a demonstrated need.
+
+Prefer compact debug messages/events.
+
+The host-side tool may transform compact messages into structured JSON.
+
+For example, Game Boy-side:
+
+```text
+EVENT
+TYPE=COLLISION
+A=player
+B=town_guard_01
+```
+
+Host-side:
+
+```json
+{
+  "type": "COLLISION",
+  "entity_a": "player",
+  "entity_b": "town_guard_01"
+}
+```
+
+The semantic meaning is more important than the exact serialization format.
+
+---
+
+# 33. Story State
+
+Story progression should be represented explicitly using stable flags or equivalent state.
+
+Examples:
+
+```text
+MET_MAYOR
+HAS_MAGIC_STONE
+TOWN_ATTACK_STARTED
+TOWN_ATTACK_COMPLETE
+BOSS_DEFEATED
+```
+
+Story state must be inspectable.
+
+Story state must be scenario-configurable.
+
+Story transitions must emit telemetry.
+
+---
+
+# 34. Audio Observability
+
+Audio state must be represented semantically.
+
+For example:
+
+```text
+AUDIO
+  track: TOWN
+  playing: true
+```
+
+When music changes:
+
+```text
+MUSIC_CHANGED
+  from: TOWN
+  to: BATTLE
+```
+
+Tests should assert audio state semantically rather than attempting to analyze recorded audio.
+
+---
+
+# 35. Hardware VBlank Sound Timing (`add_VBL`)
+
+Never update music step timers directly inside the main `while(1)` loop.
+
+Main-loop CPU variations can cause music to play at variable tempos between menus and gameplay.
+
+Always hook the sound update function to the hardware VBlank interrupt vector:
+
+```c
+add_VBL(audio_update);
+```
+
+Always call:
+
+```c
+enable_interrupts();
+```
+
+after initializing VBlank interrupt handlers.
+
+Audio transitions must emit telemetry.
+
+---
+
+# 36. Targeted Redrawing
+
+Avoid calling full-screen clears:
+
+```c
+ui_clear_screen();
+```
+
+during frequent interactive events such as:
+
+* menu navigation;
+* cursor movement;
+* player movement;
+* UI updates.
+
+Full clears are appropriate for major screen transitions such as:
+
+```text
+TITLE -> OVERWORLD
+OVERWORLD -> BATTLE
+BATTLE -> OVERWORLD
+```
+
+Use incremental tile updates wherever practical.
+
+Visual performance should not compromise semantic game state.
+
+---
+
+# 37. Joypad Startup State
+
+In:
+
+```text
+input_init()
+```
+
+initialize both:
+
+```text
+pad_state
+prev_pad_state
+```
+
+to the current hardware:
+
+```c
+joypad()
+```
+
+Leaving:
+
+```text
+prev_pad_state = 0
+```
+
+can cause `input_pressed()` to incorrectly report a button press during boot.
+
+Debug input injection must use the same input abstractions as normal input wherever practical.
+
+---
+
+# 38. Game Boy Color Palette & Attribute Mapping
+
+Use:
+
+```text
+-Wm-yc
+```
+
+and appropriate:
+
+```text
+rgbfix -C
+```
+
+header flags for CGB compatibility.
+
+Header byte `0x143` should indicate dual compatibility appropriately.
+
+Before initializing CGB palettes:
+
+```c
+if (_cpu == CGB_TYPE)
+```
+
+Always reset:
+
+```c
+VBK_REG = 0;
+```
+
+after writing tile attributes to VRAM Bank 1.
+
+Do not assume CGB hardware when running on DMG.
+
+---
+
+# 39. SDCC / GBDK C89 Rules
+
+GBDK-4 uses an SDCC C89-style language environment.
+
+Declare variables at the beginning of function blocks.
+
+Avoid:
+
+```c
+if (condition) {
+    uint8_t value = ...;
+}
+```
+
+Prefer:
+
+```c
+uint8_t value;
+
+if (condition) {
+    value = ...;
+}
+```
+
+Do not use C99/C11 features unless verified to compile correctly with the project's exact toolchain.
+
+Avoid non-constant array initializers unsupported by the target compiler.
+
+---
+
+# 40. Screenshot Capture
+
+Automated screenshot capture should allow sufficient startup time for the Game Boy boot sequence.
+
+Allow at least:
+
+```text
+sleep 4
+```
+
+before capturing screenshots unless the capture system has a more reliable readiness signal.
+
+Screenshots are for visual verification only.
+
+Do not use screenshots as the primary automated gameplay assertion mechanism when semantic telemetry is available.
+
+---
+
+# 41. Agent Workflow
+
+When modifying gameplay code, agents should follow this process:
+
+## Step 1 — Understand
+
+Inspect:
+
+* relevant source files;
+* current game state;
+* existing telemetry;
+* relevant scenarios;
+* related tests.
+
+Do not immediately modify code.
+
+---
+
+## Step 2 — Reproduce
+
+Run the smallest relevant scenario.
+
+Example:
+
+```bash
+make test-scenario SCENARIO=town_event_01
+```
+
+If no scenario exists, create one before implementing complex behavior when practical.
+
+---
+
+## Step 3 — Observe
+
+Inspect:
+
+* snapshot;
+* telemetry;
+* event sequence;
+* assertion failure;
+* RNG state;
+* relevant game state.
+
+Do not rely on visual inspection unless the problem is specifically visual.
+
+---
+
+## Step 4 — Implement
+
+Make the smallest architectural change that fixes the behavior.
+
+Preserve existing semantic interfaces.
+
+Do not bypass normal game logic merely to make a scenario pass.
+
+---
+
+## Step 5 — Add/Update Tests
+
+Every bug fix involving gameplay behavior should add or update a scenario or assertion that would have caught the bug.
+
+The test should fail before the fix and pass after it whenever practical.
+
+---
+
+## Step 6 — Validate
+
+Run:
+
+```bash
+make test-harness
+```
+
+then:
+
+```bash
+make test
+```
+
+If rendering or UI changed, also run:
+
+```bash
+make screenshot
+```
+
+or:
+
+```bash
+make run
+```
+
+---
+
+# 42. Scenario-Driven Development
+
+For substantial gameplay features, follow this development pattern:
+
+```text
+Scenario
+    ↓
+Expected behavior
+    ↓
+Implementation
+    ↓
+Telemetry
+    ↓
+Assertions
+    ↓
+Automated test
+```
+
+Do not wait until the end of a feature to think about testability.
+
+The scenario is part of the feature.
+
+---
+
+# 43. Bug Reproduction
+
+When an agent discovers a bug that depends on a particular state:
+
+1. Create a deterministic scenario reproducing it.
+2. Record the relevant RNG seed.
+3. Record relevant story flags.
+4. Record map/player/entity state.
+5. Record the input sequence.
+6. Record the expected result.
+7. Add the scenario to the test suite.
+8. Fix the bug.
+9. Confirm the scenario passes.
+
+A bug that cannot be reproduced should be treated as a development problem in its own right.
+
+---
+
+# 44. No "Magic" Test Fixes
+
+Never make a scenario pass by adding test-only shortcuts to gameplay behavior.
+
+For example, do not:
+
+```text
+if (debug && scenario == TOWN_EVENT_01)
+    start_event();
+```
+
+Instead, construct the appropriate initial state and exercise the real gameplay path.
+
+The harness must test the same logic used by the player.
+
+---
+
+# 45. Scenario Naming
+
+Use stable, descriptive names.
+
+Prefer:
+
+```text
+first_encounter
+town_arrival
+town_event_01
+town_event_repeat
+battle_basic_attack
+battle_victory
+```
+
+Avoid:
+
+```text
+test1
+foo
+debugtest
+newtest
+```
+
+Scenario names become part of the project's development API.
+
+---
+
+# 46. Test Output Must Be LLM-Friendly
+
+Test output should:
+
+* use stable names;
+* explicitly state expected values;
+* explicitly state actual values;
+* include relevant recent events;
+* include relevant state;
+* avoid unnecessary noise;
+* avoid ambiguous natural-language descriptions;
+* preserve deterministic ordering.
+
+A good failure should allow an LLM to answer:
+
+> What happened, what was expected, and what should I inspect next?
+
+without asking a human.
+
+---
+
+# 47. Example Good Failure
+
+```text
+SCENARIO: town_event_01
+STATUS: FAIL
+
+ASSERTION:
+  game.state == BATTLE
+
+EXPECTED:
+  BATTLE
+
+ACTUAL:
+  OVERWORLD
+
+PLAYER:
+  map: town
+  position: (16,8)
+
+ENTITIES:
+  town_guard_01:
+    type: enemy
+    position: (16,8)
+
+STORY:
+  MET_MAYOR: true
+  TOWN_ATTACK_STARTED: false
+
+AUDIO:
+  track: TOWN
+
+RECENT EVENTS:
+  120 PLAYER_MOVED
+  121 COLLISION
+
+MISSING EVENTS:
+  ENCOUNTER_STARTED
+  GAME_STATE_CHANGED
+  MUSIC_CHANGED
+```
+
+This is significantly more useful than:
+
+```text
+FAIL: town event didn't work
+```
+
+---
+
+# 48. Current Harness Milestone
+
+The current harness milestone is complete when an LLM can perform the following workflow without human intervention:
+
+```text
+1. Build debug ROM.
+
+2. Launch emulator.
+
+3. Load town_event_01.
+
+4. Inspect initial state.
+
+5. Send movement commands.
+
+6. Advance frames.
+
+7. Inspect player position.
+
+8. Detect collision.
+
+9. Inspect telemetry.
+
+10. Confirm story event.
+
+11. Confirm story flag.
+
+12. Confirm battle state.
+
+13. Confirm enemy initialization.
+
+14. Confirm battle music.
+
+15. Execute battle actions.
+
+16. Confirm HP changes.
+
+17. Complete battle.
+
+18. Confirm return to overworld.
+
+19. Confirm overworld music.
+
+20. Produce PASS/FAIL.
+```
+
+No human should need to say:
+
+> "Yes, the event happened on screen."
+
+---
+
+# 49. Future Harness Expansion
+
+The architecture must support future systems including:
+
+```text
+Scenarios
+Story Flags
+Teleportation
+Party State
+Inventory
+Equipment
+Cards
+Decks
+Battle State
+Enemy AI
+Dialogue
+NPCs
+Cutscenes
+Boss Phases
+Audio
+Save/Load
+RNG
+Map State
+World State
+```
+
+For every new subsystem, expose semantic state and relevant telemetry.
+
+For example, when the card system is added, the harness should eventually be able to report:
+
+```text
+BATTLE
+  turn: 3
+  player_hp: 18/20
+  enemy_hp: 12/30
+
+DECK
+  draw_count: 14
+  discard_count: 6
+
+HAND
+  fire_slash
+  water_guard
+  heal
+
+EVENTS
+  CARD_DRAWN
+  CARD_SELECTED
+  CARD_PLAYED
+  DAMAGE_DEALT
+  COMBO_RESOLVED
+```
+
+This should not require screenshot interpretation.
+
+---
+
+# 50. Definition of Done for Gameplay Work
+
+A gameplay feature is not considered complete merely because it works when manually played.
+
+For significant gameplay systems, completion requires:
+
+* implementation;
+* semantic state;
+* telemetry;
+* deterministic behavior where appropriate;
+* at least one scenario;
+* assertions;
+* harness test passing;
+* release ROM compiling.
+
+For example, a town event is not complete merely because a human can walk into town and see it.
+
+It is complete when:
+
+```bash
+make test-scenario SCENARIO=town_event_01
+```
+
+can prove that the event works.
+
+---
+
+# 51. Final Development Principle
+
+The project should continuously move toward this development loop:
+
+```text
+                 ┌───────────────┐
+                 │      LLM      │
+                 └───────┬───────┘
+                         │
+                  write / inspect
+                         │
+                 ┌───────▼───────┐
+                 │ Test Harness  │
+                 └───────┬───────┘
+                         │
+                  scenario/input
+                         │
+                 ┌───────▼───────┐
+                 │     ROM       │
+                 └───────┬───────┘
+                         │
+              state/events/telemetry
+                         │
+                 ┌───────▼───────┐
+                 │ Test Harness  │
+                 └───────┬───────┘
+                         │
+                    PASS / FAIL
+                         │
+                 ┌───────▼───────┐
+                 │      LLM      │
+                 └───────────────┘
+```
+
+The long-term objective is:
+
+> **An AI coding agent should be able to develop and test the RPG by interacting with its semantic development interface rather than by manually playing the game.**
+
+The human-facing Game Boy UI remains important for the final player experience.
+
+The development-facing semantic interface is equally important for building the game.

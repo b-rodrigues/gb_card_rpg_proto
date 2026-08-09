@@ -33,7 +33,7 @@ All common tasks are accessible via standard `make` targets:
   ```bash
   make
   ```
-  Produces `build/game.gb`.
+  Produces `build/rpg_card_proto.gb`.
 
 * **Run in Emulator**:
   ```bash
@@ -64,6 +64,6 @@ All common tasks are accessible via standard `make` targets:
 * `src/`: C source files and game logic built with GBDK-4.
 * `asm/`: Assembly routines.
 * `assets/`: Game Boy tilemaps, graphics, and card assets.
-* `build/`: Target output binaries (`build/game.gb`) and build artifacts.
+* `build/`: Target output binaries (`build/rpg_card_proto.gb`) and build artifacts.
 * `tools/`: Helper scripts for asset processing and automated testing.
 

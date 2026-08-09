@@ -6,7 +6,7 @@ RGBFIX = rgbfix
 BUILD_DIR = build
 SRC_DIR = src
 
-TARGET = $(BUILD_DIR)/game.gb
+TARGET = $(BUILD_DIR)/rpg_card_proto.gb
 
 INCLUDES = -I$(SRC_DIR) -I$(SRC_DIR)/core -I$(SRC_DIR)/world -I$(SRC_DIR)/battle -I$(SRC_DIR)/input -I$(SRC_DIR)/audio -I$(SRC_DIR)/ui
 

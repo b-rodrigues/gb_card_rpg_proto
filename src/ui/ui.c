@@ -5,7 +5,7 @@
 #include <gbdk/console.h>
 #include <stdio.h>
 
-static font_t min_font;
+static font_t ibm_font;
 
 static const palette_color_t cgb_palette[4] = {
     RGB8(255, 255, 255),
@@ -17,8 +17,8 @@ static const palette_color_t cgb_palette[4] = {
 void ui_init(void)
 {
     font_init();
-    min_font = font_load(font_ibm);
-    font_set(min_font);
+    ibm_font = font_load(font_ibm);
+    font_set(ibm_font);
 
     /* Set DMG palettes: 0xE4 = 11 10 01 00 (Lightest to Darkest) */
     BGP_REG = 0xE4;
@@ -45,12 +45,14 @@ void ui_clear_screen(void)
     }
 }
 
-void ui_draw_world(const World *world)
+void ui_draw_world_full(const World *world)
 {
     uint8_t x, y;
     char tile_ch;
 
     if (!world) return;
+
+    ui_clear_screen();
 
     for (y = 0; y < WORLD_HEIGHT; y++) {
         for (x = 0; x < WORLD_WIDTH; x++) {
@@ -74,9 +76,22 @@ void ui_draw_world(const World *world)
     printf("[D-PAD] MOVE HERO  ");
 }
 
-void ui_draw_battle(const Battle *battle)
+void ui_update_player_position(uint8_t old_x, uint8_t old_y, uint8_t new_x, uint8_t new_y)
+{
+    if (old_x == new_x && old_y == new_y) return;
+
+    gotoxy(old_x, old_y);
+    setchar('.');
+
+    gotoxy(new_x, new_y);
+    setchar('@');
+}
+
+void ui_draw_battle_full(const Battle *battle)
 {
     if (!battle) return;
+
+    ui_clear_screen();
 
     gotoxy(0, 0);
     printf("====================");
@@ -98,17 +113,27 @@ void ui_draw_battle(const Battle *battle)
     gotoxy(0, 13);
     printf("--------------------");
 
+    ui_update_battle(battle);
+}
+
+void ui_update_battle(const Battle *battle)
+{
+    if (!battle) return;
+
+    gotoxy(6, 6);
+    printf("%2d/%2d", battle->enemy.hp, battle->enemy.max_hp);
+
+    gotoxy(6, 10);
+    printf("%2d/%2d", battle->player.hp, battle->player.max_hp);
+
+    gotoxy(1, 15);
     if (battle->result == BATTLE_RESULT_VICTORY) {
-        gotoxy(1, 15);
         printf("VICTORY! PRESS [A] ");
     } else if (battle->result == BATTLE_RESULT_DEFEAT) {
-        gotoxy(1, 15);
         printf("DEFEATED! PRESS [A]");
     } else if (battle->turn == BATTLE_TURN_PLAYER) {
-        gotoxy(1, 15);
         printf("[A] ATTACK  [B] RUN ");
     } else {
-        gotoxy(1, 15);
         printf("ENEMY TURN...       ");
     }
 }

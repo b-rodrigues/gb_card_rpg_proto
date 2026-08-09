@@ -13,10 +13,10 @@ import sys
 from emulator import EmulatorSession
 
 def load_scenarios(scenarios_dir="tools/scenarios"):
-    """Load all JSON scenario files from directory."""
+    """Load all JSON scenario files from directory and subdirectories."""
     scenarios = []
-    pattern = os.path.join(scenarios_dir, "*.json")
-    for filepath in sorted(glob.glob(pattern)):
+    pattern = os.path.join(scenarios_dir, "**", "*.json")
+    for filepath in sorted(glob.glob(pattern, recursive=True)):
         try:
             with open(filepath, 'r') as f:
                 data = json.load(f)
@@ -122,12 +122,14 @@ def run_scenario(scenario):
             "status": status_str
         })
 
-        if not passed and not failure_detail:
-            failure_detail = {
-                "assertion": f"{a_type}: {expected}",
-                "expected": str(expected),
-                "actual": str(actual)
-            }
+        if not passed:
+            passed_all = False
+            if not failure_detail:
+                failure_detail = {
+                    "assertion": f"{a_type}: {expected}",
+                    "expected": str(expected),
+                    "actual": str(actual)
+                }
 
     return {
         "scenario": name,
@@ -176,8 +178,10 @@ def print_result(result):
     print()
 
 def run_all(scenarios_dir="tools/scenarios"):
-    """Run all loaded scenarios and return exit code 0 on PASS, 1 on FAIL."""
-    scenarios = load_scenarios(scenarios_dir)
+    """Run all standard test scenarios and return exit code 0 on PASS, 1 on FAIL."""
+    all_scenarios = load_scenarios(scenarios_dir)
+    # Filter out demonstration failing scenarios from test suite
+    scenarios = [s for s in all_scenarios if "failing" not in s.get("_filepath", "")]
     if not scenarios:
         print("No scenarios found in", scenarios_dir)
         return 0

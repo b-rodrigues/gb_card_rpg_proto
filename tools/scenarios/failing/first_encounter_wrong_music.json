@@ -1,0 +1,17 @@
+{
+  "name": "first_encounter_wrong_music",
+  "description": "Demonstrate diagnostic failure report on mismatched music assertion",
+  "scenario_id": "FIRST_ENCOUNTER",
+  "actions": [
+    {
+      "type": "press",
+      "button": "RIGHT"
+    }
+  ],
+  "assertions": [
+    {
+      "type": "music_track",
+      "expected": "OVERWORLD"
+    }
+  ]
+}

@@ -201,33 +201,39 @@ class EmulatorSession:
         time.sleep(0.05)
 
     def _read_mem_bytes(self, addr, length):
-        """Read a block of contiguous bytes starting at exact target addr using SameBoy examine."""
-        self._drain()
-        self._send_cmd(f"examine ${addr:04x}")
-        start_time = time.time()
-        raw = ""
+        """Read `length` contiguous bytes starting at `addr` by querying 16-byte aligned blocks."""
         memory_map = {}
+        start_base = addr & 0xFFF0
+        end_base = (addr + length - 1) & 0xFFF0
 
-        while time.time() - start_time < 0.6:
-            r, _, _ = select.select([self.master], [], [], 0.02)
-            if r:
-                try:
-                    data = os.read(self.master, 4096).decode('utf-8', errors='ignore')
-                    raw += data
-                    clean = re.sub(r'\x1b\[[0-9;]*[mGKB]', '', raw)
-                    lines = clean.split('\n')
-                    for line in lines:
-                        line_clean = line.strip().lower()
-                        m = re.match(r'^(?:>\s*)?([0-9a-f]{4}):\s+([0-9a-f]{2}(?:\s+[0-9a-f]{2})+)', line_clean)
-                        if m:
-                            line_addr = int(m.group(1), 16)
-                            bytes_in_line = [int(b, 16) for b in m.group(2).split()]
-                            for idx, b_val in enumerate(bytes_in_line):
-                                memory_map[line_addr + idx] = b_val
-                    # Check if all requested bytes are present in memory_map
-                    if all((addr + i) in memory_map for i in range(length)):
-                        return [memory_map[addr + i] for i in range(length)]
-                except OSError:
+        for curr_addr in range(start_base, end_base + 16, 16):
+            self._drain()
+            self._send_cmd(f"examine ${curr_addr:04x}")
+            start_time = time.time()
+            raw = ""
+            block_received = False
+            while time.time() - start_time < 0.4:
+                r, _, _ = select.select([self.master], [], [], 0.02)
+                if r:
+                    try:
+                        data = os.read(self.master, 4096).decode('utf-8', errors='ignore')
+                        raw += data
+                        clean = re.sub(r'\x1b\[[0-9;]*[mGKB]', '', raw)
+                        lines = clean.split('\n')
+                        for line in lines:
+                            line_clean = line.strip().lower()
+                            m = re.match(r'^(?:>\s*)?([0-9a-f]{4}):\s+([0-9a-f]{2}(?:\s+[0-9a-f]{2})+)', line_clean)
+                            if m:
+                                line_addr = int(m.group(1), 16)
+                                bytes_in_line = [int(b, 16) for b in m.group(2).split()]
+                                for idx, b_val in enumerate(bytes_in_line):
+                                    memory_map[line_addr + idx] = b_val
+                        if all((curr_addr + i) in memory_map for i in range(16)):
+                            block_received = True
+                            break
+                    except OSError:
+                        break
+                if block_received:
                     break
 
         return [memory_map[addr + i] for i in range(length) if (addr + i) in memory_map]
@@ -282,32 +288,38 @@ class EmulatorSession:
             return parsed
         return self.current_snapshot
 
-    def get_telemetry(self):
+    def get_telemetry(self, since_seq=None):
         """
-        Read telemetry ring buffer from ROM memory.
-        Reads g_telemetry_count and decodes up to 32 GameEvent objects.
-        Each GameEvent is 11 bytes:
-          - seq: uint16 (bytes 0..1)
-          - frame: uint32 (bytes 2..5)
-          - type: uint8 (byte 6)
-          - data: [byte 7, byte 8, byte 9, byte 10]
+        Read telemetry ring buffer from ROM memory in strict chronological order [oldest -> newest].
+        Reads g_telemetry_count and g_telemetry_head.
+        Optionally filters to events with seq > since_seq.
         """
         count_addr = self.get_symbol("g_telemetry_count")
+        head_addr = self.get_symbol("g_telemetry_head")
         buf_addr = self.get_symbol("g_telemetry_buffer")
 
         count_bytes = self._read_mem_bytes(count_addr, 1)
-        if not count_bytes:
+        head_bytes = self._read_mem_bytes(head_addr, 1)
+
+        if not count_bytes or not head_bytes:
             return []
+
         count = count_bytes[0]
+        head = head_bytes[0]
+
         if count == 0:
             return []
 
-        total_bytes_to_read = count * 11
-        raw_bytes = self._read_mem_bytes(buf_addr, total_bytes_to_read)
+        total_bytes_needed = 352 if count >= 32 else count * 11
+        raw_bytes = self._read_mem_bytes(buf_addr, total_bytes_needed)
 
-        events = []
+        # Calculate physical slot index of oldest event in ring buffer
+        oldest_slot = head if count >= 32 else 0
+
+        chronological_events = []
         for i in range(count):
-            start = i * 11
+            slot = (oldest_slot + i) % 32
+            start = slot * 11
             if start + 11 > len(raw_bytes):
                 break
             b = raw_bytes[start:start + 11]
@@ -316,11 +328,15 @@ class EmulatorSession:
             ev_type_id = b[6]
             ev_type_str = EVENT_TYPE_MAP.get(ev_type_id, f"UNKNOWN_{ev_type_id}")
             data = [b[7], b[8], b[9], b[10]]
-            events.append({
+
+            ev_obj = {
                 "seq": seq,
                 "frame": frame,
                 "type": ev_type_str,
                 "type_id": ev_type_id,
                 "data": data
-            })
-        return events
+            }
+            if since_seq is None or seq > since_seq:
+                chronological_events.append(ev_obj)
+
+        return chronological_events

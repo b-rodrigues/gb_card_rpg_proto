@@ -5,12 +5,14 @@
 uint8_t g_snap_buf[16] = {0};
 GameEvent g_telemetry_buffer[MAX_TELEMETRY_EVENTS] = {{0}};
 uint8_t g_telemetry_count = 0;
+uint8_t g_telemetry_head = 0;
 static uint16_t event_seq = 0;
 static const uint32_t *telemetry_frame_ptr = NULL;
 
 void telemetry_init(void)
 {
     g_telemetry_count = 0;
+    g_telemetry_head = 0;
     event_seq = 0;
     telemetry_frame_ptr = NULL;
     memset(g_snap_buf, 0, sizeof(g_snap_buf));
@@ -19,23 +21,19 @@ void telemetry_init(void)
 
 void telemetry_emit(GameEventType type, uint8_t d0, uint8_t d1, uint8_t d2, uint8_t d3)
 {
-    GameEvent *ev;
-    uint8_t i;
-    if (g_telemetry_count >= MAX_TELEMETRY_EVENTS) {
-        for (i = 0; i < MAX_TELEMETRY_EVENTS - 1; i++) {
-            g_telemetry_buffer[i] = g_telemetry_buffer[i + 1];
-        }
-        g_telemetry_count = MAX_TELEMETRY_EVENTS - 1;
-    }
-    
-    ev = &g_telemetry_buffer[g_telemetry_count++];
+    GameEvent *ev = &g_telemetry_buffer[g_telemetry_head];
     ev->seq = event_seq++;
     ev->frame = telemetry_frame_ptr ? *telemetry_frame_ptr : 0;
-    ev->type = type;
+    ev->type = (uint8_t)type;
     ev->data[0] = d0;
     ev->data[1] = d1;
     ev->data[2] = d2;
     ev->data[3] = d3;
+
+    g_telemetry_head = (g_telemetry_head + 1) % MAX_TELEMETRY_EVENTS;
+    if (g_telemetry_count < MAX_TELEMETRY_EVENTS) {
+        g_telemetry_count++;
+    }
 }
 
 const GameEvent* telemetry_get_events(void)

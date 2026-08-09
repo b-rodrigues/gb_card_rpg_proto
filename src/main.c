@@ -8,10 +8,13 @@ static Game g_game;
 
 int main(void)
 {
+    audio_init();
+
     CRITICAL {
-        audio_init();
         add_VBL(audio_update);
     }
+
+    enable_interrupts();
 
     input_init();
     ui_init();

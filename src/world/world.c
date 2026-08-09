@@ -1,4 +1,5 @@
 #include "world.h"
+#include "telemetry.h"
 
 void world_init(World *w)
 {
@@ -21,8 +22,8 @@ void world_init(World *w)
     }
 
     /* Initialize entities */
-    entity_init(&w->player, ENTITY_PLAYER, 4, 4, 10, 10);
-    entity_init(&w->enemy, ENTITY_ENEMY, 14, 8, 5, 5);
+    entity_init(&w->player, ENTITY_PLAYER, "player", 4, 4, 10, 10);
+    entity_init(&w->enemy, ENTITY_ENEMY, "slime_01", 14, 8, 5, 5);
 }
 
 bool world_is_walkable(const World *w, uint8_t x, uint8_t y)
@@ -34,8 +35,14 @@ bool world_is_walkable(const World *w, uint8_t x, uint8_t y)
 
 void world_move_player(World *w, int8_t dx, int8_t dy)
 {
+    uint8_t old_x, old_y;
     uint8_t target_x, target_y;
     if (!w) return;
+
+    if (dy < 0) w->player.facing = DIRECTION_UP;
+    else if (dy > 0) w->player.facing = DIRECTION_DOWN;
+    else if (dx < 0) w->player.facing = DIRECTION_LEFT;
+    else if (dx > 0) w->player.facing = DIRECTION_RIGHT;
 
     target_x = (uint8_t)((int16_t)w->player.position.x + dx);
     target_y = (uint8_t)((int16_t)w->player.position.y + dy);
@@ -45,12 +52,17 @@ void world_move_player(World *w, int8_t dx, int8_t dy)
     }
 
     if (w->enemy.active && target_x == w->enemy.position.x && target_y == w->enemy.position.y) {
+        telemetry_emit(EVENT_COLLISION, target_x, target_y, 0, 0);
+        telemetry_emit(EVENT_ENCOUNTER_STARTED, w->enemy.type, 0, 0, 0);
         w->encounter_triggered = true;
         return;
     }
 
+    old_x = w->player.position.x;
+    old_y = w->player.position.y;
     w->player.position.x = target_x;
     w->player.position.y = target_y;
+    telemetry_emit(EVENT_PLAYER_MOVED, old_x, old_y, target_x, target_y);
 }
 
 void world_reset_encounter(World *w)

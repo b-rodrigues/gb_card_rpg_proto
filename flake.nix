@@ -55,6 +55,7 @@
             pkgs.git
             pkgs.xvfb-run
             pkgs.imagemagick
+            pkgs.python3
           ];
 
           shellHook = ''

@@ -1714,7 +1714,7 @@ This is the minimum quality bar for the harness.
 
 Implement in this exact order.
 
-## Phase 1 — State observability
+## Phase 1 — State observability [done]
 
 1. Centralize game state.
 2. Add semantic entity IDs.
@@ -1726,7 +1726,7 @@ Implement in this exact order.
 
 ---
 
-## Phase 2 — Event telemetry
+## Phase 2 — Event telemetry [done]
 
 1. Create event types.
 2. Create ring buffer.
@@ -1741,7 +1741,7 @@ Implement in this exact order.
 
 ---
 
-## Phase 3 — Deterministic control
+## Phase 3 — Deterministic control [done]
 
 1. Abstract input.
 2. Add frame stepping.
@@ -1754,7 +1754,7 @@ Implement in this exact order.
 
 ---
 
-## Phase 4 — Scenarios
+## Phase 4 — Scenarios [done]
 
 1. Create scenario abstraction.
 2. Implement scenario reset.
@@ -1767,7 +1767,7 @@ Implement in this exact order.
 
 ---
 
-## Phase 5 — Assertions
+## Phase 5 — Assertions [done]
 
 1. Implement state assertions.
 2. Implement event assertions.
@@ -1780,7 +1780,7 @@ Implement in this exact order.
 
 ---
 
-## Phase 6 — Host runner
+## Phase 6 — Host runner [done]
 
 1. Launch SameBoy.
 2. Establish debug transport.
@@ -1802,7 +1802,7 @@ actually works end-to-end.
 
 ---
 
-## Phase 7 — LLM interface
+## Phase 7 — LLM interface [done]
 
 1. Define stable command vocabulary.
 2. Define stable output format.

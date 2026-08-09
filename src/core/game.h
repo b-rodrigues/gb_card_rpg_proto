@@ -12,6 +12,8 @@ typedef struct {
     GameStateMachine state_machine;
     World world;
     Battle battle;
+    uint32_t story_flags;
+    uint32_t frame;
 } Game;
 
 void game_init(Game *g);

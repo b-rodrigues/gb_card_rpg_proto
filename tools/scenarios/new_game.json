@@ -1,0 +1,1 @@
+{"name": "new_game", "description": "Verify initial game state after boot", "scenario_id": "NEW_GAME", "actions": [], "assertions": [{"type": "game_state", "expected": "OVERWORLD"}, {"type": "player_hp", "expected": 10}, {"type": "player_position", "expected_x": 4, "expected_y": 4}, {"type": "music_track", "expected": "OVERWORLD"}]}

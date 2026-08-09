@@ -8,6 +8,10 @@
 #define WORLD_HEIGHT 14
 
 typedef enum {
+    MAP_FIELD
+} MapId;
+
+typedef enum {
     TILE_FLOOR,
     TILE_WALL
 } TileType;

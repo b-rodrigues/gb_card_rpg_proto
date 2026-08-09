@@ -10,18 +10,27 @@ typedef struct {
 } Position;
 
 typedef enum {
+    DIRECTION_UP,
+    DIRECTION_DOWN,
+    DIRECTION_LEFT,
+    DIRECTION_RIGHT
+} Direction;
+
+typedef enum {
     ENTITY_PLAYER,
     ENTITY_ENEMY
 } EntityType;
 
 typedef struct {
+    const char *id;
     Position position;
+    Direction facing;
     EntityType type;
     uint8_t hp;
     uint8_t max_hp;
     bool active;
 } Entity;
 
-void entity_init(Entity *e, EntityType type, uint8_t x, uint8_t y, uint8_t hp, uint8_t max_hp);
+void entity_init(Entity *e, EntityType type, const char *id, uint8_t x, uint8_t y, uint8_t hp, uint8_t max_hp);
 
 #endif /* ENTITY_H */

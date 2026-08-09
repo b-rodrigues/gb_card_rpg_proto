@@ -19,5 +19,6 @@ void input_init(void);
 void input_update(void);
 bool input_pressed(InputButton button);
 bool input_held(InputButton button);
+void input_inject_press(InputButton button);
 
 #endif /* INPUT_H */

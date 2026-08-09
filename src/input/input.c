@@ -2,6 +2,7 @@
 
 static uint8_t pad_state = 0;
 static uint8_t prev_pad_state = 0;
+static uint8_t injected_pad_state = 0;
 
 static uint8_t get_button_mask(InputButton button)
 {
@@ -22,12 +23,14 @@ void input_init(void)
 {
     pad_state = joypad();
     prev_pad_state = pad_state;
+    injected_pad_state = 0;
 }
 
 void input_update(void)
 {
     prev_pad_state = pad_state;
-    pad_state = joypad();
+    pad_state = joypad() | injected_pad_state;
+    injected_pad_state = 0;
 }
 
 bool input_pressed(InputButton button)
@@ -40,4 +43,9 @@ bool input_held(InputButton button)
 {
     uint8_t mask = get_button_mask(button);
     return (pad_state & mask) != 0;
+}
+
+void input_inject_press(InputButton button)
+{
+    injected_pad_state |= get_button_mask(button);
 }

@@ -25,7 +25,13 @@
     },
     {
       "type": "event_not_occurred",
-      "event": "STORY_FLAG_SET"
+      "event": "STORY_FLAG_SET",
+      "flag": "ARRIVED_TOWN"
+    },
+    {
+      "type": "story_flag",
+      "flag": "ARRIVED_TOWN",
+      "expected": true
     }
   ]
 }

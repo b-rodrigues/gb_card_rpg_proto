@@ -103,17 +103,44 @@ def run_scenario(scenario):
             actual = snap.get("battle_result", "UNKNOWN")
             passed = (actual == expected)
 
+        elif a_type == "story_flag":
+            exp_flag = a.get("flag")
+            exp_val = a.get("expected", True)
+            expected = f"{exp_flag}={exp_val}"
+            flag_masks = {"ARRIVED_TOWN": (1 << 0), "MET_MAYOR": (1 << 1)}
+            mask = flag_masks.get(exp_flag, 0)
+            cur_flags = snap.get("story_flags", 0)
+            has_flag = (cur_flags & mask) != 0
+            passed = (has_flag == exp_val)
+            actual = f"{exp_flag}={has_flag}"
+
         elif a_type == "event_occurred":
             exp_event = a.get("event", expected)
-            expected = exp_event
+            exp_flag = a.get("flag")
+            if exp_flag:
+                expected = f"{exp_event}({exp_flag})"
+            else:
+                expected = exp_event
+
             matching_events = [ev for ev in telemetry if ev.get("type") == exp_event]
+            if exp_flag:
+                matching_events = [ev for ev in matching_events if ev.get("flag_name") == exp_flag or ev.get("flag_id") == exp_flag]
+
             passed = len(matching_events) > 0
             actual = f"EMITTED ({len(matching_events)} time(s))" if passed else "NOT_EMITTED"
 
         elif a_type == "event_not_occurred":
             exp_event = a.get("event", expected)
-            expected = f"NOT {exp_event}"
+            exp_flag = a.get("flag")
+            if exp_flag:
+                expected = f"NOT {exp_event}({exp_flag})"
+            else:
+                expected = f"NOT {exp_event}"
+
             matching_events = [ev for ev in telemetry if ev.get("type") == exp_event]
+            if exp_flag:
+                matching_events = [ev for ev in matching_events if ev.get("flag_name") == exp_flag or ev.get("flag_id") == exp_flag]
+
             passed = len(matching_events) == 0
             actual = "NOT_EMITTED" if passed else f"EMITTED ({len(matching_events)} time(s))"
 
@@ -179,7 +206,8 @@ def print_result(result):
         else:
             for ev in telemetry[-10:]:
                 d_str = " ".join(f"{b:02x}" for b in ev['data'])
-                print(f"  #{ev['seq']:03d} [f:{ev['frame']:05d}] {ev['type']} ({d_str})")
+                extra_str = f" {ev['flag_name']}" if "flag_name" in ev else ""
+                print(f"  #{ev['seq']:03d} [f:{ev['frame']:05d}] {ev['type']}{extra_str} ({d_str})")
 
     print()
 

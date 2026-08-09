@@ -57,7 +57,7 @@ static void update_overworld(Game *g)
         uint8_t dist_y = (py > ny) ? (py - ny) : (ny - py);
 
         if ((dist_x + dist_y == 1) && (input_pressed(INPUT_A) || (dx != 0 || dy != 0))) {
-            story_set_flag(&g->story_flags, STORY_FLAG_MET_MAYOR);
+            story_set_flag(&g->story_flags, STORY_FLAG_ID_MET_MAYOR);
         }
     }
 

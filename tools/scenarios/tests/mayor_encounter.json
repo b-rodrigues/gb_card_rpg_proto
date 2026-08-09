@@ -16,7 +16,13 @@
     },
     {
       "type": "event_occurred",
-      "event": "STORY_FLAG_SET"
+      "event": "STORY_FLAG_SET",
+      "flag": "MET_MAYOR"
+    },
+    {
+      "type": "story_flag",
+      "flag": "MET_MAYOR",
+      "expected": true
     }
   ]
 }

@@ -5,12 +5,17 @@
 #include <stdbool.h>
 #include "world.h"
 
-#define STORY_FLAG_ARRIVED_TOWN (1UL << 0)
-#define STORY_FLAG_MET_MAYOR    (1UL << 1)
+typedef enum {
+    STORY_FLAG_ID_ARRIVED_TOWN = 1,
+    STORY_FLAG_ID_MET_MAYOR    = 2
+} StoryFlagId;
 
-bool story_has_flag(uint32_t flags, uint32_t flag);
-void story_set_flag(uint32_t *flags, uint32_t flag);
-void story_clear_flag(uint32_t *flags, uint32_t flag);
+#define STORY_FLAG_ARRIVED_TOWN (1UL << (STORY_FLAG_ID_ARRIVED_TOWN - 1))
+#define STORY_FLAG_MET_MAYOR    (1UL << (STORY_FLAG_ID_MET_MAYOR - 1))
+
+bool story_has_flag(uint32_t flags, StoryFlagId flag_id);
+void story_set_flag(uint32_t *flags, StoryFlagId flag_id);
+void story_clear_flag(uint32_t *flags, StoryFlagId flag_id);
 void story_on_map_enter(uint32_t *flags, MapId to_map);
 
 #endif /* STORY_H */

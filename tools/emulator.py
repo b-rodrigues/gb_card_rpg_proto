@@ -46,6 +46,11 @@ MAP_NAME_MAP = {
     1: "TOWN"
 }
 
+STORY_FLAG_ID_MAP = {
+    1: "ARRIVED_TOWN",
+    2: "MET_MAYOR"
+}
+
 EVENT_TYPE_MAP = {
     0: "PLAYER_MOVED",
     1: "COLLISION",
@@ -60,7 +65,11 @@ EVENT_TYPE_MAP = {
     10: "GAME_STATE_CHANGED",
     11: "MUSIC_CHANGED",
     12: "MAP_CHANGED",
-    13: "STORY_FLAG_SET"
+    13: "STORY_FLAG_SET",
+    14: "STORY_FLAG_CLEARED",
+    15: "DIALOGUE_STARTED",
+    16: "DIALOGUE_NEXT",
+    17: "DIALOGUE_ENDED"
 }
 
 BUTTON_MASKS = {
@@ -354,13 +363,19 @@ class EmulatorSession:
             ev_type_str = EVENT_TYPE_MAP.get(ev_type_id, f"UNKNOWN_{ev_type_id}")
             data = [b[9], b[10], b[11], b[12]]
 
-            all_chronological_events.append({
+            ev_obj = {
                 "seq": seq,
                 "frame": frame,
                 "type": ev_type_str,
                 "type_id": ev_type_id,
                 "data": data
-            })
+            }
+            if ev_type_str in ("STORY_FLAG_SET", "STORY_FLAG_CLEARED"):
+                flag_id = data[0]
+                ev_obj["flag_id"] = flag_id
+                ev_obj["flag_name"] = STORY_FLAG_ID_MAP.get(flag_id, f"FLAG_{flag_id}")
+
+            all_chronological_events.append(ev_obj)
 
         oldest_avail_seq = all_chronological_events[0]["seq"] if all_chronological_events else 0
         events_lost = False

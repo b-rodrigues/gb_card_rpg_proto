@@ -109,14 +109,14 @@ void world_move_player(World *w, int8_t dx, int8_t dy)
     }
 
     if (w->enemy.active && target_x == w->enemy.position.x && target_y == w->enemy.position.y) {
-        telemetry_emit(EVENT_COLLISION, target_x, target_y, 0, 0);
+        telemetry_emit(EVENT_COLLISION, target_x, target_y, (uint8_t)ENTITY_ENEMY, 0);
         telemetry_emit(EVENT_ENCOUNTER_STARTED, w->enemy.type, 0, 0, 0);
         w->encounter_triggered = true;
         return;
     }
 
     if (w->npc.active && target_x == w->npc.position.x && target_y == w->npc.position.y) {
-        telemetry_emit(EVENT_COLLISION, target_x, target_y, 0, 0);
+        telemetry_emit(EVENT_COLLISION, target_x, target_y, (uint8_t)ENTITY_NPC, 1);
         return;
     }
 

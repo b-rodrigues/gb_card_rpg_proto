@@ -1,6 +1,6 @@
 build/*
 !build/.gitkeep
-!build/game.gb
+!build/rpg_card_proto.gb
 *.o
 *.map
 *.sym

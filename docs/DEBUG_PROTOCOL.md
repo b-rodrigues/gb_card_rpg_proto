@@ -826,11 +826,17 @@ Every event contains:
 Required fields:
 
 ```text
-sequence
-frame
-type
-data
+sequence  (uint32_t, little-endian)
+frame     (uint32_t, little-endian)
+type      (uint8_t, mapped via EVENT_TYPE_MAP)
+data      (uint8_t[4])
 ```
+
+Binary Memory ABI Layout (`GameEvent` = 13 bytes):
+- Offset 0..3: `uint32_t seq`
+- Offset 4..7: `uint32_t frame`
+- Offset 8:    `uint8_t type`
+- Offset 9..12: `uint8_t data[4]`
 
 Event types must use stable uppercase identifiers.
 

@@ -1,5 +1,6 @@
 {
   "name": "first_encounter_wrong_music",
+  "test": false,
   "description": "Demonstrate diagnostic failure report on mismatched music assertion",
   "scenario_id": "FIRST_ENCOUNTER",
   "actions": [

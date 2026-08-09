@@ -6,7 +6,7 @@ uint8_t g_snap_buf[16] = {0};
 GameEvent g_telemetry_buffer[MAX_TELEMETRY_EVENTS] = {{0}};
 uint8_t g_telemetry_count = 0;
 uint8_t g_telemetry_head = 0;
-static uint16_t event_seq = 0;
+static uint32_t event_seq = 0;
 static const uint32_t *telemetry_frame_ptr = NULL;
 
 void telemetry_init(void)

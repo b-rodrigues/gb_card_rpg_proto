@@ -14,6 +14,9 @@ import re
 
 DEBUG_PROTOCOL_VERSION = 1
 
+TELEMETRY_CAPACITY = 32
+TELEMETRY_EVENT_SIZE = 13  # 4B seq (uint32) + 4B frame (uint32) + 1B type (uint8) + 4B data
+
 GAME_STATE_MAP = {
     0: "OVERWORLD",
     1: "BATTLE"
@@ -83,6 +86,13 @@ def load_sym_map(sym_path):
                     except ValueError:
                         pass
     return syms
+
+class TelemetryEventList(list):
+    """Custom list subclass attaching protocol lost-event metadata."""
+    def __init__(self, events, events_lost=False, oldest_available_sequence=0):
+        super().__init__(events)
+        self.events_lost = events_lost
+        self.oldest_available_sequence = oldest_available_sequence
 
 class EmulatorSession:
     def __init__(self, rom_path="build/rpg_card_proto_debug.gb"):
@@ -292,7 +302,9 @@ class EmulatorSession:
         """
         Read telemetry ring buffer from ROM memory in strict chronological order [oldest -> newest].
         Reads g_telemetry_count and g_telemetry_head.
+        Decodes 13-byte GameEvent structures (uint32 seq, uint32 frame, uint8 type, 4x uint8 data).
         Optionally filters to events with seq > since_seq.
+        Attaches events_lost and oldest_available_sequence metadata per protocol contract.
         """
         count_addr = self.get_symbol("g_telemetry_count")
         head_addr = self.get_symbol("g_telemetry_head")
@@ -302,41 +314,50 @@ class EmulatorSession:
         head_bytes = self._read_mem_bytes(head_addr, 1)
 
         if not count_bytes or not head_bytes:
-            return []
+            return TelemetryEventList([])
 
         count = count_bytes[0]
         head = head_bytes[0]
 
         if count == 0:
-            return []
+            return TelemetryEventList([])
 
-        total_bytes_needed = 352 if count >= 32 else count * 11
+        total_bytes_needed = (TELEMETRY_CAPACITY if count >= TELEMETRY_CAPACITY else count) * TELEMETRY_EVENT_SIZE
         raw_bytes = self._read_mem_bytes(buf_addr, total_bytes_needed)
 
         # Calculate physical slot index of oldest event in ring buffer
-        oldest_slot = head if count >= 32 else 0
+        oldest_slot = head if count >= TELEMETRY_CAPACITY else 0
 
-        chronological_events = []
+        all_chronological_events = []
         for i in range(count):
-            slot = (oldest_slot + i) % 32
-            start = slot * 11
-            if start + 11 > len(raw_bytes):
+            slot = (oldest_slot + i) % TELEMETRY_CAPACITY
+            start = slot * TELEMETRY_EVENT_SIZE
+            if start + TELEMETRY_EVENT_SIZE > len(raw_bytes):
                 break
-            b = raw_bytes[start:start + 11]
-            seq = b[0] | (b[1] << 8)
-            frame = b[2] | (b[3] << 8) | (b[4] << 16) | (b[5] << 24)
-            ev_type_id = b[6]
+            b = raw_bytes[start:start + TELEMETRY_EVENT_SIZE]
+            seq = b[0] | (b[1] << 8) | (b[2] << 16) | (b[3] << 24)
+            frame = b[4] | (b[5] << 8) | (b[6] << 16) | (b[7] << 24)
+            ev_type_id = b[8]
             ev_type_str = EVENT_TYPE_MAP.get(ev_type_id, f"UNKNOWN_{ev_type_id}")
-            data = [b[7], b[8], b[9], b[10]]
+            data = [b[9], b[10], b[11], b[12]]
 
-            ev_obj = {
+            all_chronological_events.append({
                 "seq": seq,
                 "frame": frame,
                 "type": ev_type_str,
                 "type_id": ev_type_id,
                 "data": data
-            }
-            if since_seq is None or seq > since_seq:
-                chronological_events.append(ev_obj)
+            })
 
-        return chronological_events
+        oldest_avail_seq = all_chronological_events[0]["seq"] if all_chronological_events else 0
+        events_lost = False
+        if since_seq is not None and oldest_avail_seq > 0:
+            if since_seq < oldest_avail_seq - 1:
+                events_lost = True
+
+        filtered_events = [
+            ev for ev in all_chronological_events
+            if (since_seq is None or ev["seq"] > since_seq)
+        ]
+
+        return TelemetryEventList(filtered_events, events_lost=events_lost, oldest_available_sequence=oldest_avail_seq)

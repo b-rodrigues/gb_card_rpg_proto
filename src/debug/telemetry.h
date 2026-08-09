@@ -22,7 +22,7 @@ typedef enum {
 } GameEventType;
 
 typedef struct {
-    uint16_t seq;
+    uint32_t seq;
     uint32_t frame;
     uint8_t type;
     uint8_t data[4];

@@ -30,6 +30,7 @@ def run_scenario(scenario):
     """
     Execute a single scenario definition against SameBoy emulator.
     Returns dict formatted per dev-harness.md specification.
+    Guarantees emulator session disconnect on exception.
     """
     name = scenario.get("name", "unknown")
     description = scenario.get("description", "")
@@ -38,23 +39,25 @@ def run_scenario(scenario):
     assertions = scenario.get("assertions", [])
 
     session = EmulatorSession()
-    session.connect()
+    try:
+        session.connect()
 
-    # Load requested scenario
-    session.load_scenario(scenario_id)
+        # Load requested scenario
+        session.load_scenario(scenario_id)
 
-    # Execute action sequence
-    for act in actions:
-        act_type = act.get("type")
-        if act_type == "press":
-            session.press(act.get("button", "A"))
-        elif act_type == "wait":
-            session.wait(act.get("frames", 1))
+        # Execute action sequence
+        for act in actions:
+            act_type = act.get("type")
+            if act_type == "press":
+                session.press(act.get("button", "A"))
+            elif act_type == "wait":
+                session.wait(act.get("frames", 1))
 
-    # Read final snapshot and telemetry buffer from ROM memory
-    snap = session.snapshot()
-    telemetry = session.get_telemetry()
-    session.disconnect()
+        # Read final snapshot and telemetry buffer from ROM memory
+        snap = session.snapshot()
+        telemetry = session.get_telemetry()
+    finally:
+        session.disconnect()
 
     # Evaluate assertions against snapshot & telemetry
     assertion_results = []
@@ -167,6 +170,9 @@ def print_result(result):
         print(f"  music:      {snap.get('music_track')}")
 
         telemetry = result.get("telemetry", [])
+        if getattr(telemetry, "events_lost", False):
+            print(f"\nWARNING: Telemetry ring buffer overwrote events (oldest available sequence: {getattr(telemetry, 'oldest_available_sequence', 0)})")
+
         print("\nRECENT TELEMETRY EVENTS:")
         if not telemetry:
             print("  (no events recorded)")
@@ -180,13 +186,16 @@ def print_result(result):
 def run_all(scenarios_dir="tools/scenarios"):
     """Run all standard test scenarios and return exit code 0 on PASS, 1 on FAIL."""
     all_scenarios = load_scenarios(scenarios_dir)
-    # Filter out demonstration failing scenarios from test suite
-    scenarios = [s for s in all_scenarios if "failing" not in s.get("_filepath", "")]
+    # Exclude non-test / demonstration scenarios (test == False or in examples/)
+    scenarios = [
+        s for s in all_scenarios
+        if s.get("test", True) and "examples" not in s.get("_filepath", "")
+    ]
     if not scenarios:
-        print("No scenarios found in", scenarios_dir)
+        print("No test scenarios found in", scenarios_dir)
         return 0
 
-    print(f"Running {len(scenarios)} scenario(s) in SameBoy...\n")
+    print(f"Running {len(scenarios)} test scenario(s) in SameBoy...\n")
     passed = 0
     failed = 0
 
@@ -199,5 +208,5 @@ def run_all(scenarios_dir="tools/scenarios"):
             failed += 1
 
     print("----------------------------------------")
-    print(f"Results: {passed} passed, {failed} failed out of {len(scenarios)} scenarios.")
+    print(f"Results: {passed} passed, {failed} failed out of {len(scenarios)} test scenarios.")
     return 0 if failed == 0 else 1

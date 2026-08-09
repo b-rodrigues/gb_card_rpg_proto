@@ -157,6 +157,50 @@ Removes generated artifacts in:
 build/
 ```
 
+## Debug Harness & Protocol
+
+The development harness is a first-class part of the project and must be used for gameplay development and validation.
+
+The authoritative specification for the debug interface is:
+
+```text
+docs/DEBUG_PROTOCOL.md
+```
+
+Before modifying or extending the debug harness, telemetry system, scenario system, debug commands, or automated gameplay testing, read `docs/DEBUG_PROTOCOL.md`.
+
+The protocol defines:
+
+* Debug ROM behavior
+* Scenario loading and state initialization
+* Deterministic input injection
+* Frame stepping
+* Game-state inspection
+* Entity/world inspection
+* Telemetry events and sequence numbers
+* Story flag inspection
+* Battle-state inspection
+* Audio-state inspection
+* RNG control
+* Assertions
+* Scenario PASS/FAIL behavior
+* LLM-oriented diagnostic output
+
+### Agent Requirements
+
+1. **Use the harness instead of manually playing through the game whenever a scenario can reproduce the behavior being tested.**
+2. **Create or update a scenario when implementing important gameplay behavior that should be regression-tested.**
+3. **Ensure important gameplay state transitions emit semantic telemetry events.**
+4. **Ensure important gameplay state is exposed through `INSPECT`/`SNAPSHOT` where an automated agent needs it to diagnose behavior.**
+5. **Use deterministic RNG seeds for scenarios involving randomness.**
+6. **Do not make tests depend on screenshots when semantic debug state can provide the required information.**
+7. **When a scenario fails, inspect the state and telemetry before modifying gameplay code.**
+8. **Keep debug operations separate from real gameplay events.** For example, a debug teleport must not emit `PLAYER_MOVED`.
+9. **Treat `docs/DEBUG_PROTOCOL.md` as the protocol contract.** If implementation and documentation disagree, resolve the discrepancy rather than silently inventing a new behavior.
+10. **When adding a new gameplay system, consider its observability requirements as part of the implementation, not as a later debugging task.**
+
+The goal is for an LLM to be able to reproduce, execute, inspect, and diagnose gameplay scenarios without playing through the entire game manually.
+
 ---
 
 # 3. Target Platform & Toolchain

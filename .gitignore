@@ -1,0 +1,10 @@
+build/*
+!build/.gitkeep
+!build/game.gb
+*.o
+*.map
+*.sym
+*.noi
+*.lst
+*.ihx
+*.cdb

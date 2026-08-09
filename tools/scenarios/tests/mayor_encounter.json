@@ -1,0 +1,22 @@
+{
+  "name": "mayor_encounter",
+  "test": true,
+  "description": "Approach Mayor NPC in Town to trigger MET_MAYOR story event",
+  "scenario_id": "MAYOR_ENCOUNTER",
+  "actions": [
+    {
+      "type": "press",
+      "button": "RIGHT"
+    }
+  ],
+  "assertions": [
+    {
+      "type": "game_state",
+      "expected": "OVERWORLD"
+    },
+    {
+      "type": "event_occurred",
+      "event": "STORY_FLAG_SET"
+    }
+  ]
+}

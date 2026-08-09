@@ -77,7 +77,10 @@ BUTTON_MASKS = {
 SCENARIO_IDS = {
     "NEW_GAME": 1,
     "FIRST_ENCOUNTER": 2,
-    "TOWN_ARRIVAL": 3
+    "TOWN_ARRIVAL": 3,
+    "TOWN_DEPARTURE": 4,
+    "TOWN_REENTRY": 5,
+    "MAYOR_ENCOUNTER": 6
 }
 
 def load_sym_map(sym_path):

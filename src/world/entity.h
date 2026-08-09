@@ -18,7 +18,8 @@ typedef enum {
 
 typedef enum {
     ENTITY_PLAYER,
-    ENTITY_ENEMY
+    ENTITY_ENEMY,
+    ENTITY_NPC
 } EntityType;
 
 typedef struct {

@@ -1,8 +1,5 @@
 #include "world.h"
 #include "telemetry.h"
-#include "game.h"
-
-extern Game g_game;
 
 void world_load_map(World *w, MapId map_id)
 {
@@ -13,6 +10,7 @@ void world_load_map(World *w, MapId map_id)
     w->height = WORLD_HEIGHT;
     w->map_id = map_id;
     w->encounter_triggered = false;
+    w->map_changed = false;
 
     for (y = 0; y < WORLD_HEIGHT; y++) {
         for (x = 0; x < WORLD_WIDTH; x++) {
@@ -27,10 +25,9 @@ void world_load_map(World *w, MapId map_id)
     if (map_id == MAP_FIELD) {
         /* Exit gate to Town on East wall (18, 7) */
         w->map[7][18] = TILE_FIELD_EXIT;
-        /* Enable enemy slime_01 on Field */
+        entity_init(&w->enemy, ENTITY_ENEMY, "slime_01", 14, 8, 5, 5);
         w->enemy.active = true;
-        w->enemy.position.x = 14;
-        w->enemy.position.y = 8;
+        w->npc.active = false;
     } else if (map_id == MAP_TOWN) {
         /* Exit gate to Field on West wall (1, 7) */
         w->map[7][1] = TILE_TOWN_EXIT;
@@ -43,17 +40,18 @@ void world_load_map(World *w, MapId map_id)
                 w->map[y][x] = TILE_BUILDING;
             }
         }
-        /* Deactivate wild enemy in Town */
+        /* Deactivate wild enemy in Town; Spawn Mayor NPC at (10, 5) */
         w->enemy.active = false;
+        entity_init(&w->npc, ENTITY_NPC, "mayor", 10, 5, 20, 20);
+        w->npc.active = true;
     }
 }
 
 void world_init(World *w)
 {
     if (!w) return;
-    world_load_map(w, MAP_FIELD);
     entity_init(&w->player, ENTITY_PLAYER, "player", 4, 4, 10, 10);
-    entity_init(&w->enemy, ENTITY_ENEMY, "slime_01", 14, 8, 5, 5);
+    world_load_map(w, MAP_FIELD);
 }
 
 void world_change_map(World *w, MapId map_id, uint8_t spawn_x, uint8_t spawn_y)
@@ -64,12 +62,8 @@ void world_change_map(World *w, MapId map_id, uint8_t spawn_x, uint8_t spawn_y)
     world_load_map(w, map_id);
     w->player.position.x = spawn_x;
     w->player.position.y = spawn_y;
+    w->map_changed = true;
     telemetry_emit(EVENT_MAP_CHANGED, (uint8_t)old_map, (uint8_t)map_id, spawn_x, spawn_y);
-
-    if (map_id == MAP_TOWN && !(g_game.story_flags & STORY_FLAG_ARRIVED_TOWN)) {
-        g_game.story_flags |= STORY_FLAG_ARRIVED_TOWN;
-        telemetry_emit(EVENT_STORY_FLAG_SET, 0, 0, 0, 0);
-    }
 }
 
 bool world_is_walkable(const World *w, uint8_t x, uint8_t y)
@@ -108,11 +102,9 @@ void world_move_player(World *w, int8_t dx, int8_t dy)
 
     if (target_tile == TILE_FIELD_EXIT) {
         world_change_map(w, MAP_TOWN, 2, 7);
-        ui_draw_world_full(w);
         return;
     } else if (target_tile == TILE_TOWN_EXIT) {
         world_change_map(w, MAP_FIELD, 17, 7);
-        ui_draw_world_full(w);
         return;
     }
 
@@ -120,6 +112,11 @@ void world_move_player(World *w, int8_t dx, int8_t dy)
         telemetry_emit(EVENT_COLLISION, target_x, target_y, 0, 0);
         telemetry_emit(EVENT_ENCOUNTER_STARTED, w->enemy.type, 0, 0, 0);
         w->encounter_triggered = true;
+        return;
+    }
+
+    if (w->npc.active && target_x == w->npc.position.x && target_y == w->npc.position.y) {
+        telemetry_emit(EVENT_COLLISION, target_x, target_y, 0, 0);
         return;
     }
 

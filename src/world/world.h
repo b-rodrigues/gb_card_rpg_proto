@@ -25,8 +25,10 @@ typedef struct {
     uint8_t height;
     MapId map_id;
     bool encounter_triggered;
+    bool map_changed;
     Entity player;
     Entity enemy;
+    Entity npc;
     uint8_t map[WORLD_HEIGHT][WORLD_WIDTH];
 } World;
 

@@ -61,6 +61,8 @@ void ui_draw_world_full(const World *world)
                 tile_ch = '@';
             } else if (world->enemy.active && world->enemy.position.x == x && world->enemy.position.y == y) {
                 tile_ch = 'E';
+            } else if (world->npc.active && world->npc.position.x == x && world->npc.position.y == y) {
+                tile_ch = 'M';
             } else {
                 t = world->map[y][x];
                 if (t == TILE_WALL) tile_ch = '#';

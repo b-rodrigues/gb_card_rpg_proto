@@ -1,0 +1,27 @@
+{
+  "name": "town_departure",
+  "test": true,
+  "description": "Walk west on Town map into exit gate to return to Field",
+  "scenario_id": "TOWN_DEPARTURE",
+  "actions": [
+    {
+      "type": "press",
+      "button": "LEFT"
+    }
+  ],
+  "assertions": [
+    {
+      "type": "game_state",
+      "expected": "OVERWORLD"
+    },
+    {
+      "type": "player_position",
+      "expected_x": 17,
+      "expected_y": 7
+    },
+    {
+      "type": "event_occurred",
+      "event": "MAP_CHANGED"
+    }
+  ]
+}

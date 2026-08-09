@@ -41,7 +41,8 @@ $(TARGET): $(OBJS) | $(BUILD_DIR)
 	$(CC) -no-crt -Wm-yc -o $@ $(GBDKDIR)lib/gb/crt0.o $(OBJS) $(GBDKDIR)lib/gb/gb.lib $(GBDKDIR)lib/sm83/sm83.lib
 
 $(TARGET_DEBUG): $(OBJS_DEBUG) | $(BUILD_DIR)
-	$(CC) -no-crt -Wm-yc -o $@ $(GBDKDIR)lib/gb/crt0.o $(OBJS_DEBUG) $(GBDKDIR)lib/gb/gb.lib $(GBDKDIR)lib/sm83/sm83.lib
+	$(CC) -no-crt -Wm-yc -Wl-m -Wl-j -Wl-y -o $@ $(GBDKDIR)lib/gb/crt0.o $(OBJS_DEBUG) $(GBDKDIR)lib/gb/gb.lib $(GBDKDIR)lib/sm83/sm83.lib
+	@python3 tools/make_sym.py $(BUILD_DIR)/rpg_card_proto_debug.noi $(BUILD_DIR)/rpg_card_proto_debug.sym
 
 run: $(TARGET)
 	@if [ -z "$(EMULATOR)" ]; then \
@@ -69,7 +70,7 @@ test: $(TARGET)
 	@echo "ROM validation successful: $(TARGET)"
 
 test-harness: debug
-	@python3 tools/dev.py test
+	python3 tools/dev.py test
 
 test-scenario: debug
 	@python3 tools/dev.py scenario $(SCENARIO)

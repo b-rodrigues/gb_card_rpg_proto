@@ -1,41 +1,76 @@
 #include "scenarios.h"
 #include "rng.h"
 #include "telemetry.h"
+#include "game.h"
+#include "world.h"
+#include "entity.h"
+#include "state.h"
 
-void scenario_load(ScenarioId id, Game *g)
+extern Game g_game;
+volatile uint8_t g_scen_load = 0;
+
+void scenario_load(void)
 {
-    if (!g) return;
-    
-    switch (id) {
-        case SCENARIO_NEW_GAME:
-            game_init(g);
-            g->world.player.position.x = 4;
-            g->world.player.position.y = 4;
-            g->world.player.hp = 10;
-            g->world.enemy.position.x = 14;
-            g->world.enemy.position.y = 8;
-            g->world.enemy.hp = 5;
-            state_set(&g->state_machine, GAME_STATE_OVERWORLD);
-            g->frame = 0;
-            g->story_flags = 0;
-            rng_set_seed(42);
-            telemetry_init();
-            telemetry_set_frame_ptr(&g->frame);
-            break;
-            
-        case SCENARIO_FIRST_ENCOUNTER:
-            game_init(g);
-            g->world.player.position.x = 13;
-            g->world.player.position.y = 8;
-            g->world.player.hp = 10;
-            g->world.enemy.position.x = 14;
-            g->world.enemy.position.y = 8;
-            g->world.enemy.hp = 5;
-            g->world.encounter_triggered = false;
-            state_set(&g->state_machine, GAME_STATE_OVERWORLD);
-            rng_set_seed(12345);
-            telemetry_init();
-            telemetry_set_frame_ptr(&g->frame);
-            break;
+    /* intentionally empty */
+}
+
+static void load_new_game(void)
+{
+    World *w = &g_game.world;
+    GameStateMachine *sm = &g_game.state_machine;
+
+    sm->current = GAME_STATE_OVERWORLD;
+    sm->previous = GAME_STATE_OVERWORLD;
+    sm->state_changed = false;
+
+    world_init(w);   /* sets player (4,4) hp=10, enemy (14,8) hp=5 */
+    w->encounter_triggered = false;
+
+    g_game.frame = 0;
+    g_game.story_flags = 0;
+
+    rng_set_seed(42);
+    input_reset();
+    telemetry_init();
+    telemetry_set_frame_ptr(&g_game.frame);
+    audio_play_music(MUSIC_OVERWORLD);
+    debug_snapshot();
+}
+
+static void load_first_encounter(void)
+{
+    World *w = &g_game.world;
+    GameStateMachine *sm = &g_game.state_machine;
+
+    sm->current = GAME_STATE_OVERWORLD;
+    sm->previous = GAME_STATE_OVERWORLD;
+    sm->state_changed = false;
+
+    world_init(w);   /* initializes map and both entities */
+    w->player.position.x = 13;
+    w->player.position.y = 8;
+    w->enemy.position.x = 14;
+    w->enemy.position.y = 8;
+    w->encounter_triggered = false;
+
+    g_game.frame = 0;
+    g_game.story_flags = 0;
+
+    rng_set_seed(12345);
+    input_reset();
+    telemetry_init();
+    telemetry_set_frame_ptr(&g_game.frame);
+    debug_snapshot();
+}
+
+void scenario_check_and_load(void)
+{
+    uint8_t sc = g_scen_load;
+    if (sc == 1) {
+        g_scen_load = 0;
+        load_new_game();
+    } else if (sc == 2) {
+        g_scen_load = 0;
+        load_first_encounter();
     }
 }

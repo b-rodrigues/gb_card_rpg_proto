@@ -15,4 +15,6 @@ void audio_play_music(MusicTrack track);
 void audio_stop_music(void);
 void audio_update(void);
 
+MusicTrack audio_get_current_track(void);
+
 #endif /* AUDIO_H */

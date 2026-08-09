@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 
+
+#define MAX_TELEMETRY_EVENTS 32
+
 typedef enum {
     EVENT_PLAYER_MOVED,
     EVENT_COLLISION,
@@ -25,11 +28,15 @@ typedef struct {
     uint8_t data[4];
 } GameEvent;
 
+extern uint8_t g_snap_buf[16];
+extern GameEvent g_telemetry_buffer[MAX_TELEMETRY_EVENTS];
+extern uint8_t g_telemetry_count;
+
 void telemetry_init(void);
 void telemetry_emit(GameEventType type, uint8_t d0, uint8_t d1, uint8_t d2, uint8_t d3);
 const GameEvent* telemetry_get_events(void);
 uint8_t telemetry_get_count(void);
 void telemetry_set_frame_ptr(const uint32_t *frame_ptr);
-void debug_snapshot(uint8_t *buffer);
+void debug_snapshot(void);
 
 #endif /* TELEMETRY_H */

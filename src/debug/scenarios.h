@@ -1,13 +1,12 @@
 #ifndef SCENARIOS_H
 #define SCENARIOS_H
 
+#include <stdint.h>
 #include "game.h"
 
-typedef enum {
-    SCENARIO_NEW_GAME,
-    SCENARIO_FIRST_ENCOUNTER
-} ScenarioId;
+extern volatile uint8_t g_scen_load;
 
-void scenario_load(ScenarioId id, Game *g);
+void scenario_load(void);
+void scenario_check_and_load(void);
 
 #endif /* SCENARIOS_H */

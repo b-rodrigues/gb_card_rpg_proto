@@ -65,12 +65,27 @@ void world_move_player(World *w, int8_t dx, int8_t dy)
     telemetry_emit(EVENT_PLAYER_MOVED, old_x, old_y, target_x, target_y);
 }
 
-void world_reset_encounter(World *w)
+void world_on_battle_end(World *w, bool victory)
 {
     if (!w) return;
     w->encounter_triggered = false;
-    w->player.position.x = 4;
-    w->player.position.y = 4;
-    w->enemy.hp = 5;
-    w->enemy.active = true;
+    if (victory) {
+        w->enemy.active = false;
+        w->enemy.hp = 0;
+        telemetry_emit(EVENT_ENTITY_DEFEATED, 0, 0, 0, 0);
+    }
+}
+
+void world_set_player_pos(World *w, uint8_t x, uint8_t y)
+{
+    if (!w) return;
+    w->player.position.x = x;
+    w->player.position.y = y;
+}
+
+void world_set_enemy_pos(World *w, uint8_t x, uint8_t y)
+{
+    if (!w) return;
+    w->enemy.position.x = x;
+    w->enemy.position.y = y;
 }

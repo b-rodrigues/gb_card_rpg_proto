@@ -1,1 +1,25 @@
-{"name": "first_encounter", "description": "Walk right into enemy to trigger battle", "scenario_id": "FIRST_ENCOUNTER", "actions": [{"type": "press", "button": "RIGHT"}, {"type": "wait", "frames": 10}], "assertions": [{"type": "game_state", "expected": "BATTLE"}, {"type": "music_track", "expected": "BATTLE"}, {"type": "event_occurred", "event": "ENCOUNTER_STARTED"}]}
+{
+  "name": "first_encounter",
+  "description": "Walk right into enemy to trigger battle",
+  "scenario_id": "FIRST_ENCOUNTER",
+  "actions": [
+    {
+      "type": "press",
+      "button": "RIGHT"
+    }
+  ],
+  "assertions": [
+    {
+      "type": "game_state",
+      "expected": "BATTLE"
+    },
+    {
+      "type": "music_track",
+      "expected": "BATTLE"
+    },
+    {
+      "type": "event_occurred",
+      "event": "ENCOUNTER_STARTED"
+    }
+  ]
+}

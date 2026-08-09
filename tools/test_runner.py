@@ -1,38 +1,162 @@
 #!/usr/bin/env python3
+"""
+Real scenario test runner and assertion evaluator for Game Boy RPG development harness.
+Connects to SameBoy emulator via EmulatorSession, executes input sequences,
+captures snapshots, evaluates assertions, and prints structured PASS/FAIL diagnostic reports.
+"""
+
 import json
+import glob
 import os
+import sys
 from emulator import EmulatorSession
 
-def load_scenarios(directory):
+def load_scenarios(scenarios_dir="tools/scenarios"):
+    """Load all JSON scenario files from directory."""
     scenarios = []
-    if not os.path.exists(directory):
-        return scenarios
-    for f in os.listdir(directory):
-        if f.endswith('.json'):
-            with open(os.path.join(directory, f), 'r') as file:
-                scenarios.append(json.load(file))
+    pattern = os.path.join(scenarios_dir, "*.json")
+    for filepath in sorted(glob.glob(pattern)):
+        try:
+            with open(filepath, 'r') as f:
+                data = json.load(f)
+                data['_filepath'] = filepath
+                scenarios.append(data)
+        except Exception as e:
+            print(f"Error loading scenario {filepath}: {e}", file=sys.stderr)
     return scenarios
 
-def run_scenario(scenario_dict):
-    print(f"SCENARIO: {scenario_dict.get('name')}")
+def run_scenario(scenario):
+    """
+    Execute a single scenario definition against SameBoy emulator.
+    Returns dict formatted per dev-harness.md specification.
+    """
+    name = scenario.get("name", "unknown")
+    description = scenario.get("description", "")
+    scenario_id = scenario.get("scenario_id", "NEW_GAME")
+    actions = scenario.get("actions", [])
+    assertions = scenario.get("assertions", [])
+    
     session = EmulatorSession()
     session.connect()
     
-    for action in scenario_dict.get('actions', []):
-        if action['type'] == 'press':
-            session.press(action['button'])
-        elif action['type'] == 'wait':
-            session.wait(action['frames'])
-            
-    # Stub assertions
-    for assertion in scenario_dict.get('assertions', []):
-        print(f"ASSERT: {assertion['type']} - expected {assertion.get('expected', '')}")
-        
-    session.disconnect()
-    print("STATUS: PASS\n")
+    # Load requested scenario
+    session.load_scenario(scenario_id)
 
-def run_all(scenarios):
-    print(f"Running {len(scenarios)} scenarios...\n")
+    # Execute action sequence
+    for act in actions:
+        act_type = act.get("type")
+        if act_type == "press":
+            session.press(act.get("button", "A"))
+        elif act_type == "wait":
+            session.wait(act.get("frames", 1))
+
+    # Read final snapshot from ROM memory
+    snap = session.snapshot()
+    print(f"RAW SNAPSHOT [{name}]: {snap}")
+    session.disconnect()
+
+    # Evaluate assertions against snapshot
+    assertion_results = []
+    passed_all = True
+    failure_detail = None
+
+    for a in assertions:
+        a_type = a.get("type")
+        expected = a.get("expected")
+        actual = None
+        passed = False
+
+        if a_type == "game_state":
+            actual = snap.get("game_state", "UNKNOWN")
+            passed = (actual == expected)
+        elif a_type == "player_hp":
+            actual = snap.get("player_hp", 0)
+            passed = (actual == int(expected))
+        elif a_type == "player_position":
+            exp_x = a.get("expected_x")
+            exp_y = a.get("expected_y")
+            act_x = snap.get("player_x")
+            act_y = snap.get("player_y")
+            actual = f"({act_x},{act_y})"
+            expected = f"({exp_x},{exp_y})"
+            passed = (act_x == exp_x and act_y == exp_y)
+        elif a_type == "music_track":
+            actual = snap.get("music_track", "UNKNOWN")
+            passed = (actual == expected)
+        elif a_type == "enemy_hp":
+            actual = snap.get("enemy_hp", 0)
+            passed = (actual == int(expected))
+        elif a_type == "event_occurred":
+            # For encounter event, if state is BATTLE, encounter occurred
+            actual = snap.get("game_state")
+            passed = (actual == "BATTLE")
+            expected = "ENCOUNTER_STARTED"
+
+        status_str = "PASS" if passed else "FAIL"
+        assertion_results.append({
+            "type": a_type,
+            "expected": str(expected),
+            "actual": str(actual),
+            "status": status_str
+        })
+
+        if not passed:
+            passed_all = False
+            if not failure_detail:
+                failure_detail = {
+                    "assertion": f"{a_type} == {expected}",
+                    "expected": str(expected),
+                    "actual": str(actual)
+                }
+
+    return {
+        "scenario": name,
+        "description": description,
+        "status": "PASS" if passed_all else "FAIL",
+        "failure": failure_detail,
+        "snapshot": snap,
+        "assertions": assertion_results
+    }
+
+def print_result(result):
+    """Print structured scenario execution result per dev-harness.md spec."""
+    print(f"SCENARIO: {result['scenario']}")
+    print(f"STATUS:   {result['status']}")
+    if result.get("description"):
+        print(f"DESC:     {result['description']}")
+    
+    print("ASSERTIONS:")
+    for a in result.get("assertions", []):
+        mark = "✓" if a['status'] == "PASS" else "✗"
+        print(f"  {mark} [{a['status']}] {a['type']}: expected={a['expected']}, actual={a['actual']}")
+    
+    if result["status"] == "FAIL" and result.get("failure"):
+        print("\nFAILED ASSERTION:")
+        print(f"  {result['failure']['assertion']}")
+        print(f"  EXPECTED: {result['failure']['expected']}")
+        print(f"  ACTUAL:   {result['failure']['actual']}")
+    
+    print()
+
+def run_all(scenarios_dir="tools/scenarios"):
+    """Run all loaded scenarios and return exit code 0 on PASS, 1 on FAIL."""
+    scenarios = load_scenarios(scenarios_dir)
+    if not scenarios:
+        print("No scenarios found in", scenarios_dir)
+        return 0
+
+    print(f"Running {len(scenarios)} scenario(s) in SameBoy...\n")
+    passed = 0
+    failed = 0
+
     for s in scenarios:
-        run_scenario(s)
-    print("All scenarios completed.")
+        res = run_scenario(s)
+        print_result(res)
+        if res["status"] == "PASS":
+            passed += 1
+        else:
+            failed += 1
+
+    print("----------------------------------------")
+    print(f"Results: {passed} passed, {failed} failed out of {len(scenarios)} scenarios.")
+    return 0 if failed == 0 else 1

@@ -22,13 +22,13 @@ typedef enum {
 } EntityType;
 
 typedef struct {
-    const char *id;
     Position position;
-    Direction facing;
-    EntityType type;
     uint8_t hp;
     uint8_t max_hp;
     bool active;
+    EntityType type;
+    Direction facing;
+    const char *id;
 } Entity;
 
 void entity_init(Entity *e, EntityType type, const char *id, uint8_t x, uint8_t y, uint8_t hp, uint8_t max_hp);

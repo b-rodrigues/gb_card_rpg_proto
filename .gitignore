@@ -8,3 +8,5 @@ build/*
 *.lst
 *.ihx
 *.cdb
+__pycache__/
+*.pyc

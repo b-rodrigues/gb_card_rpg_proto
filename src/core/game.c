@@ -1,5 +1,6 @@
 #include "game.h"
 #include "telemetry.h"
+#include "scenarios.h"
 
 void game_init(Game *g)
 {
@@ -13,6 +14,7 @@ void game_init(Game *g)
     audio_play_music(MUSIC_OVERWORLD);
     telemetry_emit(EVENT_MUSIC_CHANGED, MUSIC_OVERWORLD, 0, 0, 0);
     ui_draw_world_full(&g->world);
+    debug_snapshot();
 }
 
 static void update_overworld(Game *g)
@@ -49,10 +51,11 @@ static void update_battle(Game *g)
 {
     if (g->battle.battle_over) {
         if (input_pressed(INPUT_A) || input_pressed(INPUT_START)) {
-            if (g->battle.result == BATTLE_RESULT_VICTORY) {
+            bool victory = (g->battle.result == BATTLE_RESULT_VICTORY);
+            if (victory) {
                 g->world.player.hp = g->battle.player.hp;
             }
-            world_reset_encounter(&g->world);
+            world_on_battle_end(&g->world, victory);
             state_set(&g->state_machine, GAME_STATE_OVERWORLD);
             audio_play_music(MUSIC_OVERWORLD);
             telemetry_emit(EVENT_MUSIC_CHANGED, MUSIC_OVERWORLD, 0, 0, 0);
@@ -77,6 +80,7 @@ void game_update(Game *g)
 {
     if (!g) return;
     
+    scenario_check_and_load();
     g->frame++;
 
     if (g->state_machine.state_changed) {
@@ -92,6 +96,8 @@ void game_update(Game *g)
             update_battle(g);
             break;
     }
+
+    debug_snapshot();
 }
 
 void game_render(const Game *g)

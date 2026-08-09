@@ -4,7 +4,7 @@
 #include "input.h"
 #include "ui.h"
 
-static Game g_game;
+Game g_game;
 
 int main(void)
 {
@@ -24,6 +24,8 @@ int main(void)
         input_update();
         game_update(&g_game);
         game_render(&g_game);
+#ifndef DEBUG_BUILD
         vsync();
+#endif
     }
 }

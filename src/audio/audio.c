@@ -155,3 +155,8 @@ void audio_update(void)
         note_index++;
     }
 }
+
+MusicTrack audio_get_current_track(void)
+{
+    return current_track;
+}

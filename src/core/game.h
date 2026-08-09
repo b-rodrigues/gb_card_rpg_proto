@@ -16,6 +16,8 @@ typedef struct {
     uint32_t frame;
 } Game;
 
+extern Game g_game;
+
 void game_init(Game *g);
 void game_update(Game *g);
 void game_render(const Game *g);

@@ -8,17 +8,22 @@
 #define WORLD_HEIGHT 14
 
 typedef enum {
-    MAP_FIELD
+    MAP_FIELD = 0,
+    MAP_TOWN  = 1
 } MapId;
 
 typedef enum {
-    TILE_FLOOR,
-    TILE_WALL
+    TILE_FLOOR      = 0,
+    TILE_WALL       = 1,
+    TILE_FIELD_EXIT = 2,
+    TILE_TOWN_EXIT  = 3,
+    TILE_BUILDING   = 4
 } TileType;
 
 typedef struct {
     uint8_t width;
     uint8_t height;
+    MapId map_id;
     bool encounter_triggered;
     Entity player;
     Entity enemy;
@@ -26,6 +31,8 @@ typedef struct {
 } World;
 
 void world_init(World *w);
+void world_load_map(World *w, MapId map_id);
+void world_change_map(World *w, MapId map_id, uint8_t spawn_x, uint8_t spawn_y);
 bool world_is_walkable(const World *w, uint8_t x, uint8_t y);
 void world_move_player(World *w, int8_t dx, int8_t dy);
 void world_on_battle_end(World *w, bool victory);

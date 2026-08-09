@@ -8,6 +8,9 @@
 #include "input.h"
 #include "ui.h"
 
+#define STORY_FLAG_ARRIVED_TOWN (1UL << 0)
+#define STORY_FLAG_MET_MAYOR    (1UL << 1)
+
 typedef struct {
     GameStateMachine state_machine;
     World world;

@@ -48,6 +48,7 @@ void ui_clear_screen(void)
 void ui_draw_world_full(const World *world)
 {
     uint8_t x, y;
+    uint8_t t;
     char tile_ch;
 
     if (!world) return;
@@ -60,10 +61,12 @@ void ui_draw_world_full(const World *world)
                 tile_ch = '@';
             } else if (world->enemy.active && world->enemy.position.x == x && world->enemy.position.y == y) {
                 tile_ch = 'E';
-            } else if (world->map[y][x] == TILE_WALL) {
-                tile_ch = '#';
             } else {
-                tile_ch = '.';
+                t = world->map[y][x];
+                if (t == TILE_WALL) tile_ch = '#';
+                else if (t == TILE_BUILDING) tile_ch = 'B';
+                else if (t == TILE_FIELD_EXIT || t == TILE_TOWN_EXIT) tile_ch = 'G';
+                else tile_ch = '.';
             }
             gotoxy(x, y);
             setchar(tile_ch);
@@ -71,7 +74,11 @@ void ui_draw_world_full(const World *world)
     }
 
     gotoxy(0, 15);
-    printf("HERO HP: %2d/%2d", world->player.hp, world->player.max_hp);
+    if (world->map_id == MAP_TOWN) {
+        printf("TOWN | HP: %2d/%2d", world->player.hp, world->player.max_hp);
+    } else {
+        printf("FIELD| HP: %2d/%2d", world->player.hp, world->player.max_hp);
+    }
     gotoxy(0, 17);
     printf("[D-PAD] MOVE HERO  ");
 }

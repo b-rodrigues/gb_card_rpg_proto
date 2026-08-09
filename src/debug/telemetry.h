@@ -18,7 +18,9 @@ typedef enum {
     EVENT_BATTLE_WON,
     EVENT_BATTLE_LOST,
     EVENT_GAME_STATE_CHANGED,
-    EVENT_MUSIC_CHANGED
+    EVENT_MUSIC_CHANGED,
+    EVENT_MAP_CHANGED,
+    EVENT_STORY_FLAG_SET
 } GameEventType;
 
 typedef struct {

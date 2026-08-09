@@ -69,4 +69,6 @@ void debug_snapshot(void)
     g_snap_buf[8] = (uint8_t)g->battle.result;
     g_snap_buf[9] = g->battle.player.hp;
     g_snap_buf[10] = g->battle.enemy.hp;
+    g_snap_buf[11] = (uint8_t)g->world.map_id;
+    g_snap_buf[12] = (uint8_t)g->story_flags;
 }

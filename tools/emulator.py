@@ -41,6 +41,11 @@ BATTLE_RESULT_MAP = {
     2: "DEFEAT"
 }
 
+MAP_NAME_MAP = {
+    0: "FIELD",
+    1: "TOWN"
+}
+
 EVENT_TYPE_MAP = {
     0: "PLAYER_MOVED",
     1: "COLLISION",
@@ -53,7 +58,9 @@ EVENT_TYPE_MAP = {
     8: "BATTLE_WON",
     9: "BATTLE_LOST",
     10: "GAME_STATE_CHANGED",
-    11: "MUSIC_CHANGED"
+    11: "MUSIC_CHANGED",
+    12: "MAP_CHANGED",
+    13: "STORY_FLAG_SET"
 }
 
 BUTTON_MASKS = {
@@ -69,7 +76,8 @@ BUTTON_MASKS = {
 
 SCENARIO_IDS = {
     "NEW_GAME": 1,
-    "FIRST_ENCOUNTER": 2
+    "FIRST_ENCOUNTER": 2,
+    "TOWN_ARRIVAL": 3
 }
 
 def load_sym_map(sym_path):
@@ -280,7 +288,7 @@ class EmulatorSession:
         """Read full 16-byte snapshot from ROM memory at _g_snap_buf."""
         addr = self.get_symbol("g_snap_buf")
         snap_bytes = self._read_mem_bytes(addr, 16)
-        if len(snap_bytes) >= 11:
+        if len(snap_bytes) >= 13:
             parsed = {
                 "game_state":       GAME_STATE_MAP.get(snap_bytes[0], f"UNKNOWN_{snap_bytes[0]}"),
                 "player_x":         snap_bytes[1],
@@ -292,7 +300,9 @@ class EmulatorSession:
                 "battle_turn":      BATTLE_TURN_MAP.get(snap_bytes[7], f"UNKNOWN_{snap_bytes[7]}"),
                 "battle_result":    BATTLE_RESULT_MAP.get(snap_bytes[8], f"UNKNOWN_{snap_bytes[8]}"),
                 "battle_player_hp": snap_bytes[9],
-                "battle_enemy_hp":  snap_bytes[10]
+                "battle_enemy_hp":  snap_bytes[10],
+                "map_id":           MAP_NAME_MAP.get(snap_bytes[11], f"UNKNOWN_{snap_bytes[11]}"),
+                "story_flags":      snap_bytes[12]
             }
             self.current_snapshot = parsed
             return parsed

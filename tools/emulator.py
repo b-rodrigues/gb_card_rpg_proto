@@ -360,6 +360,15 @@ class EmulatorSession:
             return parsed
         return self.current_snapshot
 
+    def get_screen_dump(self):
+        """Read 20x18 VRAM background tilemap from 0x9800 and return ASCII screen dump."""
+        rows = []
+        for y in range(18):
+            row_bytes = self._read_mem_bytes(0x9800 + y * 32, 20)
+            row_str = "".join(chr(b) if 32 <= b <= 126 else "." for b in row_bytes)
+            rows.append(row_str)
+        return "\n".join(rows)
+
     def get_telemetry(self, since_seq=None):
         """
         Read telemetry ring buffer from ROM memory in strict chronological order [oldest -> newest].

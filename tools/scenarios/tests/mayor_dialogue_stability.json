@@ -1,0 +1,46 @@
+{
+  "name": "mayor_dialogue_stability",
+  "test": true,
+  "description": "Interact with Mayor NPC and wait 300 frames (5 seconds) with zero input, asserting dialogue remains active, line 0 unchanged, and RENDER_DIALOGUE emitted cleanly",
+  "scenario_id": "MAYOR_ENCOUNTER",
+  "actions": [
+    {
+      "type": "press",
+      "button": "RIGHT"
+    },
+    {
+      "type": "wait",
+      "frames": 300
+    }
+  ],
+  "assertions": [
+    {
+      "type": "game_state",
+      "expected": "OVERWORLD"
+    },
+    {
+      "type": "player_facing",
+      "expected": "RIGHT"
+    },
+    {
+      "type": "event_occurred",
+      "event": "DIALOGUE_STARTED"
+    },
+    {
+      "type": "event_occurred",
+      "event": "RENDER_DIALOGUE"
+    },
+    {
+      "type": "dialogue_active",
+      "expected": true
+    },
+    {
+      "type": "dialogue_line",
+      "expected": 0
+    },
+    {
+      "type": "dialogue_id",
+      "expected": "MAYOR_GREETING"
+    }
+  ]
+}

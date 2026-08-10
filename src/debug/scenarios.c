@@ -280,5 +280,5 @@ void scenario_check_and_load(void)
     } else if (sc == 9) {
         load_guard_dialogue();
     }
-    game_render_reset();
+    game_render_reset(&g_game);
 }

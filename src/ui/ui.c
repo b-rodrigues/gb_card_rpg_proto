@@ -46,7 +46,7 @@ void ui_clear_screen(void)
     }
 }
 
-void ui_draw_world_full(const World *world)
+void ui_draw_world_map(const World *world)
 {
     uint8_t x, y;
     uint8_t t;
@@ -54,8 +54,6 @@ void ui_draw_world_full(const World *world)
     const NpcDef *npc_def;
 
     if (!world) return;
-
-    ui_clear_screen();
 
     for (y = 0; y < WORLD_HEIGHT; y++) {
         for (x = 0; x < WORLD_WIDTH; x++) {
@@ -78,6 +76,11 @@ void ui_draw_world_full(const World *world)
             setchar(tile_ch);
         }
     }
+}
+
+void ui_draw_overworld_hud(const World *world)
+{
+    if (!world) return;
 
     ui_draw_text_line(0, 12, "====================", 20);
     gotoxy(0, 13);
@@ -90,6 +93,14 @@ void ui_draw_world_full(const World *world)
     ui_draw_text_line(0, 15, "", 20);
     ui_draw_text_line(0, 16, "", 20);
     ui_draw_text_line(0, 17, " [D-PAD] MOVE HERO", 20);
+}
+
+void ui_draw_world_full(const World *world)
+{
+    if (!world) return;
+    ui_clear_screen();
+    ui_draw_world_map(world);
+    ui_draw_overworld_hud(world);
 }
 
 void ui_update_player_position(const World *world, uint8_t old_x, uint8_t old_y, uint8_t new_x, uint8_t new_y)
@@ -193,21 +204,31 @@ void ui_draw_dialogue(const DialogueState *dialogue)
     if (!dialogue || !dialogue->active) return;
 
     /* Dialogue box occupies dedicated modal overlay region: rows 12-17 (6 rows, 20 columns) */
-    ui_draw_text_line(0, 12, "====================", 20);
+    ui_draw_text_line(0, 12, "+------------------+", 20);
 
     gotoxy(0, 13);
-    setchar(' ');
+    setchar('|');
     ui_draw_text_line(1, 13, dialogue->speaker ? dialogue->speaker : "", 18);
     gotoxy(19, 13);
-    setchar(' ');
+    setchar('|');
 
     gotoxy(0, 14);
-    setchar(' ');
+    setchar('|');
     ui_draw_text_line(1, 14, dialogue->lines[dialogue->current_line], 18);
     gotoxy(19, 14);
-    setchar(' ');
+    setchar('|');
 
-    ui_draw_text_line(0, 15, "", 20);
-    ui_draw_text_line(0, 16, "", 20);
-    ui_draw_text_line(0, 17, " [A] CONTINUE", 20);
+    gotoxy(0, 15);
+    setchar('|');
+    ui_draw_text_line(1, 15, "", 18);
+    gotoxy(19, 15);
+    setchar('|');
+
+    gotoxy(0, 16);
+    setchar('|');
+    ui_draw_text_line(1, 16, " [A] CONTINUE", 18);
+    gotoxy(19, 16);
+    setchar('|');
+
+    ui_draw_text_line(0, 17, "+------------------+", 20);
 }

@@ -5,7 +5,15 @@
 #include <stdbool.h>
 
 #define WORLD_WIDTH  20
-#define WORLD_HEIGHT 14
+#define WORLD_HEIGHT 12
+
+typedef enum {
+    MOVE_RESULT_NONE        = 0,
+    MOVE_RESULT_BLOCKED     = 1,
+    MOVE_RESULT_MOVED       = 2,
+    MOVE_RESULT_MAP_CHANGED = 3,
+    MOVE_RESULT_ENCOUNTER   = 4
+} WorldMoveResult;
 
 typedef enum {
     MAP_FIELD = 0,
@@ -35,7 +43,7 @@ void world_init(World *w);
 void world_load_map(World *w, MapId map_id);
 void world_change_map(World *w, MapId map_id, uint8_t spawn_x, uint8_t spawn_y);
 bool world_is_walkable(const World *w, uint8_t x, uint8_t y);
-void world_move_player(World *w, int8_t dx, int8_t dy);
+WorldMoveResult world_move_player(World *w, int8_t dx, int8_t dy);
 void world_on_battle_end(World *w, bool victory);
 void world_set_player_pos(World *w, uint8_t x, uint8_t y);
 void world_set_enemy_pos(World *w, uint8_t x, uint8_t y);

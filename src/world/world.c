@@ -76,14 +76,14 @@ bool world_is_walkable(const World *w, uint8_t x, uint8_t y)
     return true;
 }
 
-void world_move_player(World *w, int8_t dx, int8_t dy)
+WorldMoveResult world_move_player(World *w, int8_t dx, int8_t dy)
 {
     uint8_t old_x, old_y;
     uint8_t target_x, target_y;
     uint8_t target_tile;
     const NpcDef *npc_hit;
 
-    if (!w) return;
+    if (!w) return MOVE_RESULT_NONE;
 
     if (dy < 0) w->player.facing = DIRECTION_UP;
     else if (dy > 0) w->player.facing = DIRECTION_DOWN;
@@ -94,30 +94,30 @@ void world_move_player(World *w, int8_t dx, int8_t dy)
     target_y = (uint8_t)((int16_t)w->player.position.y + dy);
 
     if (!world_is_walkable(w, target_x, target_y)) {
-        return;
+        return MOVE_RESULT_BLOCKED;
     }
 
     target_tile = w->map[target_y][target_x];
 
     if (target_tile == TILE_FIELD_EXIT) {
         world_change_map(w, MAP_TOWN, 2, 7);
-        return;
+        return MOVE_RESULT_MAP_CHANGED;
     } else if (target_tile == TILE_TOWN_EXIT) {
         world_change_map(w, MAP_FIELD, 17, 7);
-        return;
+        return MOVE_RESULT_MAP_CHANGED;
     }
 
     if (w->enemy.active && target_x == w->enemy.position.x && target_y == w->enemy.position.y) {
         telemetry_emit(EVENT_COLLISION, target_x, target_y, (uint8_t)ENTITY_ENEMY, 0);
         telemetry_emit(EVENT_ENCOUNTER_STARTED, w->enemy.type, 0, 0, 0);
         w->encounter_triggered = true;
-        return;
+        return MOVE_RESULT_ENCOUNTER;
     }
 
     npc_hit = npc_find_at(w->map_id, target_x, target_y);
     if (npc_hit && npc_hit->active) {
         telemetry_emit(EVENT_COLLISION, target_x, target_y, (uint8_t)ENTITY_NPC, (uint8_t)npc_hit->id);
-        return;
+        return MOVE_RESULT_BLOCKED;
     }
 
     old_x = w->player.position.x;
@@ -125,6 +125,7 @@ void world_move_player(World *w, int8_t dx, int8_t dy)
     w->player.position.x = target_x;
     w->player.position.y = target_y;
     telemetry_emit(EVENT_PLAYER_MOVED, old_x, old_y, target_x, target_y);
+    return MOVE_RESULT_MOVED;
 }
 
 void world_on_battle_end(World *w, bool victory)

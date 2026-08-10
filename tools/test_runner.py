@@ -10,15 +10,16 @@ import json
 import glob
 import os
 import sys
-from emulator import EmulatorSession, STORY_FLAG_ID_MAP, SCENARIO_IDS
+from emulator import EmulatorSession, STORY_FLAG_ID_MAP, DIALOGUE_ID_MAP, SCENARIO_IDS
 
 VALID_ASSERTION_TYPES = {
     "game_state", "player_position", "player_hp", "music_track",
     "enemy_hp", "battle_turn", "battle_result", "story_flag",
-    "event_occurred", "event_not_occurred", "dialogue_active", "dialogue_line"
+    "event_occurred", "event_not_occurred", "dialogue_active", "dialogue_line", "dialogue_id"
 }
 
 VALID_STORY_FLAGS = set(STORY_FLAG_ID_MAP.values())
+VALID_DIALOGUE_IDS = set(DIALOGUE_ID_MAP.values())
 
 def validate_scenario(data, filepath):
     scen_id = data.get("scenario_id")
@@ -33,6 +34,10 @@ def validate_scenario(data, filepath):
         flag = a.get("flag")
         if flag and flag not in VALID_STORY_FLAGS:
             raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown story flag '{flag}'. Valid flags: {sorted(list(VALID_STORY_FLAGS))}")
+
+        dlg = a.get("dialogue_id")
+        if dlg and dlg not in VALID_DIALOGUE_IDS:
+            raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown dialogue_id '{dlg}'. Valid IDs: {sorted(list(VALID_DIALOGUE_IDS))}")
 
 def load_scenarios(scenarios_dir="tools/scenarios"):
     """Load all JSON scenario files from directory and subdirectories with strict validation."""
@@ -143,6 +148,10 @@ def run_scenario(scenario):
         elif a_type == "dialogue_line":
             actual = snap.get("dialogue_line", 0)
             passed = (actual == int(expected))
+
+        elif a_type == "dialogue_id":
+            actual = snap.get("dialogue_id_name", "NONE")
+            passed = (actual == expected)
 
         elif a_type == "event_occurred":
             exp_event = a.get("event", expected)

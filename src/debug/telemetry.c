@@ -70,7 +70,8 @@ void debug_snapshot(void)
     g_snap_buf[9] = g->battle.player.hp;
     g_snap_buf[10] = g->battle.enemy.hp;
     g_snap_buf[11] = (uint8_t)g->world.map_id;
-    g_snap_buf[12] = (uint8_t)g->story_flags;
+    g_snap_buf[12] = (uint8_t)g->story_flags; /* Low 8 bits of story_flags bitfield */
     g_snap_buf[13] = g->dialogue.active ? 1 : 0;
     g_snap_buf[14] = g->dialogue.current_line;
+    g_snap_buf[15] = (uint8_t)g->dialogue.id;
 }

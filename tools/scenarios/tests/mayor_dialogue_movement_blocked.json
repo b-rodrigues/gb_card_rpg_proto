@@ -1,0 +1,47 @@
+{
+  "name": "mayor_dialogue_movement_blocked",
+  "test": true,
+  "description": "Verify movement directional inputs are locked while dialogue overlay is active",
+  "scenario_id": "MAYOR_DIALOGUE_MOVEMENT_BLOCKED",
+  "actions": [
+    {
+      "type": "press",
+      "button": "RIGHT"
+    },
+    {
+      "type": "press",
+      "button": "UP"
+    },
+    {
+      "type": "press",
+      "button": "DOWN"
+    },
+    {
+      "type": "press",
+      "button": "LEFT"
+    }
+  ],
+  "assertions": [
+    {
+      "type": "game_state",
+      "expected": "OVERWORLD"
+    },
+    {
+      "type": "dialogue_active",
+      "expected": true
+    },
+    {
+      "type": "dialogue_line",
+      "expected": 0
+    },
+    {
+      "type": "dialogue_id",
+      "expected": "MAYOR_GREETING"
+    },
+    {
+      "type": "player_position",
+      "expected_x": 9,
+      "expected_y": 5
+    }
+  ]
+}

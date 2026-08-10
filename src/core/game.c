@@ -76,7 +76,7 @@ static void update_overworld(Game *g)
         uint8_t dist_y = (py > ny) ? (py - ny) : (ny - py);
 
         if ((dist_x + dist_y == 1) && (input_pressed(INPUT_A) || (dx != 0 || dy != 0))) {
-            dialogue_start(&g->dialogue, "Mayor", g_mayor_lines, 2);
+            dialogue_start(&g->dialogue, DIALOGUE_ID_MAYOR_GREETING, "MAYOR:", g_mayor_lines, 2);
             ui_draw_dialogue(&g->dialogue);
             return;
         }

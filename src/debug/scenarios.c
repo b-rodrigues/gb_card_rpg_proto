@@ -197,6 +197,33 @@ static void load_mayor_dialogue(void)
     debug_snapshot();
 }
 
+static void load_mayor_dialogue_movement_blocked(void)
+{
+    World *w = &g_game.world;
+    GameStateMachine *sm = &g_game.state_machine;
+
+    sm->current = GAME_STATE_OVERWORLD;
+    sm->previous = GAME_STATE_OVERWORLD;
+    sm->state_changed = false;
+
+    world_init(w);
+    world_load_map(w, MAP_TOWN);
+    w->player.position.x = 9;
+    w->player.position.y = 5;
+    w->encounter_triggered = false;
+    dialogue_init(&g_game.dialogue);
+
+    g_game.frame = 0;
+    g_game.story_flags = STORY_FLAG_ARRIVED_TOWN;
+
+    rng_set_seed(1004);
+    input_reset();
+    telemetry_init();
+    telemetry_set_frame_ptr(&g_game.frame);
+    audio_play_music(MUSIC_OVERWORLD);
+    debug_snapshot();
+}
+
 void scenario_check_and_load(void)
 {
     uint8_t sc = g_scen_load;
@@ -221,5 +248,8 @@ void scenario_check_and_load(void)
     } else if (sc == 7) {
         g_scen_load = 0;
         load_mayor_dialogue();
+    } else if (sc == 8) {
+        g_scen_load = 0;
+        load_mayor_dialogue_movement_blocked();
     }
 }

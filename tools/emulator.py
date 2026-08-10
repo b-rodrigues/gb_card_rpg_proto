@@ -51,6 +51,11 @@ STORY_FLAG_ID_MAP = {
     2: "MET_MAYOR"
 }
 
+DIALOGUE_ID_MAP = {
+    0: "NONE",
+    1: "MAYOR_GREETING"
+}
+
 EVENT_TYPE_MAP = {
     0: "PLAYER_MOVED",
     1: "COLLISION",
@@ -90,7 +95,8 @@ SCENARIO_IDS = {
     "TOWN_DEPARTURE": 4,
     "TOWN_REENTRY": 5,
     "MAYOR_ENCOUNTER": 6,
-    "MAYOR_DIALOGUE": 7
+    "MAYOR_DIALOGUE": 7,
+    "MAYOR_DIALOGUE_MOVEMENT_BLOCKED": 8
 }
 
 def decode_story_flags(flags_mask):
@@ -326,7 +332,9 @@ class EmulatorSession:
                 "story_flags":         snap_bytes[12],
                 "story_flags_active":  decode_story_flags(snap_bytes[12]),
                 "dialogue_active":     bool(snap_bytes[13]) if len(snap_bytes) >= 15 else False,
-                "dialogue_line":       snap_bytes[14] if len(snap_bytes) >= 15 else 0
+                "dialogue_line":       snap_bytes[14] if len(snap_bytes) >= 15 else 0,
+                "dialogue_id":         snap_bytes[15] if len(snap_bytes) >= 16 else 0,
+                "dialogue_id_name":    DIALOGUE_ID_MAP.get(snap_bytes[15], f"UNKNOWN_{snap_bytes[15]}") if len(snap_bytes) >= 16 else "NONE"
             }
             self.current_snapshot = parsed
             return parsed
@@ -344,18 +352,13 @@ class EmulatorSession:
         head_addr = self.get_symbol("g_telemetry_head")
         buf_addr = self.get_symbol("g_telemetry_buffer")
 
-        count_bytes = self._read_mem_bytes(count_addr, 1)
+        count_bytes = self._read_mem_bytes(count_addr, 2)
+        count = count_bytes[0] | (count_bytes[1] << 8) if len(count_bytes) >= 2 else 0
+
         head_bytes = self._read_mem_bytes(head_addr, 1)
+        head = head_bytes[0] if len(head_bytes) >= 1 else 0
 
-        if not count_bytes or not head_bytes:
-            return TelemetryEventList([])
-
-        count = count_bytes[0]
-        head = head_bytes[0]
-
-        if count == 0:
-            return TelemetryEventList([])
-
+        # Read entire telemetry ring buffer from ROM RAM
         total_bytes_needed = (TELEMETRY_CAPACITY if count >= TELEMETRY_CAPACITY else count) * TELEMETRY_EVENT_SIZE
         raw_bytes = self._read_mem_bytes(buf_addr, total_bytes_needed)
 
@@ -386,6 +389,10 @@ class EmulatorSession:
                 flag_id = data[0]
                 ev_obj["flag_id"] = flag_id
                 ev_obj["flag_name"] = STORY_FLAG_ID_MAP.get(flag_id, f"FLAG_{flag_id}")
+            elif ev_type_str in ("DIALOGUE_STARTED", "DIALOGUE_NEXT", "DIALOGUE_ENDED"):
+                dialogue_id = data[0]
+                ev_obj["dialogue_id"] = dialogue_id
+                ev_obj["dialogue_id_name"] = DIALOGUE_ID_MAP.get(dialogue_id, f"UNKNOWN_{dialogue_id}")
 
             all_chronological_events.append(ev_obj)
 

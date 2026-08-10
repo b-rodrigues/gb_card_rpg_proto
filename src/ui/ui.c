@@ -156,10 +156,12 @@ void ui_draw_dialogue(const DialogueState *dialogue)
 
     gotoxy(0, 13);
     printf("====================");
-    gotoxy(1, 14);
-    printf("%-18s", dialogue->speaker ? dialogue->speaker : "");
-    gotoxy(1, 15);
-    printf("%-18s", dialogue->lines[dialogue->current_line]);
+    gotoxy(0, 14);
+    printf(" %-18s ", dialogue->speaker ? dialogue->speaker : "");
+    gotoxy(0, 15);
+    printf(" %-18s ", dialogue->lines[dialogue->current_line]);
+    gotoxy(0, 16);
+    printf("                    ");
     gotoxy(0, 17);
-    printf("[A] CONTINUE        ");
+    printf(" [A] CONTINUE       ");
 }

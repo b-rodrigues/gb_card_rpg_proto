@@ -7,7 +7,7 @@ static const DialogueDefinition g_dialogue_defs[] = {
         DIALOGUE_ID_MAYOR_GREETING,
         "MAYOR:",
         2,
-        {"Welcome, traveler.", "Road is dangerous.", "", ""},
+        {"Hello! I am Mayor.", "Welcome to town!", "", ""},
         STORY_FLAG_ID_MET_MAYOR
     },
     {

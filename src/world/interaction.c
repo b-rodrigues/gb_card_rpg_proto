@@ -40,6 +40,8 @@ bool interaction_try_facing(const World *world, DialogueState *dialogue)
     target_x = (uint8_t)((int16_t)px + dx);
     target_y = (uint8_t)((int16_t)py + dy);
 
+    telemetry_emit(EVENT_INTERACTION_ATTEMPT, target_x, target_y, (uint8_t)world->player.facing, 0);
+
     return interaction_try_at(world->map_id, target_x, target_y, dialogue);
 }
 

@@ -39,5 +39,6 @@ void world_move_player(World *w, int8_t dx, int8_t dy);
 void world_on_battle_end(World *w, bool victory);
 void world_set_player_pos(World *w, uint8_t x, uint8_t y);
 void world_set_enemy_pos(World *w, uint8_t x, uint8_t y);
+void world_set_player_facing(World *w, Direction facing);
 
 #endif /* WORLD_H */

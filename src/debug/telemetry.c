@@ -2,7 +2,7 @@
 #include "audio.h"
 #include <string.h>
 
-uint8_t g_snap_buf[16] = {0};
+uint8_t g_snap_buf[17] = {0};
 GameEvent g_telemetry_buffer[MAX_TELEMETRY_EVENTS] = {{0}};
 uint8_t g_telemetry_count = 0;
 uint8_t g_telemetry_head = 0;
@@ -74,4 +74,5 @@ void debug_snapshot(void)
     g_snap_buf[13] = g->dialogue.active ? 1 : 0;
     g_snap_buf[14] = g->dialogue.current_line;
     g_snap_buf[15] = (uint8_t)g->dialogue.id;
+    g_snap_buf[16] = (uint8_t)g->world.player.facing;
 }

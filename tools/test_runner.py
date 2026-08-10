@@ -13,7 +13,7 @@ import sys
 from emulator import EmulatorSession, STORY_FLAG_ID_MAP, DIALOGUE_ID_MAP, SCENARIO_IDS
 
 VALID_ASSERTION_TYPES = {
-    "game_state", "player_position", "player_hp", "music_track",
+    "game_state", "player_position", "player_facing", "player_hp", "music_track",
     "enemy_hp", "battle_turn", "battle_result", "story_flag",
     "event_occurred", "event_not_occurred", "dialogue_active", "dialogue_line", "dialogue_id"
 }
@@ -115,6 +115,10 @@ def run_scenario(scenario):
             actual = f"({act_x},{act_y})"
             expected = f"({exp_x},{exp_y})"
             passed = (act_x == exp_x and act_y == exp_y)
+
+        elif a_type == "player_facing":
+            actual = snap.get("player_facing", "UNKNOWN")
+            passed = (actual == expected)
 
         elif a_type == "music_track":
             actual = snap.get("music_track", "UNKNOWN")

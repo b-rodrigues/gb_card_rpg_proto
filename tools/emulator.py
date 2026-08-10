@@ -74,7 +74,15 @@ EVENT_TYPE_MAP = {
     14: "STORY_FLAG_CLEARED",
     15: "DIALOGUE_STARTED",
     16: "DIALOGUE_NEXT",
-    17: "DIALOGUE_ENDED"
+    17: "DIALOGUE_ENDED",
+    18: "INTERACTION_ATTEMPT"
+}
+
+DIRECTION_MAP = {
+    0: "UP",
+    1: "DOWN",
+    2: "LEFT",
+    3: "RIGHT"
 }
 
 BUTTON_MASKS = {
@@ -313,9 +321,9 @@ class EmulatorSession:
         self.step(frames)
 
     def snapshot(self):
-        """Read full 16-byte snapshot from ROM memory at _g_snap_buf."""
+        """Read full 17-byte snapshot from ROM memory at _g_snap_buf."""
         addr = self.get_symbol("g_snap_buf")
-        snap_bytes = self._read_mem_bytes(addr, 16)
+        snap_bytes = self._read_mem_bytes(addr, 17)
         if len(snap_bytes) >= 13:
             parsed = {
                 "game_state":       GAME_STATE_MAP.get(snap_bytes[0], f"UNKNOWN_{snap_bytes[0]}"),
@@ -332,10 +340,11 @@ class EmulatorSession:
                 "map_id":              MAP_NAME_MAP.get(snap_bytes[11], f"UNKNOWN_{snap_bytes[11]}"),
                 "story_flags":         snap_bytes[12],
                 "story_flags_active":  decode_story_flags(snap_bytes[12]),
-                "dialogue_active":     bool(snap_bytes[13]) if len(snap_bytes) >= 15 else False,
+                "dialogue_active":     bool(snap_bytes[13]) if len(snap_bytes) >= 14 else False,
                 "dialogue_line":       snap_bytes[14] if len(snap_bytes) >= 15 else 0,
                 "dialogue_id":         snap_bytes[15] if len(snap_bytes) >= 16 else 0,
-                "dialogue_id_name":    DIALOGUE_ID_MAP.get(snap_bytes[15], f"UNKNOWN_{snap_bytes[15]}") if len(snap_bytes) >= 16 else "NONE"
+                "dialogue_id_name":    DIALOGUE_ID_MAP.get(snap_bytes[15], f"UNKNOWN_{snap_bytes[15]}") if len(snap_bytes) >= 16 else "NONE",
+                "player_facing":       DIRECTION_MAP.get(snap_bytes[16], f"UNKNOWN_{snap_bytes[16]}") if len(snap_bytes) >= 17 else "UNKNOWN"
             }
             self.current_snapshot = parsed
             return parsed

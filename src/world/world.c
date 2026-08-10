@@ -151,3 +151,9 @@ void world_set_enemy_pos(World *w, uint8_t x, uint8_t y)
     w->enemy.position.x = x;
     w->enemy.position.y = y;
 }
+
+void world_set_player_facing(World *w, Direction facing)
+{
+    if (!w) return;
+    w->player.facing = facing;
+}

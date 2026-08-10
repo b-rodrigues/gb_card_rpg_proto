@@ -156,6 +156,7 @@ static void load_mayor_encounter(void)
     world_load_map(w, MAP_TOWN);
     w->player.position.x = 9;
     w->player.position.y = 5;
+    w->player.facing = DIRECTION_RIGHT;
     w->encounter_triggered = false;
     dialogue_init(&g_game.dialogue);
 
@@ -183,6 +184,7 @@ static void load_mayor_dialogue(void)
     world_load_map(w, MAP_TOWN);
     w->player.position.x = 9;
     w->player.position.y = 5;
+    w->player.facing = DIRECTION_RIGHT;
     w->encounter_triggered = false;
     dialogue_init(&g_game.dialogue);
 
@@ -210,6 +212,7 @@ static void load_mayor_dialogue_movement_blocked(void)
     world_load_map(w, MAP_TOWN);
     w->player.position.x = 9;
     w->player.position.y = 5;
+    w->player.facing = DIRECTION_RIGHT;
     w->encounter_triggered = false;
     dialogue_init(&g_game.dialogue);
 
@@ -237,6 +240,7 @@ static void load_guard_dialogue(void)
     world_load_map(w, MAP_TOWN);
     w->player.position.x = 9;
     w->player.position.y = 8;
+    w->player.facing = DIRECTION_RIGHT;
     w->encounter_triggered = false;
     dialogue_init(&g_game.dialogue);
 

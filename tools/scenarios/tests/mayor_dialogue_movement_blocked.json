@@ -27,6 +27,10 @@
       "expected": "OVERWORLD"
     },
     {
+      "type": "player_facing",
+      "expected": "RIGHT"
+    },
+    {
       "type": "dialogue_active",
       "expected": true
     },

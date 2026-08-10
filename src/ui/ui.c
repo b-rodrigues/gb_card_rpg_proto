@@ -1,4 +1,5 @@
 #include "ui.h"
+#include "npc.h"
 #include <gb/gb.h>
 #include <gb/cgb.h>
 #include <gbdk/font.h>
@@ -50,6 +51,7 @@ void ui_draw_world_full(const World *world)
     uint8_t x, y;
     uint8_t t;
     char tile_ch;
+    const NpcDef *npc_def;
 
     if (!world) return;
 
@@ -57,12 +59,13 @@ void ui_draw_world_full(const World *world)
 
     for (y = 0; y < WORLD_HEIGHT; y++) {
         for (x = 0; x < WORLD_WIDTH; x++) {
+            npc_def = npc_find_at(world->map_id, x, y);
             if (world->player.position.x == x && world->player.position.y == y) {
                 tile_ch = '@';
             } else if (world->enemy.active && world->enemy.position.x == x && world->enemy.position.y == y) {
                 tile_ch = 'E';
-            } else if (world->npc.active && world->npc.position.x == x && world->npc.position.y == y) {
-                tile_ch = 'M';
+            } else if (npc_def) {
+                tile_ch = (npc_def->id == ENTITY_ID_GUARD) ? 'G' : 'M';
             } else {
                 t = world->map[y][x];
                 if (t == TILE_WALL) tile_ch = '#';

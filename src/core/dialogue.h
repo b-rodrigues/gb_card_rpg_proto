@@ -3,14 +3,24 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "story.h"
 
 #define MAX_DIALOGUE_LINES 4
 
 typedef enum {
     DIALOGUE_ID_NONE = 0,
     DIALOGUE_ID_MAYOR_GREETING = 1,
-    DIALOGUE_ID_COUNT = 2
+    DIALOGUE_ID_GUARD_GREETING = 2,
+    DIALOGUE_ID_COUNT = 3
 } DialogueId;
+
+typedef struct {
+    DialogueId id;
+    const char *speaker;
+    uint8_t line_count;
+    const char *lines[MAX_DIALOGUE_LINES];
+    StoryFlagId completion_flag;
+} DialogueDefinition;
 
 typedef struct {
     bool active;
@@ -19,11 +29,14 @@ typedef struct {
     uint8_t line_count;
     const char *speaker;
     const char *lines[MAX_DIALOGUE_LINES];
+    StoryFlagId completion_flag;
 } DialogueState;
 
 void dialogue_init(DialogueState *d);
+const DialogueDefinition *dialogue_get_def(DialogueId id);
 void dialogue_start(DialogueState *d, DialogueId id, const char *speaker, const char **lines, uint8_t count);
+void dialogue_start_def(DialogueState *d, DialogueId id);
 bool dialogue_next(DialogueState *d);
-void dialogue_end(DialogueState *d);
+DialogueId dialogue_end(DialogueState *d);
 
 #endif /* DIALOGUE_H */

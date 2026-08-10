@@ -1,13 +1,9 @@
 #include "game.h"
 #include "story.h"
 #include "dialogue.h"
+#include "interaction.h"
 #include "telemetry.h"
 #include "scenarios.h"
-
-static const char *g_mayor_lines[2] = {
-    "Welcome, traveler.",
-    "Road is dangerous."
-};
 
 void game_init(Game *g)
 {
@@ -33,13 +29,14 @@ static void update_overworld(Game *g)
     int8_t dx = 0;
     int8_t dy = 0;
     uint8_t old_x, old_y;
+    uint8_t px, py;
 
     if (g->dialogue.active) {
         if (input_pressed(INPUT_A)) {
             if (dialogue_next(&g->dialogue)) {
                 ui_draw_dialogue(&g->dialogue);
             } else {
-                story_set_flag(&g->story_flags, STORY_FLAG_ID_MET_MAYOR);
+                interaction_on_dialogue_end(&g->dialogue, &g->story_flags);
                 ui_draw_world_full(&g->world);
             }
         }
@@ -64,19 +61,15 @@ static void update_overworld(Game *g)
         }
     }
 
-    /* Check NPC Mayor interaction (A press or adjacent bump) */
-    if (g->world.map_id == MAP_TOWN && g->world.npc.active) {
-        uint8_t px = g->world.player.position.x;
-        uint8_t py = g->world.player.position.y;
-        uint8_t nx = g->world.npc.position.x;
-        uint8_t ny = g->world.npc.position.y;
+    /* Check generic NPC interaction on A press or directional movement bump */
+    px = g->world.player.position.x;
+    py = g->world.player.position.y;
 
-        /* Adjacent check: dist_x + dist_y == 1 */
-        uint8_t dist_x = (px > nx) ? (px - nx) : (nx - px);
-        uint8_t dist_y = (py > ny) ? (py - ny) : (ny - py);
-
-        if ((dist_x + dist_y == 1) && (input_pressed(INPUT_A) || (dx != 0 || dy != 0))) {
-            dialogue_start(&g->dialogue, DIALOGUE_ID_MAYOR_GREETING, "MAYOR:", g_mayor_lines, 2);
+    if (input_pressed(INPUT_A) || dx != 0 || dy != 0) {
+        if (interaction_try_at(g->world.map_id, (uint8_t)(px + 1), py, &g->dialogue) ||
+            interaction_try_at(g->world.map_id, (uint8_t)(px - 1), py, &g->dialogue) ||
+            interaction_try_at(g->world.map_id, px, (uint8_t)(py + 1), &g->dialogue) ||
+            interaction_try_at(g->world.map_id, px, (uint8_t)(py - 1), &g->dialogue)) {
             ui_draw_dialogue(&g->dialogue);
             return;
         }

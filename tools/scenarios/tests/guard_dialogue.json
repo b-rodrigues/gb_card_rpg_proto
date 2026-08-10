@@ -1,0 +1,56 @@
+{
+  "name": "guard_dialogue",
+  "test": true,
+  "description": "Interact with Guard NPC in Town: triggers GUARD_GREETING dialogue and does NOT trigger MET_MAYOR story flag",
+  "scenario_id": "GUARD_DIALOGUE",
+  "actions": [
+    {
+      "type": "press",
+      "button": "RIGHT"
+    },
+    {
+      "type": "press",
+      "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "A"
+    }
+  ],
+  "assertions": [
+    {
+      "type": "game_state",
+      "expected": "OVERWORLD"
+    },
+    {
+      "type": "event_occurred",
+      "event": "DIALOGUE_STARTED"
+    },
+    {
+      "type": "event_occurred",
+      "event": "DIALOGUE_NEXT"
+    },
+    {
+      "type": "event_occurred",
+      "event": "DIALOGUE_ENDED"
+    },
+    {
+      "type": "event_not_occurred",
+      "event": "STORY_FLAG_SET",
+      "flag": "MET_MAYOR"
+    },
+    {
+      "type": "story_flag",
+      "flag": "MET_MAYOR",
+      "expected": false
+    },
+    {
+      "type": "dialogue_active",
+      "expected": false
+    }
+  ]
+}

@@ -96,7 +96,8 @@ SCENARIO_IDS = {
     "TOWN_REENTRY": 5,
     "MAYOR_ENCOUNTER": 6,
     "MAYOR_DIALOGUE": 7,
-    "MAYOR_DIALOGUE_MOVEMENT_BLOCKED": 8
+    "MAYOR_DIALOGUE_MOVEMENT_BLOCKED": 8,
+    "GUARD_DIALOGUE": 9
 }
 
 def decode_story_flags(flags_mask):

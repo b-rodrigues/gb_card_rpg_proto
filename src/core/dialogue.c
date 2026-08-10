@@ -2,6 +2,36 @@
 #include "telemetry.h"
 #include <stddef.h>
 
+static const DialogueDefinition g_dialogue_defs[] = {
+    {
+        DIALOGUE_ID_MAYOR_GREETING,
+        "MAYOR:",
+        2,
+        {"Welcome, traveler.", "Road is dangerous.", "", ""},
+        STORY_FLAG_ID_MET_MAYOR
+    },
+    {
+        DIALOGUE_ID_GUARD_GREETING,
+        "GUARD:",
+        2,
+        {"Halt! Keep peace.", "Watch for slimes.", "", ""},
+        0
+    }
+};
+
+#define NUM_DIALOGUE_DEFS (sizeof(g_dialogue_defs) / sizeof(g_dialogue_defs[0]))
+
+const DialogueDefinition *dialogue_get_def(DialogueId id)
+{
+    uint8_t i;
+    for (i = 0; i < NUM_DIALOGUE_DEFS; i++) {
+        if (g_dialogue_defs[i].id == id) {
+            return &g_dialogue_defs[i];
+        }
+    }
+    return NULL;
+}
+
 void dialogue_init(DialogueState *d)
 {
     if (!d) return;
@@ -10,6 +40,7 @@ void dialogue_init(DialogueState *d)
     d->current_line = 0;
     d->line_count = 0;
     d->speaker = "";
+    d->completion_flag = 0;
 }
 
 void dialogue_start(DialogueState *d, DialogueId id, const char *speaker, const char **lines, uint8_t count)
@@ -24,6 +55,7 @@ void dialogue_start(DialogueState *d, DialogueId id, const char *speaker, const 
     d->current_line = 0;
     d->line_count = count;
     d->speaker = speaker ? speaker : "";
+    d->completion_flag = 0;
 
     for (i = 0; i < count; i++) {
         d->lines[i] = lines[i];
@@ -33,6 +65,14 @@ void dialogue_start(DialogueState *d, DialogueId id, const char *speaker, const 
     }
 
     telemetry_emit(EVENT_DIALOGUE_STARTED, (uint8_t)d->id, 0, 0, 0);
+}
+
+void dialogue_start_def(DialogueState *d, DialogueId id)
+{
+    const DialogueDefinition *def = dialogue_get_def(id);
+    if (!def) return;
+    dialogue_start(d, def->id, def->speaker, def->lines, def->line_count);
+    d->completion_flag = def->completion_flag;
 }
 
 bool dialogue_next(DialogueState *d)
@@ -47,12 +87,13 @@ bool dialogue_next(DialogueState *d)
     return true;
 }
 
-void dialogue_end(DialogueState *d)
+DialogueId dialogue_end(DialogueState *d)
 {
     DialogueId old_id;
-    if (!d || !d->active) return;
+    if (!d || !d->active) return DIALOGUE_ID_NONE;
     old_id = d->id;
     d->active = false;
     d->id = DIALOGUE_ID_NONE;
     telemetry_emit(EVENT_DIALOGUE_ENDED, (uint8_t)old_id, 0, 0, 0);
+    return old_id;
 }

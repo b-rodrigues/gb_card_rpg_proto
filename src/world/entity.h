@@ -17,6 +17,14 @@ typedef enum {
 } Direction;
 
 typedef enum {
+    ENTITY_ID_NONE = 0,
+    ENTITY_ID_PLAYER = 1,
+    ENTITY_ID_SLIME = 2,
+    ENTITY_ID_MAYOR = 3,
+    ENTITY_ID_GUARD = 4
+} EntityId;
+
+typedef enum {
     ENTITY_PLAYER,
     ENTITY_ENEMY,
     ENTITY_NPC

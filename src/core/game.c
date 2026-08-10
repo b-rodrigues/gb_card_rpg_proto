@@ -74,6 +74,7 @@ static void update_overworld(Game *g)
         world_move_player(&g->world, dx, dy);
 
         if (g->world.map_changed) {
+            g->world.map_changed = false;
             story_on_map_enter(&g->story_flags, g->world.map_id);
             return;
         }
@@ -198,7 +199,7 @@ void game_render(const Game *g)
     /* GAME_STATE_OVERWORLD rendering */
 
     /* Map transition */
-    if (g->world.map_id != s_prev_map_id || g->world.map_changed) {
+    if (g->world.map_id != s_prev_map_id) {
         ui_draw_world_full(&g->world);
         s_prev_map_id = g->world.map_id;
         s_prev_player_x = g->world.player.position.x;

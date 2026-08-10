@@ -143,5 +143,13 @@ void game_update(Game *g)
 
 void game_render(const Game *g)
 {
-    (void)g;
+    if (!g) return;
+
+    if (g->state_machine.current == GAME_STATE_BATTLE) {
+        ui_draw_battle_full(&g->battle);
+    } else {
+        if (g->dialogue.active) {
+            ui_draw_dialogue(&g->dialogue);
+        }
+    }
 }

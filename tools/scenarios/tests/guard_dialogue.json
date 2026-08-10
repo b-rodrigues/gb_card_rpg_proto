@@ -9,16 +9,24 @@
       "button": "RIGHT"
     },
     {
+      "type": "wait",
+      "frames": 10
+    },
+    {
       "type": "press",
       "button": "A"
     },
     {
       "type": "wait",
-      "frames": 1
+      "frames": 20
     },
     {
       "type": "press",
       "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 10
     }
   ],
   "assertions": [

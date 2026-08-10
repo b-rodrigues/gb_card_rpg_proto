@@ -40,7 +40,11 @@ bool interaction_try_facing(const World *world, DialogueState *dialogue)
     target_x = (uint8_t)((int16_t)px + dx);
     target_y = (uint8_t)((int16_t)py + dy);
 
-    telemetry_emit(EVENT_INTERACTION_ATTEMPT, target_x, target_y, (uint8_t)world->player.facing, 0);
+    {
+        const NpcDef *npc = npc_find_at(world->map_id, target_x, target_y);
+        uint8_t target_entity = npc ? (uint8_t)npc->id : 0;
+        telemetry_emit(EVENT_INTERACTION_ATTEMPT, target_x, target_y, (uint8_t)world->player.facing, target_entity);
+    }
 
     return interaction_try_at(world->map_id, target_x, target_y, dialogue);
 }

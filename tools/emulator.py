@@ -51,6 +51,14 @@ STORY_FLAG_ID_MAP = {
     2: "MET_MAYOR"
 }
 
+ENTITY_ID_MAP = {
+    0: "NONE",
+    1: "PLAYER",
+    2: "ENEMY",
+    3: "MAYOR",
+    4: "GUARD"
+}
+
 DIALOGUE_ID_MAP = {
     0: "NONE",
     1: "MAYOR_GREETING"
@@ -403,6 +411,11 @@ class EmulatorSession:
                 dialogue_id = data[0]
                 ev_obj["dialogue_id"] = dialogue_id
                 ev_obj["dialogue_id_name"] = DIALOGUE_ID_MAP.get(dialogue_id, f"UNKNOWN_{dialogue_id}")
+            elif ev_type_str == "INTERACTION_ATTEMPT":
+                ev_obj["target_x"] = data[0]
+                ev_obj["target_y"] = data[1]
+                ev_obj["facing"] = DIRECTION_MAP.get(data[2], f"UNKNOWN_{data[2]}")
+                ev_obj["target_entity"] = ENTITY_ID_MAP.get(data[3], f"UNKNOWN_{data[3]}")
 
             all_chronological_events.append(ev_obj)
 

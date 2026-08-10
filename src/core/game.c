@@ -5,35 +5,21 @@
 #include "telemetry.h"
 #include "scenarios.h"
 
-static GameState s_prev_state = (GameState)255;
-static MapId s_prev_map_id = (MapId)255;
-static uint8_t s_prev_player_x = 255;
-static uint8_t s_prev_player_y = 255;
-static bool s_prev_dialogue_active = false;
-static uint8_t s_prev_dialogue_line = 255;
-static DialogueId s_prev_dialogue_id = DIALOGUE_ID_NONE;
-static BattleTurn s_prev_battle_turn = (BattleTurn)255;
-static uint8_t s_prev_player_hp = 255;
-static uint8_t s_prev_enemy_hp = 255;
-static BattleResult s_prev_battle_result = (BattleResult)255;
-
 void game_render_reset(Game *g)
 {
-    s_prev_state = (GameState)255;
-    s_prev_map_id = (MapId)255;
-    s_prev_player_x = 255;
-    s_prev_player_y = 255;
-    s_prev_dialogue_active = false;
-    s_prev_dialogue_line = 255;
-    s_prev_dialogue_id = DIALOGUE_ID_NONE;
-    s_prev_battle_turn = (BattleTurn)255;
-    s_prev_player_hp = 255;
-    s_prev_enemy_hp = 255;
-    s_prev_battle_result = (BattleResult)255;
-
-    if (g) {
-        game_render(g);
-    }
+    if (!g) return;
+    g->render_cache.valid = false;
+    g->render_cache.prev_state = (GameState)255;
+    g->render_cache.prev_map_id = (MapId)255;
+    g->render_cache.prev_player_x = 255;
+    g->render_cache.prev_player_y = 255;
+    g->render_cache.prev_dialogue_active = false;
+    g->render_cache.prev_dialogue_line = 255;
+    g->render_cache.prev_dialogue_id = DIALOGUE_ID_NONE;
+    g->render_cache.prev_battle_turn = (BattleTurn)255;
+    g->render_cache.prev_player_hp = 255;
+    g->render_cache.prev_enemy_hp = 255;
+    g->render_cache.prev_battle_result = (BattleResult)255;
 }
 
 void game_init(Game *g)
@@ -50,6 +36,7 @@ void game_init(Game *g)
     telemetry_emit(EVENT_MUSIC_CHANGED, MUSIC_OVERWORLD, 0, 0, 0);
 
     game_render_reset(g);
+    game_render(g);
 
 #ifdef DEBUG_BUILD
     debug_snapshot();
@@ -160,75 +147,85 @@ void game_update(Game *g)
 
 void game_render(Game *g)
 {
+    RenderCache *rc;
+
     if (!g) return;
+    rc = &g->render_cache;
 
     /* Handle Battle State rendering */
     if (g->state_machine.current == GAME_STATE_BATTLE) {
-        if (s_prev_state != GAME_STATE_BATTLE) {
+        if (!rc->valid || rc->prev_state != GAME_STATE_BATTLE) {
             ui_draw_battle_full(&g->battle);
-            s_prev_state = GAME_STATE_BATTLE;
-            s_prev_battle_turn = g->battle.turn;
-            s_prev_player_hp = g->battle.player.hp;
-            s_prev_enemy_hp = g->battle.enemy.hp;
-            s_prev_battle_result = g->battle.result;
-        } else if (g->battle.turn != s_prev_battle_turn ||
-                   g->battle.player.hp != s_prev_player_hp ||
-                   g->battle.enemy.hp != s_prev_enemy_hp ||
-                   g->battle.result != s_prev_battle_result) {
+            telemetry_emit(EVENT_RENDER_SCREEN, (uint8_t)GAME_STATE_BATTLE, 0, 0, 0);
+            rc->valid = true;
+            rc->prev_state = GAME_STATE_BATTLE;
+            rc->prev_battle_turn = g->battle.turn;
+            rc->prev_player_hp = g->battle.player.hp;
+            rc->prev_enemy_hp = g->battle.enemy.hp;
+            rc->prev_battle_result = g->battle.result;
+        } else if (g->battle.turn != rc->prev_battle_turn ||
+                   g->battle.player.hp != rc->prev_player_hp ||
+                   g->battle.enemy.hp != rc->prev_enemy_hp ||
+                   g->battle.result != rc->prev_battle_result) {
             ui_update_battle(&g->battle);
-            s_prev_battle_turn = g->battle.turn;
-            s_prev_player_hp = g->battle.player.hp;
-            s_prev_enemy_hp = g->battle.enemy.hp;
-            s_prev_battle_result = g->battle.result;
+            rc->prev_battle_turn = g->battle.turn;
+            rc->prev_player_hp = g->battle.player.hp;
+            rc->prev_enemy_hp = g->battle.enemy.hp;
+            rc->prev_battle_result = g->battle.result;
         }
         return;
     }
 
     /* Overworld State rendering */
 
-    /* Map transition or return from Battle */
-    if (s_prev_state != GAME_STATE_OVERWORLD || g->world.map_id != s_prev_map_id) {
+    /* Map transition, cache reset, or return from Battle */
+    if (!rc->valid || rc->prev_state != GAME_STATE_OVERWORLD || g->world.map_id != rc->prev_map_id) {
         ui_draw_world_full(&g->world);
-        s_prev_state = GAME_STATE_OVERWORLD;
-        s_prev_map_id = g->world.map_id;
-        s_prev_player_x = g->world.player.position.x;
-        s_prev_player_y = g->world.player.position.y;
-        s_prev_dialogue_active = g->dialogue.active;
-        s_prev_dialogue_line = g->dialogue.current_line;
-        s_prev_dialogue_id = g->dialogue.id;
+        telemetry_emit(EVENT_RENDER_SCREEN, (uint8_t)GAME_STATE_OVERWORLD, g->dialogue.active ? 1 : 0, (uint8_t)g->world.map_id, 0);
+        rc->valid = true;
+        rc->prev_state = GAME_STATE_OVERWORLD;
+        rc->prev_map_id = g->world.map_id;
+        rc->prev_player_x = g->world.player.position.x;
+        rc->prev_player_y = g->world.player.position.y;
+        rc->prev_dialogue_active = g->dialogue.active;
+        rc->prev_dialogue_line = g->dialogue.current_line;
+        rc->prev_dialogue_id = g->dialogue.id;
         if (g->dialogue.active) {
             ui_draw_dialogue(&g->dialogue);
+            telemetry_emit(EVENT_RENDER_DIALOGUE, (uint8_t)g->dialogue.id, g->dialogue.current_line, 0, 0);
         }
         return;
     }
 
     /* Dialogue closed: restore overworld HUD on rows 12-17 */
-    if (s_prev_dialogue_active && !g->dialogue.active) {
+    if (rc->prev_dialogue_active && !g->dialogue.active) {
         ui_draw_overworld_hud(&g->world);
-        s_prev_dialogue_active = false;
-        s_prev_dialogue_line = 255;
-        s_prev_dialogue_id = DIALOGUE_ID_NONE;
+        telemetry_emit(EVENT_RENDER_SCREEN, (uint8_t)GAME_STATE_OVERWORLD, 0, (uint8_t)g->world.map_id, 0);
+        rc->prev_dialogue_active = false;
+        rc->prev_dialogue_line = 255;
+        rc->prev_dialogue_id = DIALOGUE_ID_NONE;
         return;
     }
 
     /* Dialogue active or dialogue line changed */
     if (g->dialogue.active) {
-        if (!s_prev_dialogue_active ||
-            g->dialogue.current_line != s_prev_dialogue_line ||
-            g->dialogue.id != s_prev_dialogue_id) {
+        if (!rc->prev_dialogue_active ||
+            g->dialogue.current_line != rc->prev_dialogue_line ||
+            g->dialogue.id != rc->prev_dialogue_id) {
             
             ui_draw_dialogue(&g->dialogue);
-            s_prev_dialogue_active = true;
-            s_prev_dialogue_line = g->dialogue.current_line;
-            s_prev_dialogue_id = g->dialogue.id;
+            telemetry_emit(EVENT_RENDER_DIALOGUE, (uint8_t)g->dialogue.id, g->dialogue.current_line, 0, 0);
+            rc->prev_dialogue_active = true;
+            rc->prev_dialogue_line = g->dialogue.current_line;
+            rc->prev_dialogue_id = g->dialogue.id;
         }
         return;
     }
 
     /* Incremental overworld player movement (NO full screen clear, NO map redraw) */
-    if (g->world.player.position.x != s_prev_player_x || g->world.player.position.y != s_prev_player_y) {
-        ui_update_player_position(&g->world, s_prev_player_x, s_prev_player_y, g->world.player.position.x, g->world.player.position.y);
-        s_prev_player_x = g->world.player.position.x;
-        s_prev_player_y = g->world.player.position.y;
+    if (g->world.player.position.x != rc->prev_player_x || g->world.player.position.y != rc->prev_player_y) {
+        ui_update_player_position(&g->world, rc->prev_player_x, rc->prev_player_y, g->world.player.position.x, g->world.player.position.y);
+        rc->prev_player_x = g->world.player.position.x;
+        rc->prev_player_y = g->world.player.position.y;
     }
 }

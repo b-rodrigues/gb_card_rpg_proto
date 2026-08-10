@@ -55,7 +55,7 @@ void ui_draw_world_map(const World *world)
 
     if (!world) return;
 
-    for (y = 0; y < WORLD_HEIGHT; y++) {
+    for (y = 0; y < WORLD_VIEW_HEIGHT; y++) {
         for (x = 0; x < WORLD_WIDTH; x++) {
             npc_def = npc_find_at(world->map_id, x, y);
             if (world->player.position.x == x && world->player.position.y == y) {

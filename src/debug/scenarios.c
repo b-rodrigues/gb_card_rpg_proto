@@ -281,4 +281,5 @@ void scenario_check_and_load(void)
         load_guard_dialogue();
     }
     game_render_reset(&g_game);
+    game_render(&g_game);
 }

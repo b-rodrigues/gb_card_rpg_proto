@@ -10,7 +10,7 @@
     },
     {
       "type": "wait",
-      "frames": 10
+      "frames": 120
     },
     {
       "type": "press",
@@ -18,7 +18,7 @@
     },
     {
       "type": "wait",
-      "frames": 20
+      "frames": 120
     },
     {
       "type": "press",
@@ -26,7 +26,7 @@
     },
     {
       "type": "wait",
-      "frames": 10
+      "frames": 30
     }
   ],
   "assertions": [
@@ -41,6 +41,10 @@
     {
       "type": "event_occurred",
       "event": "DIALOGUE_STARTED"
+    },
+    {
+      "type": "event_occurred",
+      "event": "RENDER_DIALOGUE"
     },
     {
       "type": "event_occurred",

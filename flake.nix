@@ -51,6 +51,7 @@
             gbdk
             pkgs.rgbds
             pkgs.sameboy
+            pkgs.mgba
             pkgs.gnumake
             pkgs.git
             pkgs.xvfb-run

@@ -38,10 +38,10 @@ $(BUILD_DIR)/debug/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	$(CC) -c -DDEBUG_BUILD $(INCLUDES) -o $@ $<
 
 $(TARGET): $(OBJS) | $(BUILD_DIR)
-	$(CC) -no-crt -Wm-yc -o $@ $(GBDKDIR)lib/gb/crt0.o $(OBJS) $(GBDKDIR)lib/gb/gb.lib $(GBDKDIR)lib/sm83/sm83.lib
+	$(CC) -no-crt -Wm-yc -Wl-yo4 -o $@ $(GBDKDIR)lib/gb/crt0.o $(OBJS) $(GBDKDIR)lib/gb/gb.lib $(GBDKDIR)lib/sm83/sm83.lib
 
 $(TARGET_DEBUG): $(OBJS_DEBUG) | $(BUILD_DIR)
-	$(CC) -no-crt -Wm-yc -Wl-m -Wl-j -Wl-y -o $@ $(GBDKDIR)lib/gb/crt0.o $(OBJS_DEBUG) $(GBDKDIR)lib/gb/gb.lib $(GBDKDIR)lib/sm83/sm83.lib
+	$(CC) -no-crt -Wm-yc -Wl-yo4 -Wl-m -Wl-j -Wl-y -o $@ $(GBDKDIR)lib/gb/crt0.o $(OBJS_DEBUG) $(GBDKDIR)lib/gb/gb.lib $(GBDKDIR)lib/sm83/sm83.lib
 	@python3 tools/make_sym.py $(BUILD_DIR)/rpg_card_proto_debug.noi $(BUILD_DIR)/rpg_card_proto_debug.sym
 
 run: $(TARGET)

@@ -54,6 +54,9 @@ def convert_symbols(noi_path, map_path, sym_path):
                             elif name.startswith("_g_game") or name.startswith("g_game"):
                                 symbols["g_game"] = addr
                                 symbols["_g_game"] = addr
+                            elif name.startswith("_g_ui_sc") or name.startswith("g_ui_sc"):
+                                symbols["g_ui_screen_buf"] = addr
+                                symbols["_g_ui_screen_buf"] = addr
                     except ValueError:
                         pass
 

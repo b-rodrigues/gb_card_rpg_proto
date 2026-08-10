@@ -224,6 +224,7 @@ static void load_mayor_dialogue_movement_blocked(void)
     telemetry_init();
     telemetry_set_frame_ptr(&g_game.frame);
     audio_play_music(MUSIC_OVERWORLD);
+    dialogue_start_def(&g_game.dialogue, DIALOGUE_ID_MAYOR_GREETING);
     debug_snapshot();
 }
 
@@ -255,6 +256,59 @@ static void load_guard_dialogue(void)
     debug_snapshot();
 }
 
+static void load_font_test(void)
+{
+    World *w = &g_game.world;
+    GameStateMachine *sm = &g_game.state_machine;
+
+    sm->current = GAME_STATE_OVERWORLD;
+    sm->previous = GAME_STATE_OVERWORLD;
+    sm->state_changed = false;
+
+    world_init(w);
+    dialogue_init(&g_game.dialogue);
+
+    g_game.frame = 0;
+    g_game.story_flags = 0;
+
+    rng_set_seed(1999);
+    input_reset();
+    telemetry_init();
+    telemetry_set_frame_ptr(&g_game.frame);
+    ui_draw_font_test();
+    debug_snapshot();
+}
+
+static void load_dialogue_render_test(void)
+{
+    World *w = &g_game.world;
+    GameStateMachine *sm = &g_game.state_machine;
+
+    sm->current = GAME_STATE_OVERWORLD;
+    sm->previous = GAME_STATE_OVERWORLD;
+    sm->state_changed = false;
+
+    world_init(w);
+    world_load_map(w, MAP_TOWN);
+    w->player.position.x = 9;
+    w->player.position.y = 5;
+    w->player.facing = DIRECTION_RIGHT;
+    w->encounter_triggered = false;
+    dialogue_init(&g_game.dialogue);
+
+    g_game.frame = 0;
+    g_game.story_flags = STORY_FLAG_ARRIVED_TOWN;
+
+    rng_set_seed(2000);
+    input_reset();
+    telemetry_init();
+    telemetry_set_frame_ptr(&g_game.frame);
+    audio_play_music(MUSIC_OVERWORLD);
+
+    dialogue_start_def(&g_game.dialogue, DIALOGUE_ID_MAYOR_GREETING);
+    debug_snapshot();
+}
+
 void scenario_check_and_load(void)
 {
     uint8_t sc = g_scen_load;
@@ -279,7 +333,11 @@ void scenario_check_and_load(void)
         load_mayor_dialogue_movement_blocked();
     } else if (sc == 9) {
         load_guard_dialogue();
+    } else if (sc == 10) {
+        load_font_test();
+    } else if (sc == 11) {
+        load_dialogue_render_test();
     }
     game_render_reset(&g_game);
-    game_render(&g_game);
+    debug_snapshot();
 }

@@ -8,6 +8,8 @@
 
 #define WORLD_VIEW_HEIGHT 12
 
+extern char g_ui_screen_buf[18][21];
+
 void ui_init(void);
 void ui_clear_screen(void);
 
@@ -21,5 +23,6 @@ void ui_draw_battle_full(const Battle *battle);
 void ui_update_battle(const Battle *battle);
 
 void ui_draw_dialogue(const DialogueState *dialogue);
+void ui_draw_font_test(void);
 
 #endif /* UI_H */

@@ -15,7 +15,8 @@ from emulator import EmulatorSession, STORY_FLAG_ID_MAP, DIALOGUE_ID_MAP, SCENAR
 VALID_ASSERTION_TYPES = {
     "game_state", "player_position", "player_facing", "player_hp", "music_track",
     "enemy_hp", "battle_turn", "battle_result", "story_flag",
-    "event_occurred", "event_not_occurred", "dialogue_active", "dialogue_line", "dialogue_id"
+    "event_occurred", "event_not_occurred", "dialogue_active", "dialogue_line", "dialogue_id",
+    "screen_row"
 }
 
 VALID_STORY_FLAGS = set(STORY_FLAG_ID_MAP.values())
@@ -85,6 +86,13 @@ def run_scenario(scenario):
         # Read final snapshot and telemetry buffer from ROM memory
         snap = session.snapshot()
         telemetry = session.get_telemetry()
+
+        # Check if any assertion needs logical screen buffer
+        has_screen_assert = any(a.get("type") == "screen_row" for a in scenario.get("assertions", []))
+        screen_lines = []
+        if has_screen_assert:
+            screen_buf = session.get_screen_buf()
+            screen_lines = screen_buf.split('\n')
     finally:
         session.disconnect()
 
@@ -156,6 +164,14 @@ def run_scenario(scenario):
         elif a_type == "dialogue_id":
             actual = snap.get("dialogue_id_name", "NONE")
             passed = (actual == expected)
+
+        elif a_type == "screen_row":
+            row_idx = a.get("row", 0)
+            contains_str = a.get("contains", expected)
+            expected = f"row {row_idx} contains '{contains_str}'"
+            actual_row = screen_lines[row_idx] if row_idx < len(screen_lines) else ""
+            passed = contains_str in actual_row
+            actual = f"row {row_idx}: '{actual_row.strip()}'"
 
         elif a_type == "event_occurred":
             exp_event = a.get("event", expected)

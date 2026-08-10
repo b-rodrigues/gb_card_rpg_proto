@@ -36,7 +36,9 @@ void game_init(Game *g)
     telemetry_emit(EVENT_MUSIC_CHANGED, MUSIC_OVERWORLD, 0, 0, 0);
 
     game_render_reset(g);
+#ifndef DEBUG_BUILD
     game_render(g);
+#endif
 
 #ifdef DEBUG_BUILD
     debug_snapshot();

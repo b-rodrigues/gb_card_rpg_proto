@@ -29,7 +29,6 @@ static void update_overworld(Game *g)
     int8_t dx = 0;
     int8_t dy = 0;
     uint8_t old_x, old_y;
-    uint8_t px, py;
 
     if (g->dialogue.active) {
         if (input_pressed(INPUT_A)) {
@@ -61,15 +60,15 @@ static void update_overworld(Game *g)
         }
     }
 
-    /* Check generic NPC interaction on A press or directional movement bump */
-    px = g->world.player.position.x;
-    py = g->world.player.position.y;
-
-    if (input_pressed(INPUT_A) || dx != 0 || dy != 0) {
-        if (interaction_try_at(g->world.map_id, (uint8_t)(px + 1), py, &g->dialogue) ||
-            interaction_try_at(g->world.map_id, (uint8_t)(px - 1), py, &g->dialogue) ||
-            interaction_try_at(g->world.map_id, px, (uint8_t)(py + 1), &g->dialogue) ||
-            interaction_try_at(g->world.map_id, px, (uint8_t)(py - 1), &g->dialogue)) {
+    /* Check interaction: PRESS A checks facing tile; movement bump checks targeted tile */
+    if (input_pressed(INPUT_A)) {
+        if (interaction_try_facing(&g->world, &g->dialogue) ||
+            interaction_try_adjacent(&g->world, &g->dialogue)) {
+            ui_draw_dialogue(&g->dialogue);
+            return;
+        }
+    } else if (dx != 0 || dy != 0) {
+        if (interaction_try_bump(&g->world, dx, dy, &g->dialogue)) {
             ui_draw_dialogue(&g->dialogue);
             return;
         }

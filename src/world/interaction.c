@@ -19,6 +19,61 @@ bool interaction_try_at(MapId map_id, uint8_t target_x, uint8_t target_y, Dialog
     return true;
 }
 
+bool interaction_try_facing(const World *world, DialogueState *dialogue)
+{
+    int8_t dx = 0;
+    int8_t dy = 0;
+    uint8_t px, py, target_x, target_y;
+
+    if (!world || !dialogue) return false;
+
+    px = world->player.position.x;
+    py = world->player.position.y;
+
+    switch (world->player.facing) {
+        case DIRECTION_UP:    dy = -1; break;
+        case DIRECTION_DOWN:  dy = 1;  break;
+        case DIRECTION_LEFT:  dx = -1; break;
+        case DIRECTION_RIGHT: dx = 1;  break;
+    }
+
+    target_x = (uint8_t)((int16_t)px + dx);
+    target_y = (uint8_t)((int16_t)py + dy);
+
+    return interaction_try_at(world->map_id, target_x, target_y, dialogue);
+}
+
+bool interaction_try_bump(const World *world, int8_t dx, int8_t dy, DialogueState *dialogue)
+{
+    uint8_t px, py, target_x, target_y;
+
+    if (!world || !dialogue || (dx == 0 && dy == 0)) return false;
+
+    px = world->player.position.x;
+    py = world->player.position.y;
+
+    target_x = (uint8_t)((int16_t)px + dx);
+    target_y = (uint8_t)((int16_t)py + dy);
+
+    return interaction_try_at(world->map_id, target_x, target_y, dialogue);
+}
+
+bool interaction_try_adjacent(const World *world, DialogueState *dialogue)
+{
+    uint8_t px, py;
+    if (!world || !dialogue) return false;
+
+    if (interaction_try_facing(world, dialogue)) return true;
+
+    px = world->player.position.x;
+    py = world->player.position.y;
+
+    return (interaction_try_at(world->map_id, (uint8_t)(px + 1), py, dialogue) ||
+            interaction_try_at(world->map_id, (uint8_t)(px - 1), py, dialogue) ||
+            interaction_try_at(world->map_id, px, (uint8_t)(py + 1), dialogue) ||
+            interaction_try_at(world->map_id, px, (uint8_t)(py - 1), dialogue));
+}
+
 void interaction_on_dialogue_end(DialogueState *dialogue, uint32_t *story_flags)
 {
     if (!dialogue || !story_flags) return;

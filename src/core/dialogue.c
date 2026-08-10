@@ -47,7 +47,7 @@ void dialogue_start(DialogueState *d, DialogueId id, const char *speaker, const 
 {
     uint8_t i;
     if (!d) return;
-    if (!lines) count = 0;
+    if (!lines) return;
     if (count > MAX_DIALOGUE_LINES) count = MAX_DIALOGUE_LINES;
 
     d->active = true;
@@ -69,10 +69,25 @@ void dialogue_start(DialogueState *d, DialogueId id, const char *speaker, const 
 
 void dialogue_start_def(DialogueState *d, DialogueId id)
 {
+    uint8_t i;
     const DialogueDefinition *def = dialogue_get_def(id);
-    if (!def) return;
-    dialogue_start(d, def->id, def->speaker, def->lines, def->line_count);
+    if (!d || !def) return;
+
+    d->active = true;
+    d->id = def->id;
+    d->current_line = 0;
+    d->line_count = (def->line_count > MAX_DIALOGUE_LINES) ? MAX_DIALOGUE_LINES : def->line_count;
+    d->speaker = def->speaker ? def->speaker : "";
     d->completion_flag = def->completion_flag;
+
+    for (i = 0; i < d->line_count; i++) {
+        d->lines[i] = def->lines[i];
+    }
+    for (; i < MAX_DIALOGUE_LINES; i++) {
+        d->lines[i] = "";
+    }
+
+    telemetry_emit(EVENT_DIALOGUE_STARTED, (uint8_t)d->id, 0, 0, 0);
 }
 
 bool dialogue_next(DialogueState *d)

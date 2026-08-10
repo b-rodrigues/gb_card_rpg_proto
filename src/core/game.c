@@ -64,8 +64,7 @@ static void update_overworld(Game *g)
 
     /* Check interaction: PRESS A checks facing tile; movement bump checks targeted tile */
     if (input_pressed(INPUT_A)) {
-        if (interaction_try_facing(&g->world, &g->dialogue) ||
-            interaction_try_adjacent(&g->world, &g->dialogue)) {
+        if (interaction_try_facing(&g->world, &g->dialogue)) {
             ui_draw_dialogue(&g->dialogue);
             return;
         }

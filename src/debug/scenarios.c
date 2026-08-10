@@ -235,8 +235,8 @@ static void load_guard_dialogue(void)
 
     world_init(w);
     world_load_map(w, MAP_TOWN);
-    w->player.position.x = 13;
-    w->player.position.y = 5;
+    w->player.position.x = 9;
+    w->player.position.y = 8;
     w->encounter_triggered = false;
     dialogue_init(&g_game.dialogue);
 

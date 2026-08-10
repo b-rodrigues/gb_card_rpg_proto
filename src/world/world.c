@@ -1,5 +1,6 @@
 #include "world.h"
 #include "telemetry.h"
+#include "npc.h"
 
 void world_load_map(World *w, MapId map_id)
 {
@@ -27,7 +28,6 @@ void world_load_map(World *w, MapId map_id)
         w->map[7][18] = TILE_FIELD_EXIT;
         entity_init(&w->enemy, ENTITY_ENEMY, "slime_01", 14, 8, 5, 5);
         w->enemy.active = true;
-        w->npc.active = false;
     } else if (map_id == MAP_TOWN) {
         /* Exit gate to Field on West wall (1, 7) */
         w->map[7][1] = TILE_TOWN_EXIT;
@@ -40,10 +40,8 @@ void world_load_map(World *w, MapId map_id)
                 w->map[y][x] = TILE_BUILDING;
             }
         }
-        /* Deactivate wild enemy in Town; Spawn Mayor NPC at (10, 5) */
+        /* Deactivate wild enemy in Town */
         w->enemy.active = false;
-        entity_init(&w->npc, ENTITY_NPC, "mayor", 10, 5, 20, 20);
-        w->npc.active = true;
     }
 }
 
@@ -83,6 +81,7 @@ void world_move_player(World *w, int8_t dx, int8_t dy)
     uint8_t old_x, old_y;
     uint8_t target_x, target_y;
     uint8_t target_tile;
+    const NpcDef *npc_hit;
 
     if (!w) return;
 
@@ -115,8 +114,9 @@ void world_move_player(World *w, int8_t dx, int8_t dy)
         return;
     }
 
-    if (w->npc.active && target_x == w->npc.position.x && target_y == w->npc.position.y) {
-        telemetry_emit(EVENT_COLLISION, target_x, target_y, (uint8_t)ENTITY_NPC, 1);
+    npc_hit = npc_find_at(w->map_id, target_x, target_y);
+    if (npc_hit && npc_hit->active) {
+        telemetry_emit(EVENT_COLLISION, target_x, target_y, (uint8_t)ENTITY_NPC, (uint8_t)npc_hit->id);
         return;
     }
 

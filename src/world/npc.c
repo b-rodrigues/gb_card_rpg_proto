@@ -14,7 +14,7 @@ static const NpcDef g_npc_defs[] = {
         ENTITY_ID_GUARD,
         "Guard",
         MAP_TOWN,
-        14, 5,
+        10, 8,
         true,
         DIALOGUE_ID_GUARD_GREETING
     }

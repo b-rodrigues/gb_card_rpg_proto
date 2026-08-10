@@ -28,7 +28,6 @@ typedef struct {
     bool map_changed;
     Entity player;
     Entity enemy;
-    Entity npc;
     uint8_t map[WORLD_HEIGHT][WORLD_WIDTH];
 } World;
 

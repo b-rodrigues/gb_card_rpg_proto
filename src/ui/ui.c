@@ -23,6 +23,12 @@ void ui_init(void)
     ibm_font = font_load(font_ibm);
     font_set(ibm_font);
 
+    /* Disable GBDK console auto-scroll.  When putchar() advances the cursor
+     * past the bottom-right tile, the console normally scrolls the whole
+     * screen up one line.  M_NO_SCROLL (bit 2 of the console .mode byte at
+     * 0xC0A2) makes it reset the cursor instead. */
+    *((volatile uint8_t *)0xC0A2) |= M_NO_SCROLL;
+
     /* Set DMG palettes: 0xE4 = 11 10 01 00 (Lightest to Darkest) */
     BGP_REG = 0xE4;
     OBP0_REG = 0xE4;
@@ -101,7 +107,7 @@ void ui_draw_world_map(const World *world)
                 else tile_ch = '.';
             }
             gotoxy(x, y);
-            putchar((int)tile_ch);
+            putchar(tile_ch);
             g_ui_screen_buf[y][x] = tile_ch;
         }
     }
@@ -154,7 +160,7 @@ void ui_update_player_position(const World *world, uint8_t old_x, uint8_t old_y,
     }
 
     gotoxy(old_x, old_y);
-    putchar((int)old_ch);
+    putchar(old_ch);
     g_ui_screen_buf[old_y][old_x] = old_ch;
 
     gotoxy(new_x, new_y);

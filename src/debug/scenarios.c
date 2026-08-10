@@ -258,32 +258,27 @@ static void load_guard_dialogue(void)
 void scenario_check_and_load(void)
 {
     uint8_t sc = g_scen_load;
+    if (sc == 0) return;
+
+    g_scen_load = 0;
     if (sc == 1) {
-        g_scen_load = 0;
         load_new_game();
     } else if (sc == 2) {
-        g_scen_load = 0;
         load_first_encounter();
     } else if (sc == 3) {
-        g_scen_load = 0;
         load_town_arrival();
     } else if (sc == 4) {
-        g_scen_load = 0;
         load_town_departure();
     } else if (sc == 5) {
-        g_scen_load = 0;
         load_town_reentry();
     } else if (sc == 6) {
-        g_scen_load = 0;
         load_mayor_encounter();
     } else if (sc == 7) {
-        g_scen_load = 0;
         load_mayor_dialogue();
     } else if (sc == 8) {
-        g_scen_load = 0;
         load_mayor_dialogue_movement_blocked();
     } else if (sc == 9) {
-        g_scen_load = 0;
         load_guard_dialogue();
     }
+    game_render_reset();
 }

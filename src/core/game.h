@@ -24,5 +24,6 @@ extern Game g_game;
 void game_init(Game *g);
 void game_update(Game *g);
 void game_render(const Game *g);
+void game_render_reset(void);
 
 #endif /* GAME_H */

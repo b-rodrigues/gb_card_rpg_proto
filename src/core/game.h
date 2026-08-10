@@ -17,13 +17,14 @@ typedef struct {
     DialogueState dialogue;
     uint32_t story_flags;
     uint32_t frame;
+    bool render_dirty;
 } Game;
 
 extern Game g_game;
 
 void game_init(Game *g);
 void game_update(Game *g);
-void game_render(const Game *g);
+void game_render(Game *g);
 void game_render_reset(void);
 
 #endif /* GAME_H */

@@ -151,18 +151,42 @@ void ui_update_battle(const Battle *battle)
     }
 }
 
+void ui_draw_text_line(uint8_t x, uint8_t y, const char *text, uint8_t max_chars)
+{
+    uint8_t i = 0;
+    gotoxy(x, y);
+    if (text) {
+        while (text[i] != '\0' && i < max_chars) {
+            setchar(text[i]);
+            i++;
+        }
+    }
+    while (i < max_chars) {
+        setchar(' ');
+        i++;
+    }
+}
+
 void ui_draw_dialogue(const DialogueState *dialogue)
 {
     if (!dialogue || !dialogue->active) return;
 
+    /* Dialogue box occupies dedicated modal overlay region: rows 12-17 (6 rows, 20 columns) */
+    ui_draw_text_line(0, 12, "====================", 20);
+
     gotoxy(0, 13);
-    printf("====================");
+    setchar(' ');
+    ui_draw_text_line(1, 13, dialogue->speaker ? dialogue->speaker : "", 18);
+    gotoxy(19, 13);
+    setchar(' ');
+
     gotoxy(0, 14);
-    printf(" %-18s ", dialogue->speaker ? dialogue->speaker : "");
-    gotoxy(0, 15);
-    printf(" %-18s ", dialogue->lines[dialogue->current_line]);
-    gotoxy(0, 16);
-    printf("                    ");
-    gotoxy(0, 17);
-    printf(" [A] CONTINUE       ");
+    setchar(' ');
+    ui_draw_text_line(1, 14, dialogue->lines[dialogue->current_line], 18);
+    gotoxy(19, 14);
+    setchar(' ');
+
+    ui_draw_text_line(0, 15, "", 20);
+    ui_draw_text_line(0, 16, "", 20);
+    ui_draw_text_line(0, 17, " [A] CONTINUE", 20);
 }

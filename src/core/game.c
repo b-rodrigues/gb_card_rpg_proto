@@ -55,6 +55,8 @@ static void update_overworld(Game *g)
         if (g->world.map_changed) {
             g->world.map_changed = false;
             story_on_map_enter(&g->story_flags, g->world.map_id);
+            ui_draw_world_full(&g->world);
+            return;
         } else if (!g->world.encounter_triggered) {
             ui_update_player_position(old_x, old_y, g->world.player.position.x, g->world.player.position.y);
         }

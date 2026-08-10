@@ -12,7 +12,13 @@ TARGET_DEBUG = $(BUILD_DIR)/rpg_card_proto_debug.gb
 INCLUDES = -I$(SRC_DIR) -I$(SRC_DIR)/core -I$(SRC_DIR)/world -I$(SRC_DIR)/battle -I$(SRC_DIR)/input -I$(SRC_DIR)/audio -I$(SRC_DIR)/ui -I$(SRC_DIR)/debug
 
 SRCS = $(wildcard $(SRC_DIR)/*.c) $(wildcard $(SRC_DIR)/*/*.c)
-OBJS = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(SRCS))
+
+# Debug-harness-only sources excluded from the release ROM.
+# telemetry.c IS needed by gameplay (game.c/world.c emit events).
+DEBUG_ONLY_SRCS = $(SRC_DIR)/debug/scenarios.c $(SRC_DIR)/debug/assertions.c $(SRC_DIR)/debug/rng.c
+RELEASE_SRCS = $(filter-out $(DEBUG_ONLY_SRCS),$(SRCS))
+
+OBJS = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(RELEASE_SRCS))
 OBJS_DEBUG = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/debug/%.o,$(SRCS))
 
 # Emulator detection
@@ -38,7 +44,7 @@ $(BUILD_DIR)/debug/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	$(CC) -c -DDEBUG_BUILD $(INCLUDES) -o $@ $<
 
 $(TARGET): $(OBJS) | $(BUILD_DIR)
-	$(CC) -no-crt -Wm-yc -Wl-yt0x19 -Wl-yo4 -o $@ $(GBDKDIR)lib/gb/crt0.o $(OBJS) $(GBDKDIR)lib/gb/gb.lib $(GBDKDIR)lib/sm83/sm83.lib
+	$(CC) -no-crt -Wm-yc -o $@ $(GBDKDIR)lib/gb/crt0.o $(OBJS) $(GBDKDIR)lib/gb/gb.lib $(GBDKDIR)lib/sm83/sm83.lib
 
 $(TARGET_DEBUG): $(OBJS_DEBUG) | $(BUILD_DIR)
 	$(CC) -no-crt -Wm-yc -Wl-yt0x19 -Wl-yo4 -Wl-m -Wl-j -Wl-y -o $@ $(GBDKDIR)lib/gb/crt0.o $(OBJS_DEBUG) $(GBDKDIR)lib/gb/gb.lib $(GBDKDIR)lib/sm83/sm83.lib

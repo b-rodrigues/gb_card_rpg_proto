@@ -70,7 +70,8 @@ void ui_draw_world_full(const World *world)
                 t = world->map[y][x];
                 if (t == TILE_WALL) tile_ch = '#';
                 else if (t == TILE_BUILDING) tile_ch = 'B';
-                else if (t == TILE_FIELD_EXIT || t == TILE_TOWN_EXIT) tile_ch = 'G';
+                else if (t == TILE_FIELD_EXIT) tile_ch = '>';
+                else if (t == TILE_TOWN_EXIT) tile_ch = '<';
                 else tile_ch = '.';
             }
             gotoxy(x, y);

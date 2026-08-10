@@ -39,7 +39,8 @@ SCENARIO_IDS = {
     "NEW_GAME": 1, "FIRST_ENCOUNTER": 2, "TOWN_ARRIVAL": 3,
     "TOWN_DEPARTURE": 4, "TOWN_REENTRY": 5, "MAYOR_ENCOUNTER": 6,
     "MAYOR_DIALOGUE": 7, "MAYOR_DIALOGUE_MOVEMENT_BLOCKED": 8,
-    "GUARD_DIALOGUE": 9, "FONT_TEST": 10, "DIALOGUE_RENDER_TEST": 11
+    "GUARD_DIALOGUE": 9, "FONT_TEST": 10, "DIALOGUE_RENDER_TEST": 11,
+    "BOOT_STABILITY": 12
 }
 
 def decode_story_flags(flags_mask):
@@ -167,26 +168,49 @@ class EmulatorSession:
         self._drain()
         self._read_until(timeout=2.0)
 
-        # Disable interrupts to prevent CRT0 interrupt storm
-        self._memwrite(0xFF0F, 0x00)
-        self._memwrite(0xFFFF, 0x00)
+        game_render_addr = self.get_symbol("game_render")
+        main_addr = self.get_symbol("main")
 
-        # Enable harness mode (skips blocking init)
+        # Enable harness mode before main() runs
         self._memwrite(self.get_symbol("g_harness_mode"), 0x01)
 
-        game_render_addr = self.get_symbol("game_render")
+        # Jump to main (bypasses CRT0 blocking calls: display_off, DMA)
+        self._set_pc(main_addr)
 
-        # Jump to main, skipping CRT0 blocking code
-        self._set_pc(0x0200)
+        # Verify we landed at main via breadcrumb (tolerate None if memory read fails)
+        boot_phase_addr = self.get_symbol("g_boot_phase")
+        boot_phase = self._memread(boot_phase_addr)
 
-        # Set frame-sync breakpoint
+        # Set frame-sync breakpoint and run to first frame
         self._cmd(f'break 0x{game_render_addr:04X}')
-
-        # Continue: game_init runs, reaches game_render breakpoint
         self._send('c')
         out = self._read_until(timeout=20.0)
         if b'Hit breakpoint' not in out:
             raise RuntimeError("connect: game_render breakpoint not hit")
+
+        # First breakpoint may fire inside game_init() inner game_render().
+        # Advance one frame to reach the main-loop game_render().
+        boot_phase_addr = self.get_symbol("g_boot_phase")
+        boot_phase = self._memread(boot_phase_addr)
+        if boot_phase is None or boot_phase < 2:
+            raise RuntimeError(
+                f"connect: g_boot_phase={boot_phase}, expected >= 2. "
+                "main() or ui_init() may not have executed"
+            )
+
+        # Advance to next game_render (from main loop, after game_init returns)
+        self._send('next')
+        time.sleep(0.05)
+        self._drain()
+        self._send('c')
+        out = self._read_until(timeout=10.0)
+
+        boot_phase = self._memread(boot_phase_addr)
+        if boot_phase != 4:
+            raise RuntimeError(
+                f"connect: g_boot_phase={boot_phase}, expected 4. "
+                "Boot sequence incomplete: main→ui_init→game_init→first_render"
+            )
 
     def disconnect(self):
         if self.proc:

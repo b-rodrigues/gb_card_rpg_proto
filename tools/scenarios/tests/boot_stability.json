@@ -1,0 +1,27 @@
+{
+  "name": "boot_stability",
+  "test": true,
+  "description": "Minimal boot: survive 300 render iterations without crashing. Validates CRT0→main→game_render path.",
+  "scenario_id": "NEW_GAME",
+  "actions": [
+    {
+      "type": "wait",
+      "frames": 300
+    }
+  ],
+  "assertions": [
+    {
+      "type": "game_state",
+      "expected": "OVERWORLD"
+    },
+    {
+      "type": "player_hp",
+      "expected": 10
+    },
+    {
+      "type": "player_position",
+      "expected_x": 4,
+      "expected_y": 4
+    }
+  ]
+}

@@ -1,9 +1,12 @@
 build/*
 !build/.gitkeep
 !build/rpg_card_proto.gb
+!build/rpg_card_proto_debug.gb
+!build/rpg_card_proto_debug.sym
 *.o
 *.map
 *.sym
+!build/rpg_card_proto_debug.sym
 *.noi
 *.lst
 *.ihx

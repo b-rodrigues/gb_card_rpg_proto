@@ -24,8 +24,6 @@ int main(void)
         input_update();
         game_update(&g_game);
         game_render(&g_game);
-#ifndef DEBUG_BUILD
         vsync();
-#endif
     }
 }

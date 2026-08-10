@@ -79,22 +79,43 @@ void ui_draw_world_full(const World *world)
         }
     }
 
-    gotoxy(0, 15);
+    ui_draw_text_line(0, 12, "====================", 20);
+    gotoxy(0, 13);
     if (world->map_id == MAP_TOWN) {
-        printf("TOWN | HP: %2d/%2d", world->player.hp, world->player.max_hp);
+        printf(" MAP: TOWN | HP:%2d/%2d", world->player.hp, world->player.max_hp);
     } else {
-        printf("FIELD| HP: %2d/%2d", world->player.hp, world->player.max_hp);
+        printf(" MAP: FIELD| HP:%2d/%2d", world->player.hp, world->player.max_hp);
     }
-    gotoxy(0, 17);
-    printf("[D-PAD] MOVE HERO  ");
+    ui_draw_text_line(0, 14, "", 20);
+    ui_draw_text_line(0, 15, "", 20);
+    ui_draw_text_line(0, 16, "", 20);
+    ui_draw_text_line(0, 17, " [D-PAD] MOVE HERO", 20);
 }
 
-void ui_update_player_position(uint8_t old_x, uint8_t old_y, uint8_t new_x, uint8_t new_y)
+void ui_update_player_position(const World *world, uint8_t old_x, uint8_t old_y, uint8_t new_x, uint8_t new_y)
 {
-    if (old_x == new_x && old_y == new_y) return;
+    char old_ch;
+    uint8_t t;
+    const NpcDef *npc;
+
+    if (!world || (old_x == new_x && old_y == new_y)) return;
+
+    npc = npc_find_at(world->map_id, old_x, old_y);
+    if (world->enemy.active && world->enemy.position.x == old_x && world->enemy.position.y == old_y) {
+        old_ch = 'E';
+    } else if (npc) {
+        old_ch = (npc->id == ENTITY_ID_GUARD) ? 'G' : 'M';
+    } else {
+        t = world->map[old_y][old_x];
+        if (t == TILE_WALL) old_ch = '#';
+        else if (t == TILE_BUILDING) old_ch = 'B';
+        else if (t == TILE_FIELD_EXIT) old_ch = '>';
+        else if (t == TILE_TOWN_EXIT) old_ch = '<';
+        else old_ch = '.';
+    }
 
     gotoxy(old_x, old_y);
-    setchar('.');
+    setchar(old_ch);
 
     gotoxy(new_x, new_y);
     setchar('@');

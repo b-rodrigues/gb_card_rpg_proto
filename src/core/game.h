@@ -17,7 +17,6 @@ typedef struct {
     DialogueState dialogue;
     uint32_t story_flags;
     uint32_t frame;
-    bool render_dirty;
 } Game;
 
 extern Game g_game;

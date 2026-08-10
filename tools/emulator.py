@@ -294,6 +294,26 @@ class EmulatorSession:
             rows.append(''.join(row_chars))
         return '\n'.join(rows)
 
+    def get_screen_dump(self):
+        """Read 20x18 VRAM background tilemap from 0x9800.
+        
+        Assumes GBDK font_ibm loaded at tile base 0 (identity tile-to-ASCII
+        mapping).  For custom fonts the tile-base offset from the font handle
+        would need to be subtracted first.
+        """
+        rows = []
+        for y in range(18):
+            # VRAM tilemap stride is 32 tiles (20 visible + 12 off-screen)
+            row_bytes = []
+            for x in range(20):
+                b = self._memread(0x9800 + y * 32 + x)
+                if b is not None:
+                    row_bytes.append(chr(b) if 32 <= b <= 126 else '.')
+                else:
+                    row_bytes.append('.')
+            rows.append(''.join(row_bytes))
+        return '\n'.join(rows)
+
     def get_telemetry(self, since_seq=None):
         """Read telemetry ring buffer from ROM memory."""
         count_addr = self.get_symbol("g_telemetry_count")

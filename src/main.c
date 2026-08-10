@@ -5,7 +5,16 @@
 #include "ui.h"
 
 Game g_game;
-volatile uint8_t g_harness_mode;
+
+/*
+ * Set to 1 by the external test harness (via memory write) before
+ * jumping to main.  When active, audio, VBlank interrupt handlers,
+ * and vsync are skipped so the emulator debugger can use breakpoints
+ * for frame synchronisation without blocking on VBlank or DMA.
+ *
+ * Core subsystem initialisation (input, UI, fonts) always runs.
+ */
+volatile uint8_t g_harness_mode = 0;
 
 int main(void)
 {
@@ -20,14 +29,7 @@ int main(void)
     }
 
     input_init();
-
-    if (!g_harness_mode) {
-        ui_init();
-    } else {
-        BGP_REG = 0xE4;
-        SHOW_BKG;
-        DISPLAY_ON;
-    }
+    ui_init();
 
     game_init(&g_game);
 

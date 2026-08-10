@@ -20,10 +20,8 @@ static const palette_color_t cgb_palette[4] = {
 void ui_init(void)
 {
     font_init();
-#ifndef DEBUG_BUILD
     ibm_font = font_load(font_ibm);
     font_set(ibm_font);
-#endif
 
     /* Set DMG palettes: 0xE4 = 11 10 01 00 (Lightest to Darkest) */
     BGP_REG = 0xE4;

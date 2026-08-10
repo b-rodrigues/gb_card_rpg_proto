@@ -171,6 +171,9 @@ class EmulatorSession:
         self._memwrite(0xFF0F, 0x00)
         self._memwrite(0xFFFF, 0x00)
 
+        # Enable harness mode (skips blocking init)
+        self._memwrite(self.get_symbol("g_harness_mode"), 0x01)
+
         game_render_addr = self.get_symbol("game_render")
 
         # Jump to main, skipping CRT0 blocking code

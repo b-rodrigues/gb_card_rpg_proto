@@ -5,6 +5,8 @@
 #include "telemetry.h"
 #include "scenarios.h"
 
+extern volatile uint8_t g_harness_mode;
+
 void game_render_reset(Game *g)
 {
     if (!g) return;
@@ -36,9 +38,9 @@ void game_init(Game *g)
     telemetry_emit(EVENT_MUSIC_CHANGED, MUSIC_OVERWORLD, 0, 0, 0);
 
     game_render_reset(g);
-#ifndef DEBUG_BUILD
-    game_render(g);
-#endif
+    if (!g_harness_mode) {
+        game_render(g);
+    }
 
 #ifdef DEBUG_BUILD
     debug_snapshot();

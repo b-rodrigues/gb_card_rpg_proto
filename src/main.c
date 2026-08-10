@@ -5,27 +5,29 @@
 #include "ui.h"
 
 Game g_game;
+volatile uint8_t g_harness_mode;
 
 int main(void)
 {
-#ifndef DEBUG_BUILD
-    audio_init();
+    if (!g_harness_mode) {
+        audio_init();
 
-    CRITICAL {
-        add_VBL(audio_update);
+        CRITICAL {
+            add_VBL(audio_update);
+        }
+
+        enable_interrupts();
     }
 
-    enable_interrupts();
-    
     input_init();
-    ui_init();
-#else
-    /* Minimal init for debug harness: no audio, no fonts, no interrupts */
-    BGP_REG = 0xE4;
-    SHOW_BKG;
-    DISPLAY_ON;
-    input_init();
-#endif
+
+    if (!g_harness_mode) {
+        ui_init();
+    } else {
+        BGP_REG = 0xE4;
+        SHOW_BKG;
+        DISPLAY_ON;
+    }
 
     game_init(&g_game);
 
@@ -33,8 +35,8 @@ int main(void)
         input_update();
         game_update(&g_game);
         game_render(&g_game);
-#ifndef DEBUG_BUILD
-        vsync();
-#endif
+        if (!g_harness_mode) {
+            vsync();
+        }
     }
 }

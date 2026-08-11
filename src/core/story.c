@@ -6,40 +6,28 @@ bool story_flag_id_valid(StoryFlagId flag_id)
     return (flag_id >= 1 && flag_id < STORY_FLAG_ID_COUNT);
 }
 
-bool story_has_flag(uint32_t flags, StoryFlagId flag_id)
+bool story_has_flag(const GameState *state, StoryFlagId flag_id)
 {
-    uint32_t mask;
     if (!story_flag_id_valid(flag_id)) return false;
-    mask = 1UL << (flag_id - 1);
-    return (flags & mask) != 0;
+    return game_flag_is_set(state, (FlagId)flag_id);
 }
 
-void story_set_flag(uint32_t *flags, StoryFlagId flag_id)
+void story_set_flag(GameState *state, StoryFlagId flag_id)
 {
-    uint32_t mask;
-    if (!flags || !story_flag_id_valid(flag_id)) return;
-    mask = 1UL << (flag_id - 1);
-    if (!(*flags & mask)) {
-        *flags |= mask;
-        telemetry_emit(EVENT_STORY_FLAG_SET, (uint8_t)flag_id, 0, 0, 0);
-    }
+    if (!story_flag_id_valid(flag_id)) return;
+    game_flag_set(state, (FlagId)flag_id);
 }
 
-void story_clear_flag(uint32_t *flags, StoryFlagId flag_id)
+void story_clear_flag(GameState *state, StoryFlagId flag_id)
 {
-    uint32_t mask;
-    if (!flags || !story_flag_id_valid(flag_id)) return;
-    mask = 1UL << (flag_id - 1);
-    if (*flags & mask) {
-        *flags &= ~mask;
-        telemetry_emit(EVENT_STORY_FLAG_CLEARED, (uint8_t)flag_id, 0, 0, 0);
-    }
+    if (!story_flag_id_valid(flag_id)) return;
+    game_flag_clear(state, (FlagId)flag_id);
 }
 
-void story_on_map_enter(uint32_t *flags, MapId to_map)
+void story_on_map_enter(GameState *state, MapId to_map)
 {
-    if (!flags) return;
-    if (to_map == MAP_TOWN && !story_has_flag(*flags, STORY_FLAG_ID_ARRIVED_TOWN)) {
-        story_set_flag(flags, STORY_FLAG_ID_ARRIVED_TOWN);
+    if (!state) return;
+    if (to_map == MAP_TOWN && !story_has_flag(state, STORY_FLAG_ID_ARRIVED_TOWN)) {
+        story_set_flag(state, STORY_FLAG_ID_ARRIVED_TOWN);
     }
 }

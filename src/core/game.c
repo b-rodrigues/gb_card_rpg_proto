@@ -28,7 +28,6 @@ void game_init(Game *g)
 {
     if (!g) return;
     g->frame = 0;
-    g->story_flags = 0;
     g->game_over_choice = 0;
     g->screen = SCREEN_OVERWORLD;
     g->prev_screen = SCREEN_OVERWORLD;
@@ -53,7 +52,6 @@ void game_restart(Game *g)
 {
     if (!g) return;
     g->frame = 0;
-    g->story_flags = 0;
     g->game_over_choice = 0;
     g->screen = SCREEN_OVERWORLD;
     g->prev_screen = SCREEN_OVERWORLD;

@@ -10,7 +10,7 @@ void dialogue_screen_update(Game *g)
 
     if (input_pressed(INPUT_A) || input_pressed(INPUT_START)) {
         if (!dialogue_next(&g->dialogue)) {
-            interaction_on_dialogue_end(&g->dialogue, &g->story_flags);
+            interaction_on_dialogue_end(&g->dialogue, &g->state);
             screen_change(g, SCREEN_OVERWORLD);
         }
     }

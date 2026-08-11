@@ -41,7 +41,7 @@ void overworld_screen_update(Game *g)
         if (move_res == MOVE_RESULT_MAP_CHANGED) {
             g->world.map_changed = false;
             scene_update_from_map(g);
-            story_on_map_enter(&g->story_flags, g->world.map_id);
+            story_on_map_enter(&g->state, g->world.map_id);
             return;
         }
     }

@@ -14,9 +14,12 @@ volatile uint8_t g_scen_load = 0;
 /* Shared post-setup: reset frame/flags/input/telemetry/audio. */
 static void scenario_begin(uint32_t seed)
 {
+    uint8_t i;
     g_game.frame = 0;
-    g_game.story_flags = 0;
     g_game.game_over_choice = 0;
+    for (i = 0; i < (MAX_STATE_FLAGS / 8); i++) {
+        g_game.state.flags.bytes[i] = 0;
+    }
     rng_set_seed(seed);
     input_reset();
     telemetry_init();
@@ -42,7 +45,10 @@ static void overworld_setup(SceneId scene, MapId map, uint8_t x, uint8_t y,
     g_game.state.scene.player_facing = facing;
     dialogue_init(&g_game.dialogue);
     scenario_begin(seed);
-    g_game.story_flags = flags;
+    /* Scenario setup establishes state without emitting gameplay telemetry
+     * (AGENTS.md: a debug setup must not emit story-flag events).  StoryFlagId
+     * and FlagId share the same bit layout, so the mask maps directly. */
+    g_game.state.flags.bytes[0] |= (uint8_t)(flags & 0xFF);
 }
 
 static void load_new_game(void)

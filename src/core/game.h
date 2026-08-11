@@ -34,7 +34,6 @@ typedef struct Game {
     World world;
     Battle battle;
     DialogueState dialogue;
-    uint32_t story_flags;
     uint32_t frame;
     uint8_t game_over_choice;  /* 0 = YES, 1 = NO on the continue prompt */
     RenderCache render_cache;

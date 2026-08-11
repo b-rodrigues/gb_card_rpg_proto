@@ -1,0 +1,51 @@
+{
+  "name": "item_effect",
+  "test": true,
+  "description": "use_item_direct applies the generic HEAL_HP effect to the target member and consumes the item (independent of the UI)",
+  "scenario_id": "NEW_GAME",
+  "actions": [
+    {
+      "type": "use_item_direct",
+      "item": "POTION",
+      "member": 1
+    }
+  ],
+  "assertions": [
+    {
+      "type": "party_hp",
+      "member": 0,
+      "expected": 10
+    },
+    {
+      "type": "inventory",
+      "item": "POTION",
+      "expected": 0
+    },
+    {
+      "type": "event_occurred",
+      "event": "ITEM_USED"
+    },
+    {
+      "type": "event_occurred",
+      "event": "HEALED"
+    }
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 4,
+      "y": 4,
+      "facing": "DOWN"
+    },
+    "seed": 8203,
+    "party": {
+      "HERO": {
+        "hp": 5,
+        "max_hp": 10
+      }
+    },
+    "inventory": {
+      "POTION": 1
+    }
+  }
+}

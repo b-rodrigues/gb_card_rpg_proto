@@ -2,7 +2,7 @@
 #include "screen.h"
 #include "telemetry.h"
 #include "rpg/items.h"
-#include "rpg/inventory.h"
+#include "rpg/currency.h"
 
 #define SHOP_MSG_NONE 0
 #define SHOP_MSG_BOUGHT 1
@@ -11,7 +11,7 @@
 static void shop_draw(Game *g)
 {
     const ItemDefinition *potion = item_get_def(ITEM_POTION);
-    int16_t gold = game_variable_get(&g->state, VARIABLE_ID_GOLD);
+    int16_t gold = currency_get(&g->state, CURRENCY_ID_GOLD);
     char gold_str[7];
     char price_str[7];
 
@@ -44,20 +44,17 @@ static void shop_draw(Game *g)
 
 void shop_screen_update(Game *g)
 {
-    const ItemDefinition *potion;
-    int16_t gold;
-
     if (!g) return;
 
     if (input_pressed(INPUT_A)) {
-        potion = item_get_def(ITEM_POTION);
-        gold = game_variable_get(&g->state, VARIABLE_ID_GOLD);
-        if (gold >= (int16_t)potion->price) {
-            game_variable_add(&g->state, VARIABLE_ID_GOLD, -(int16_t)potion->price);
-            inventory_add(&g->state.inventory, ITEM_POTION, 1);
-            g->shop_message = SHOP_MSG_BOUGHT;
-        } else {
-            g->shop_message = SHOP_MSG_NO_GOLD;
+        ItemPurchaseResult res = item_purchase(&g->state, ITEM_POTION);
+        switch (res) {
+            case ITEM_PURCHASE_OK:
+                g->shop_message = SHOP_MSG_BOUGHT;
+                break;
+            default:
+                g->shop_message = SHOP_MSG_NO_GOLD;
+                break;
         }
         g->render_cache.valid = false;
     }

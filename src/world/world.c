@@ -2,6 +2,7 @@
 #include "telemetry.h"
 #include "actor.h"
 #include "scene.h"
+#include "rpg/currency.h"
 
 void world_load_map(World *w, MapId map_id, const GameState *state)
 {
@@ -134,7 +135,7 @@ void world_on_battle_end(World *w, GameState *state, bool victory)
         w->actors[idx].flags = ACTOR_STATE_NONE;
         telemetry_emit(EVENT_ENTITY_DEFEATED, (uint8_t)w->actors[idx].id, 0, 0, 0);
         if (state && w->actors[idx].gold_reward != 0) {
-            game_variable_add(state, VARIABLE_ID_GOLD, w->actors[idx].gold_reward);
+            currency_add(state, CURRENCY_ID_GOLD, w->actors[idx].gold_reward);
         }
         if (state && actor_id != 0) {
             game_world_set_actor_state(state, actor_id, ACTOR_STATE_DEFEATED);

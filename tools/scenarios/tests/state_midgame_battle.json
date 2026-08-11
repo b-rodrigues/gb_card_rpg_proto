@@ -46,11 +46,15 @@
     "seed": 7101,
     "party": {
       "HERO": {
-        "level": 3,
         "hp": 24,
         "max_hp": 30
       }
     },
-    "start_battle": true
+    "start_battle": true,
+    "progression": {
+      "HERO_1": {
+        "level": 3
+      }
+    }
   }
 }

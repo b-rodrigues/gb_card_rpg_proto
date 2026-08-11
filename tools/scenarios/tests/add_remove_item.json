@@ -1,0 +1,42 @@
+{
+  "name": "add_remove_item",
+  "test": true,
+  "description": "add_item and remove_item mutate ownership deterministically and emit ITEM_ADDED / ITEM_REMOVED",
+  "scenario_id": "NEW_GAME",
+  "actions": [
+    {
+      "type": "add_item",
+      "item": "POTION",
+      "quantity": 3
+    },
+    {
+      "type": "remove_item",
+      "item": "POTION",
+      "quantity": 1
+    }
+  ],
+  "assertions": [
+    {
+      "type": "inventory",
+      "item": "POTION",
+      "expected": 2
+    },
+    {
+      "type": "event_occurred",
+      "event": "ITEM_ADDED"
+    },
+    {
+      "type": "event_occurred",
+      "event": "ITEM_REMOVED"
+    }
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 4,
+      "y": 4,
+      "facing": "DOWN"
+    },
+    "seed": 8206
+  }
+}

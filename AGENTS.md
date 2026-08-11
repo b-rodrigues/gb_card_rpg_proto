@@ -1959,6 +1959,18 @@ contain.
 * Persistent actor defeat: `world_on_battle_end()` records
   `ACTOR_STATE_DEFEATED` into `state.world` keyed by the stable ActorId.
   `actor_load_scene()` skips spawning defeated actors.
+* Currency: `currency_add/currency_set` in `src/rpg/currency.{h,c}` mutate
+  `state.currency` (dense slots indexed by `CurrencyId`).  Gold is
+  `CURRENCY_ID_GOLD`, not a generic variable.
+* Items: ownership via `inventory_add/remove`; effects via `item_use` /
+  `item_purchase` in `src/rpg/items.{h,c}`.  `item_use` consumes only on a
+  successful use; `item_purchase` is atomic (failed purchases leave state
+  unchanged).
+* Progression: `progression_add` / `progression_ensure` in
+  `src/rpg/progression.{h,c}` mutate `state.progression`.  The engine is
+  generic and contains no per-target-type gameplay logic; the game-specific
+  consequence of a level-up lives in `game_on_level_up()` (called by the
+  progress-granting caller when a level was crossed).
 * Static actor definitions (`WorldActorDefinition`) must never hold mutable
   state; lifecycle lives in `state.world` + `World.actors`.
 
@@ -1966,10 +1978,17 @@ contain.
 
 Scenario/`initial_state` setup writes state directly into `GameState`
 (flags via `state.flags.bytes[]`, variables via `state.variables.values[]`,
-etc.) and must NOT go through `game_flag_set` / `game_variable_set`, which
-emit `STORY_FLAG_SET` / `VARIABLE_SET` events.  Setup that emits gameplay
-telemetry breaks scenarios that assert `event_not_occurred`
+currency via `state.currency.amount[]`, progression via `progression_ensure`,
+etc.) and must NOT go through `game_flag_set` / `game_variable_set` /
+`currency_add` / `progression_add`, which emit telemetry.  Setup that emits
+gameplay telemetry breaks scenarios that assert `event_not_occurred`
 (e.g. `town_reentry`).
+
+Runtime **debug actions** (the `g_debug_action` channel) are different: they
+are mid-scenario gameplay exercised through the real mechanic functions
+(`add_item`, `buy_item`, `add_currency`, `add_progress`, `use_item_direct`),
+so they legitimately emit telemetry.  Do not route scenario *setup* through
+them.
 
 ## 53.4 Descriptor layout is a wire contract
 
@@ -1984,9 +2003,9 @@ in sync; changing one without the other silently breaks every scenario.
 
 * Core snapshot (`g_snap_buf`, 36 bytes): byte 12 is `state.flags.bytes[0]`,
   byte 19 is `state.scene.scene_id`.  Existing scenarios depend on these.
-* Extended snapshot (`g_state_snap_buf`, 92 bytes): version byte 0, flags
-  at 1..8, variables at 9..24, party at 25..49, inventory at 50..66, world
-  at 67..91.
+* Extended snapshot (`g_state_snap_buf`, 182 bytes, version 0x02): version
+  byte 0, flags 1..8, variables 9..24, currency 25..37, party 38..50,
+  inventory 51..83, world 84..132, progression 133..181.
 * Every important gameplay transition must emit a telemetry event; state
   assertions must be possible without screenshots.
 
@@ -1997,11 +2016,12 @@ in sync; changing one without the other silently breaks every scenario.
 > **If a piece of state is part of `GameState`, it is potentially saveable;
 > if it is temporary runtime state, it is not.**
 
-Runtime state — `Battle`, `DialogueState`, `RenderCache`, input state,
-`World.actors` HP/facing (the engine copy), `g_game.screen` — must never
-become part of the save format.  Persistent world actor lifecycle lives in
-`GameState.world` keyed by `ActorId`; `World.actors` is rebuilt from scene
-definitions + `GameState.world` on every scene load.
+Persistent state: scene, party (id/hp/max), inventory, flags, variables,
+currency, world actor lifecycle, progression.  Runtime state — `Battle`,
+`DialogueState`, `RenderCache`, input state, `World.actors` HP/facing (the
+engine copy), `g_game.screen` — must never become part of the save format.
+`World.actors` is rebuilt from scene definitions + `GameState.world` on every
+scene load.
 
 The wire descriptor `g_scen_state_buf` and the extended snapshot
 `g_state_snap_buf` are the save-boundary probes: the host roundtrip check

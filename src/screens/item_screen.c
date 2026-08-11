@@ -49,7 +49,7 @@ void item_screen_update(Game *g)
         }
         if (input_pressed(INPUT_A)) {
             id = g->state.inventory.entries[g->item_menu_index].item_id;
-            if (item_use(&g->state, id)) {
+            if (item_use(&g->state, id, CHARACTER_HERO)) {
                 /* In battle, using an item heals the battle player and
                  * consumes the turn, matching the attack cadence. */
                 if (g->prev_screen == SCREEN_BATTLE) {

@@ -14,36 +14,46 @@
 #define SNAPSHOT_ACTOR_ENTRY_SIZE 4
 #define SNAPSHOT_TOTAL_SIZE     (SNAPSHOT_BASE_SIZE + (MAX_SNAPSHOT_ACTORS * SNAPSHOT_ACTOR_ENTRY_SIZE))
 
-/* Extended RPG state snapshot (g_state_snap_buf) layout:
- *   byte  0            : version/validity (0x01)
+/* Extended RPG state snapshot (g_state_snap_buf) layout (version 0x02):
+ *   byte  0            : version/validity (0x02)
  *   bytes 1..8         : FlagState.bytes[0..7]
- *   bytes 9..24        : variables 1..8 as int16 LE
- *   byte  25           : party count
- *   bytes 26..49       : up to 4 party members x {id, level, xp_lo, xp_hi, hp, max_hp}
- *   byte  50           : inventory count
- *   bytes 51..66       : up to 8 inventory entries x {item_id, quantity}
- *   byte  67           : world (persistent actor) count
- *   bytes 68..91       : up to 8 world entries x {actor_id_lo, actor_id_hi, state}
+ *   bytes 9..24        : variables as int16 LE
+ *   byte  25           : currency count
+ *   bytes 26..37       : up to 4 currency x {id, amt_lo, amt_hi}
+ *   byte  38           : party count
+ *   bytes 39..50       : up to 4 party members x {id, hp, max_hp}
+ *   byte  51           : inventory count
+ *   bytes 52..83       : up to 16 inventory entries x {item_id, quantity}
+ *   byte  84           : world (persistent actor) count
+ *   bytes 85..132      : up to 16 world entries x {actor_id_lo, actor_id_hi, state}
+ *   byte  133          : progression count
+ *   bytes 134..181     : up to 8 progression x {type, id_lo, id_hi, level, prog_lo, prog_hi}
  */
-#define STATE_SNAP_VERSION_BYTE    0x01
+#define STATE_SNAP_VERSION_BYTE    0x02
 #define STATE_SNAP_FLAGS_OFFSET    1
 #define STATE_SNAP_FLAGS_SIZE      8
 #define STATE_SNAP_VARIABLES_OFFSET  9
 #define STATE_SNAP_VARIABLES_SIZE    16
-#define STATE_SNAP_PARTY_OFFSET      25
-#define STATE_SNAP_PARTY_ENTRY_SIZE  6
-#define STATE_SNAP_INVENTORY_OFFSET  50
+#define STATE_SNAP_CURRENCY_COUNT_OFF 25
+#define STATE_SNAP_CURRENCY_ENTRY_OFF 26
+#define STATE_SNAP_CURRENCY_ENTRY_SIZE 3
+#define STATE_SNAP_PARTY_OFFSET      38
+#define STATE_SNAP_PARTY_ENTRY_SIZE  3
+#define STATE_SNAP_INVENTORY_OFFSET  51
 #define STATE_SNAP_INVENTORY_ENTRY_SIZE 2
-#define STATE_SNAP_WORLD_OFFSET      67
+#define STATE_SNAP_WORLD_OFFSET      84
 #define STATE_SNAP_WORLD_ENTRY_SIZE  3
-#define STATE_SNAP_TOTAL_SIZE        92
+#define STATE_SNAP_PROGRESSION_COUNT_OFF 133
+#define STATE_SNAP_PROGRESSION_ENTRY_OFF 134
+#define STATE_SNAP_PROGRESSION_ENTRY_SIZE 6
+#define STATE_SNAP_TOTAL_SIZE        182
 
-/* Scenario initial-state descriptor (g_scen_state_buf) layout.  Written
- * by the host STATE_LOAD command and applied by scenario_load_state().
+/* Scenario initial-state descriptor (g_scen_state_buf) layout (version 0x02).
+ * Written by the host STATE_LOAD command and applied by scenario_load_state().
  * Fixed offsets; variable-length sections carry a count and only the
  * listed entries are applied (unspecified sections keep their defaults). */
-#define STATE_LOAD_DESC_VERSION           0x01
-#define STATE_LOAD_DESC_SIZE              178
+#define STATE_LOAD_DESC_VERSION           0x02
+#define STATE_LOAD_DESC_SIZE              228
 #define STATE_LOAD_DESC_SCREEN_OFF        1
 #define STATE_LOAD_DESC_SCENE_OFF         2
 #define STATE_LOAD_DESC_PLAYER_X_OFF      3
@@ -55,19 +65,25 @@
 #define STATE_LOAD_DESC_VARIABLES_COUNT_OFF 18
 #define STATE_LOAD_DESC_VARIABLES_ENTRY_OFF 19
 #define STATE_LOAD_DESC_VARIABLES_ENTRY_SIZE 3
-#define STATE_LOAD_DESC_PARTY_COUNT_OFF   67
-#define STATE_LOAD_DESC_PARTY_ENTRY_OFF   68
-#define STATE_LOAD_DESC_PARTY_ENTRY_SIZE  6
-#define STATE_LOAD_DESC_INVENTORY_COUNT_OFF 92
-#define STATE_LOAD_DESC_INVENTORY_ENTRY_OFF 93
+#define STATE_LOAD_DESC_CURRENCY_COUNT_OFF 67
+#define STATE_LOAD_DESC_CURRENCY_ENTRY_OFF 68
+#define STATE_LOAD_DESC_CURRENCY_ENTRY_SIZE 3
+#define STATE_LOAD_DESC_PARTY_COUNT_OFF   80
+#define STATE_LOAD_DESC_PARTY_ENTRY_OFF   81
+#define STATE_LOAD_DESC_PARTY_ENTRY_SIZE  3
+#define STATE_LOAD_DESC_INVENTORY_COUNT_OFF 93
+#define STATE_LOAD_DESC_INVENTORY_ENTRY_OFF 94
 #define STATE_LOAD_DESC_INVENTORY_ENTRY_SIZE 2
-#define STATE_LOAD_DESC_WORLD_COUNT_OFF   125
-#define STATE_LOAD_DESC_WORLD_ENTRY_OFF   126
+#define STATE_LOAD_DESC_WORLD_COUNT_OFF   126
+#define STATE_LOAD_DESC_WORLD_ENTRY_OFF   127
 #define STATE_LOAD_DESC_WORLD_ENTRY_SIZE  3
-#define STATE_LOAD_DESC_DIALOGUE_ID_OFF   174
-#define STATE_LOAD_DESC_START_BATTLE_OFF  175
-#define STATE_LOAD_DESC_GAME_OVER_CHOICE_OFF 176
-#define STATE_LOAD_DESC_FONT_TEST_OFF     177
+#define STATE_LOAD_DESC_PROGRESSION_COUNT_OFF 175
+#define STATE_LOAD_DESC_PROGRESSION_ENTRY_OFF 176
+#define STATE_LOAD_DESC_PROGRESSION_ENTRY_SIZE 6
+#define STATE_LOAD_DESC_DIALOGUE_ID_OFF   224
+#define STATE_LOAD_DESC_START_BATTLE_OFF  225
+#define STATE_LOAD_DESC_GAME_OVER_CHOICE_OFF 226
+#define STATE_LOAD_DESC_FONT_TEST_OFF     227
 
 typedef enum {
     EVENT_PLAYER_MOVED,
@@ -101,7 +117,15 @@ typedef enum {
     EVENT_ITEM_REMOVED,
     EVENT_ACTOR_STATE_CHANGE,
     EVENT_SCRIPT_TRIGGERED,
-    EVENT_HEALED
+    EVENT_HEALED,
+    EVENT_ITEM_USED,
+    EVENT_ITEM_USE_FAILED,
+    EVENT_ITEM_PURCHASED,
+    EVENT_ITEM_PURCHASE_FAILED,
+    EVENT_CURRENCY_ADDED,
+    EVENT_CURRENCY_SPENT,
+    EVENT_PROGRESSION_GAINED,
+    EVENT_LEVEL_UP
 } GameEventType;
 
 typedef struct {

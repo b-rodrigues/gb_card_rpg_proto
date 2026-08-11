@@ -23,14 +23,10 @@ void game_state_reset(GameState *state)
 
     state->party.count = 1;
     state->party.members[0].id = CHARACTER_HERO;
-    state->party.members[0].level = 1;
-    state->party.members[0].experience = 0;
     state->party.members[0].hp = 10;
     state->party.members[0].max_hp = 10;
     for (i = 1; i < MAX_PARTY_MEMBERS; i++) {
         state->party.members[i].id = CHARACTER_NONE;
-        state->party.members[i].level = 0;
-        state->party.members[i].experience = 0;
         state->party.members[i].hp = 0;
         state->party.members[i].max_hp = 0;
     }
@@ -48,13 +44,24 @@ void game_state_reset(GameState *state)
     for (i = 0; i < MAX_STATE_VARIABLES; i++) {
         state->variables.values[i] = 0;
     }
-    state->variables.values[VARIABLE_ID_GOLD - 1] = 0;
     state->variables.values[VARIABLE_ID_CHAPTER - 1] = 1;
+
+    for (i = 0; i < MAX_CURRENCIES; i++) {
+        state->currency.amount[i] = 0;
+    }
 
     state->world.count = 0;
     for (i = 0; i < MAX_PERSISTENT_ACTORS; i++) {
         state->world.actors[i].actor_id = 0;
         state->world.actors[i].state = (uint8_t)ACTOR_STATE_ALIVE;
+    }
+
+    state->progression.count = 0;
+    for (i = 0; i < MAX_PROGRESSION_TARGETS; i++) {
+        state->progression.entries[i].target.type = (uint8_t)PROG_TYPE_NONE;
+        state->progression.entries[i].target.id = 0;
+        state->progression.entries[i].state.level = 0;
+        state->progression.entries[i].state.progress = 0;
     }
 }
 

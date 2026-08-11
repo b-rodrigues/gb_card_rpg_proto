@@ -1,0 +1,33 @@
+{
+  "name": "currency_telemetry",
+  "test": true,
+  "description": "add_currency mutates the GOLD currency and emits CURRENCY_ADDED",
+  "scenario_id": "NEW_GAME",
+  "actions": [
+    {
+      "type": "add_currency",
+      "currency": "GOLD",
+      "amount": 50
+    }
+  ],
+  "assertions": [
+    {
+      "type": "currency",
+      "currency": "GOLD",
+      "expected": 50
+    },
+    {
+      "type": "event_occurred",
+      "event": "CURRENCY_ADDED"
+    }
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 4,
+      "y": 4,
+      "facing": "DOWN"
+    },
+    "seed": 8202
+  }
+}

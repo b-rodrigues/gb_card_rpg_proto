@@ -14,7 +14,9 @@ from emulator import (EmulatorSession, STORY_FLAG_ID_MAP, DIALOGUE_ID_MAP,
                       SCENARIO_IDS, ENTITY_ID_MAP, STATE_FLAG_ID_MAP,
                       VARIABLE_ID_MAP, ITEM_ID_MAP, ACTOR_ID_MAP,
                       ACTOR_STATE_NAME_MAP, CHARACTER_ID_MAP, SCENE_MAP,
-                      CHARACTER_ID_TO_NAME, ITEM_ID_TO_NAME, ACTOR_ID_TO_NAME)
+                      CHARACTER_ID_TO_NAME, ITEM_ID_TO_NAME, ACTOR_ID_TO_NAME,
+                      CURRENCY_ID_MAP, PROGRESSION_TARGET_MAP,
+                      CURRENCY_ID_TO_NAME, PROG_TYPE_HERO)
 
 VALID_ASSERTION_TYPES = {
     "game_state", "player_position", "player_facing", "player_hp", "music_track",
@@ -22,7 +24,8 @@ VALID_ASSERTION_TYPES = {
     "game_over_choice", "story_flag", "screen", "scene",
     "event_occurred", "event_not_occurred", "dialogue_active", "dialogue_line", "dialogue_id",
     "screen_row", "actor_at",
-    "flag", "variable", "inventory", "party_hp", "party_level", "actor_state"
+    "flag", "variable", "inventory", "party_hp", "party_level", "actor_state",
+    "currency", "progression_level", "progression_progress"
 }
 
 VALID_ENTITY_IDS = set(ENTITY_ID_MAP.values())
@@ -34,6 +37,8 @@ VALID_VARIABLE_NAMES = set(VARIABLE_ID_MAP)
 VALID_ITEM_NAMES = set(ITEM_ID_MAP)
 VALID_ACTOR_NAMES = set(ACTOR_ID_MAP)
 VALID_ACTOR_STATES = set(ACTOR_STATE_NAME_MAP)
+VALID_CURRENCY_NAMES = set(CURRENCY_ID_MAP)
+VALID_PROGRESSION_NAMES = set(PROGRESSION_TARGET_MAP)
 
 def validate_scenario(data, filepath):
     scen_id = data.get("scenario_id")
@@ -79,6 +84,14 @@ def validate_scenario(data, filepath):
         if astate and astate not in VALID_ACTOR_STATES:
             raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown actor state '{astate}'. Valid states: {sorted(list(VALID_ACTOR_STATES))}")
 
+        cname = a.get("currency")
+        if cname and cname not in VALID_CURRENCY_NAMES:
+            raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown currency '{cname}'. Valid currencies: {sorted(list(VALID_CURRENCY_NAMES))}")
+
+        pname = a.get("target")
+        if pname and pname not in VALID_PROGRESSION_NAMES:
+            raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown progression target '{pname}'. Valid targets: {sorted(list(VALID_PROGRESSION_NAMES))}")
+
         init = data.get("initial_state") or {}
         for fname, fval in (init.get("flags") or {}).items():
             if fname not in VALID_FLAG_NAMES:
@@ -86,6 +99,9 @@ def validate_scenario(data, filepath):
         for vname, vval in (init.get("variables") or {}).items():
             if vname not in VALID_VARIABLE_NAMES:
                 raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown variable '{vname}' in initial_state. Valid variables: {sorted(list(VALID_VARIABLE_NAMES))}")
+        for cname, cval in (init.get("currency") or {}).items():
+            if cname not in VALID_CURRENCY_NAMES:
+                raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown currency '{cname}' in initial_state. Valid currencies: {sorted(list(VALID_CURRENCY_NAMES))}")
         for iname, iqty in (init.get("inventory") or {}).items():
             if iname not in VALID_ITEM_NAMES:
                 raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown item '{iname}' in initial_state. Valid items: {sorted(list(VALID_ITEM_NAMES))}")
@@ -97,6 +113,9 @@ def validate_scenario(data, filepath):
         for pname, pstats in (init.get("party") or {}).items():
             if pname not in set(CHARACTER_ID_MAP):
                 raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown party member '{pname}'. Valid members: {sorted(list(CHARACTER_ID_MAP))}")
+        for pname, pstats in (init.get("progression") or {}).items():
+            if pname not in VALID_PROGRESSION_NAMES:
+                raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown progression target '{pname}'. Valid targets: {sorted(list(VALID_PROGRESSION_NAMES))}")
         scene = init.get("scene")
         if scene and scene not in set(SCENE_MAP.values()):
             raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown scene '{scene}'. Valid scenes: {sorted(set(SCENE_MAP.values()))}")
@@ -155,6 +174,29 @@ def run_scenario(scenario):
                 session.wait(4)
                 session.press("A")
                 session.wait(act.get("frames", 4))
+            elif act_type == "add_item":
+                session.debug_action(session.DBG_ACT_ADD_ITEM,
+                                     ITEM_ID_MAP[act.get("item")],
+                                     0, act.get("quantity", 1))
+            elif act_type == "remove_item":
+                session.debug_action(session.DBG_ACT_REMOVE_ITEM,
+                                     ITEM_ID_MAP[act.get("item")],
+                                     0, act.get("quantity", 1))
+            elif act_type == "add_currency":
+                session.debug_action(session.DBG_ACT_ADD_CURRENCY,
+                                     CURRENCY_ID_MAP[act.get("currency")],
+                                     act.get("amount", 0), 0)
+            elif act_type == "add_progress":
+                ttype, tid = PROGRESSION_TARGET_MAP[act.get("target")]
+                session.debug_action(session.DBG_ACT_ADD_PROGRESS,
+                                     ttype, tid, act.get("amount", 0))
+            elif act_type == "buy_item":
+                session.debug_action(session.DBG_ACT_BUY_ITEM,
+                                     ITEM_ID_MAP[act.get("item")], 0, 0)
+            elif act_type == "use_item_direct":
+                session.debug_action(session.DBG_ACT_USE_ITEM,
+                                     ITEM_ID_MAP[act.get("item")],
+                                     0, act.get("member", 1))
 
         # Read final snapshot, canonical state buffer and telemetry
         snap = session.snapshot()
@@ -342,10 +384,11 @@ def run_scenario(scenario):
             passed = (actual == int(a.get("expected")))
 
         elif a_type == "party_level":
+            # Hero level is owned by the generic progression system.
             expected = f"party member {a.get('member', 0)} level == {expected}"
-            party = (state_snap or {}).get("party", [])
-            member = int(a.get("member", 0))
-            actual = party[member]["level"] if member < len(party) else None
+            hero_prog = next((p for p in (state_snap or {}).get("progression", [])
+                              if p.get("name") == "HERO_1"), None)
+            actual = hero_prog.get("level") if hero_prog else 1
             passed = (actual == int(a.get("expected")))
 
         elif a_type == "actor_state":
@@ -357,6 +400,28 @@ def run_scenario(scenario):
             entry = next((w for w in world if w["actor_id"] == actor_id), None)
             actual = entry["state"] if entry else "ALIVE"
             passed = (actual == exp_state)
+
+        elif a_type == "currency":
+            exp_cur = a.get("currency")
+            expected = f"currency {exp_cur} == {expected}"
+            actual = (state_snap or {}).get("currency", {}).get(exp_cur)
+            passed = (actual == int(a.get("expected")))
+
+        elif a_type == "progression_level":
+            exp_target = a.get("target")
+            expected = f"progression {exp_target} level == {expected}"
+            entry = next((p for p in (state_snap or {}).get("progression", [])
+                          if p.get("name") == exp_target), None)
+            actual = entry.get("level") if entry else None
+            passed = (actual == int(a.get("expected")))
+
+        elif a_type == "progression_progress":
+            exp_target = a.get("target")
+            expected = f"progression {exp_target} progress == {expected}"
+            entry = next((p for p in (state_snap or {}).get("progression", [])
+                          if p.get("name") == exp_target), None)
+            actual = entry.get("progress") if entry else None
+            passed = (actual == int(a.get("expected")))
 
         status_str = "PASS" if passed else "FAIL"
         assertion_results.append({
@@ -407,11 +472,15 @@ def format_state(snap, state_snap):
     vars_str = " ".join(f"{k}={v}" for k, v in sorted(variables.items()))
     lines.append("VARIABLES: " + (vars_str if vars_str else "(none)"))
 
+    currency = (state_snap or {}).get("currency", {})
+    cur_str = " ".join(f"{k}={v}" for k, v in sorted(currency.items()))
+    lines.append("CURRENCY: " + (cur_str if cur_str else "(none)"))
+
     party = (state_snap or {}).get("party", [])
     for i, m in enumerate(party):
         name = CHARACTER_ID_TO_NAME.get(m.get("id"), f"ID{m.get('id')}")
-        lines.append("PARTY[{}]: {} lvl={} {}/{} xp={}".format(
-            i, name, m.get("level"), m.get("hp"), m.get("max_hp"), m.get("xp")))
+        lines.append("PARTY[{}]: {} {}/{}".format(
+            i, name, m.get("hp"), m.get("max_hp")))
     if not party:
         lines.append("PARTY: (none)")
 
@@ -427,6 +496,13 @@ def format_state(snap, state_snap):
     world_str = " ".join("{}={}".format(ACTOR_ID_TO_NAME.get(w.get("actor_id"),
                         f"ID{w.get('actor_id')}"), w.get("state")) for w in world)
     lines.append("WORLD: " + (world_str if world_str else "(none)"))
+
+    progression = (state_snap or {}).get("progression", [])
+    if progression:
+        lines.append("PROGRESSION:")
+        for p in progression:
+            lines.append("  {}: level={} progress={}".format(
+                p.get("name"), p.get("level"), p.get("progress")))
     return "\n".join(lines)
 
 
@@ -456,13 +532,15 @@ def build_initial_state_from_snapshot(snap, state_snap):
     if variables:
         initial["variables"] = variables
 
+    currency = {k: v for k, v in state_snap.get("currency", {}).items()}
+    if currency:
+        initial["currency"] = currency
+
     party = {}
     for m in state_snap.get("party", []):
         name = CHARACTER_ID_TO_NAME.get(m.get("id"))
         if name:
             party[name] = {
-                "level": m.get("level", 1),
-                "xp": m.get("xp", 0),
                 "hp": m.get("hp", 10),
                 "max_hp": m.get("max_hp", 10),
             }
@@ -485,6 +563,17 @@ def build_initial_state_from_snapshot(snap, state_snap):
     if world:
         initial["world"] = world
 
+    progression = {}
+    for p in state_snap.get("progression", []):
+        pname = p.get("name")
+        if pname:
+            progression[pname] = {
+                "level": p.get("level", 1),
+                "progress": p.get("progress", 0),
+            }
+    if progression:
+        initial["progression"] = progression
+
     return initial
 
 
@@ -496,11 +585,15 @@ def normalize_semantic_state(snap, state_snap):
                    snap.get("player_facing")),
         "flags": sorted((state_snap or {}).get("flags", [])),
         "variables": (state_snap or {}).get("variables", {}),
-        "party": (state_snap or {}).get("party", []),
+        "currency": (state_snap or {}).get("currency", {}),
+        "party": sorted((m.get("id"), m.get("hp"), m.get("max_hp"))
+                        for m in (state_snap or {}).get("party", [])),
         "inventory": sorted((it.get("item_id"), it.get("quantity"))
                             for it in (state_snap or {}).get("inventory", [])),
         "world": sorted((w.get("actor_id"), w.get("state"))
                         for w in (state_snap or {}).get("world", [])),
+        "progression": sorted((p.get("name"), p.get("level"), p.get("progress"))
+                              for p in (state_snap or {}).get("progression", [])),
     }
 
 

@@ -38,7 +38,10 @@ EVENT_TYPE_MAP = {
     21: "SCREEN_CHANGED", 22: "SCENE_CHANGED",
     23: "ACTOR_COLLISION", 24: "ACTOR_INTERACTION", 25: "ACTOR_COMBAT_START",
     26: "VARIABLE_SET", 27: "ITEM_ADDED", 28: "ITEM_REMOVED",
-    29: "ACTOR_STATE_CHANGE", 30: "SCRIPT_TRIGGERED", 31: "HEALED"
+    29: "ACTOR_STATE_CHANGE", 30: "SCRIPT_TRIGGERED", 31: "HEALED",
+    32: "ITEM_USED", 33: "ITEM_USE_FAILED", 34: "ITEM_PURCHASED",
+    35: "ITEM_PURCHASE_FAILED", 36: "CURRENCY_ADDED", 37: "CURRENCY_SPENT",
+    38: "PROGRESSION_GAINED", 39: "LEVEL_UP"
 }
 EVENT_ID_MAP = {1: "TOWN_ARRIVAL", 2: "MAYOR_INTRO", 3: "MAYOR_GREETING",
                 4: "GUARD_AFTER_MAYOR", 5: "GUARD_GREETING"}
@@ -78,8 +81,8 @@ SCENARIO_IDS = {
 # Mirrors STATE_LOAD_DESC_* in src/debug/telemetry.h.  The host serializes
 # a scenario's initial_state JSON into this fixed-size byte descriptor and
 # writes it to g_scen_state_buf, then sets g_scen_load_state.
-STATE_LOAD_DESC_SIZE = 178
-STATE_LOAD_DESC_VERSION = 0x01
+STATE_LOAD_DESC_SIZE = 228
+STATE_LOAD_DESC_VERSION = 0x02
 STATE_LOAD_DESC_SCREEN_OFF = 1
 STATE_LOAD_DESC_SCENE_OFF = 2
 STATE_LOAD_DESC_PLAYER_X_OFF = 3
@@ -91,36 +94,56 @@ STATE_LOAD_DESC_FLAGS_SIZE = 8
 STATE_LOAD_DESC_VARIABLES_COUNT_OFF = 18
 STATE_LOAD_DESC_VARIABLES_ENTRY_OFF = 19
 STATE_LOAD_DESC_VARIABLES_ENTRY_SIZE = 3
-STATE_LOAD_DESC_PARTY_COUNT_OFF = 67
-STATE_LOAD_DESC_PARTY_ENTRY_OFF = 68
-STATE_LOAD_DESC_PARTY_ENTRY_SIZE = 6
-STATE_LOAD_DESC_INVENTORY_COUNT_OFF = 92
-STATE_LOAD_DESC_INVENTORY_ENTRY_OFF = 93
+STATE_LOAD_DESC_CURRENCY_COUNT_OFF = 67
+STATE_LOAD_DESC_CURRENCY_ENTRY_OFF = 68
+STATE_LOAD_DESC_CURRENCY_ENTRY_SIZE = 3
+STATE_LOAD_DESC_PARTY_COUNT_OFF = 80
+STATE_LOAD_DESC_PARTY_ENTRY_OFF = 81
+STATE_LOAD_DESC_PARTY_ENTRY_SIZE = 3
+STATE_LOAD_DESC_INVENTORY_COUNT_OFF = 93
+STATE_LOAD_DESC_INVENTORY_ENTRY_OFF = 94
 STATE_LOAD_DESC_INVENTORY_ENTRY_SIZE = 2
-STATE_LOAD_DESC_WORLD_COUNT_OFF = 125
-STATE_LOAD_DESC_WORLD_ENTRY_OFF = 126
+STATE_LOAD_DESC_WORLD_COUNT_OFF = 126
+STATE_LOAD_DESC_WORLD_ENTRY_OFF = 127
 STATE_LOAD_DESC_WORLD_ENTRY_SIZE = 3
-STATE_LOAD_DESC_DIALOGUE_ID_OFF = 174
-STATE_LOAD_DESC_START_BATTLE_OFF = 175
-STATE_LOAD_DESC_GAME_OVER_CHOICE_OFF = 176
-STATE_LOAD_DESC_FONT_TEST_OFF = 177
+STATE_LOAD_DESC_PROGRESSION_COUNT_OFF = 175
+STATE_LOAD_DESC_PROGRESSION_ENTRY_OFF = 176
+STATE_LOAD_DESC_PROGRESSION_ENTRY_SIZE = 6
+STATE_LOAD_DESC_DIALOGUE_ID_OFF = 224
+STATE_LOAD_DESC_START_BATTLE_OFF = 225
+STATE_LOAD_DESC_GAME_OVER_CHOICE_OFF = 226
+STATE_LOAD_DESC_FONT_TEST_OFF = 227
 
 SCENE_NAME_TO_ID = {v: k for k, v in SCENE_MAP.items()}
 SCREEN_NAME_TO_ID = {v: k for k, v in SCREEN_MAP.items()}
 DIRECTION_NAME_TO_ID = {v: k for k, v in DIRECTION_MAP.items()}
 STATE_FLAG_ID_MAP = {"ARRIVED_TOWN": 1, "MET_MAYOR": 2}
-VARIABLE_ID_MAP = {"GOLD": 1, "CHAPTER": 2, "SLIMES_DEFEATED": 3}
+VARIABLE_ID_MAP = {"CHAPTER": 1, "SLIMES_DEFEATED": 2}
 CHARACTER_ID_MAP = {"HERO": 1}
 ITEM_ID_MAP = {"POTION": 1, "BOMB": 2, "ETHER": 3}
 ACTOR_ID_MAP = {"SLIME_FIELD": 1, "SLIME_FOREST": 2, "BAT_FOREST": 3,
                 "SLIME_MOUNTAIN_PASS": 4, "BAT_CASTLE": 5}
 ACTOR_STATE_NAME_MAP = {"ALIVE": 0, "DEFEATED": 1}
 DIALOGUE_NAME_TO_ID = {v: k for k, v in DIALOGUE_ID_MAP.items()}
+CURRENCY_ID_MAP = {"GOLD": 1}
+
+# Progression target names -> (target_type, target_id).  The engine never
+# branches on the type; the type only tags the owner of the progression.
+PROG_TYPE_HERO = 1
+PROG_TYPE_WEAPON = 2
+PROG_TYPE_COMPANION = 3
+PROGRESSION_TARGET_MAP = {
+    "HERO_1": (PROG_TYPE_HERO, 1),
+    "IRON_SWORD": (PROG_TYPE_WEAPON, 1),
+    "COMPANION_1": (PROG_TYPE_COMPANION, 1),
+}
 
 # Inverted maps for turning parsed snapshot state back into names.
 CHARACTER_ID_TO_NAME = {v: k for k, v in CHARACTER_ID_MAP.items()}
 ITEM_ID_TO_NAME = {v: k for k, v in ITEM_ID_MAP.items()}
 ACTOR_ID_TO_NAME = {v: k for k, v in ACTOR_ID_MAP.items()}
+CURRENCY_ID_TO_NAME = {v: k for k, v in CURRENCY_ID_MAP.items()}
+PROGRESSION_KEY_TO_NAME = {v: k for k, v in PROGRESSION_TARGET_MAP.items()}
 
 
 def serialize_initial_state(initial_state):
@@ -161,18 +184,23 @@ def serialize_initial_state(initial_state):
         buf[off + 2] = (val >> 8) & 0xFF
         buf[count_off] = entry_idx + 1
 
+    currency = initial_state.get("currency") or {}
+    currency_items = list(currency.items())
+    buf[STATE_LOAD_DESC_CURRENCY_COUNT_OFF] = len(currency_items)
+    for i, (name, amt) in enumerate(currency_items):
+        off = STATE_LOAD_DESC_CURRENCY_ENTRY_OFF + i * STATE_LOAD_DESC_CURRENCY_ENTRY_SIZE
+        buf[off] = CURRENCY_ID_MAP[name]
+        buf[off + 1] = amt & 0xFF
+        buf[off + 2] = (amt >> 8) & 0xFF
+
     party = initial_state.get("party") or {}
     members = list(party.items())
     buf[STATE_LOAD_DESC_PARTY_COUNT_OFF] = len(members)
     for i, (name, stats) in enumerate(members):
         off = STATE_LOAD_DESC_PARTY_ENTRY_OFF + i * STATE_LOAD_DESC_PARTY_ENTRY_SIZE
         buf[off] = CHARACTER_ID_MAP[name]
-        buf[off + 1] = stats.get("level", 1)
-        xp = stats.get("xp", 0)
-        buf[off + 2] = xp & 0xFF
-        buf[off + 3] = (xp >> 8) & 0xFF
-        buf[off + 4] = stats.get("hp", 10)
-        buf[off + 5] = stats.get("max_hp", 10)
+        buf[off + 1] = stats.get("hp", 10)
+        buf[off + 2] = stats.get("max_hp", 10)
 
     inventory = initial_state.get("inventory") or {}
     items = list(inventory.items())
@@ -191,6 +219,20 @@ def serialize_initial_state(initial_state):
         buf[off] = actor_id & 0xFF
         buf[off + 1] = (actor_id >> 8) & 0xFF
         buf[off + 2] = ACTOR_STATE_NAME_MAP.get(actor_state, 0)
+
+    progression = initial_state.get("progression") or {}
+    prog_items = list(progression.items())
+    buf[STATE_LOAD_DESC_PROGRESSION_COUNT_OFF] = len(prog_items)
+    for i, (name, stats) in enumerate(prog_items):
+        off = STATE_LOAD_DESC_PROGRESSION_ENTRY_OFF + i * STATE_LOAD_DESC_PROGRESSION_ENTRY_SIZE
+        ttype, tid = PROGRESSION_TARGET_MAP[name]
+        buf[off] = ttype
+        buf[off + 1] = tid & 0xFF
+        buf[off + 2] = (tid >> 8) & 0xFF
+        buf[off + 3] = stats.get("level", 1)
+        progress = stats.get("progress", 0)
+        buf[off + 4] = progress & 0xFF
+        buf[off + 5] = (progress >> 8) & 0xFF
 
     dialogue = initial_state.get("dialogue")
     if dialogue:
@@ -511,19 +553,25 @@ class EmulatorSession:
             return parsed
         return self.current_snapshot
 
-    # Extended RPG state snapshot: parses g_state_snap_buf (92 bytes,
+    # Extended RPG state snapshot: parses g_state_snap_buf (182 bytes,
     # layout in src/debug/telemetry.h STATE_SNAP_*).
-    STATE_SNAP_SIZE = 92
-    STATE_SNAP_VERSION = 1
+    STATE_SNAP_SIZE = 182
+    STATE_SNAP_VERSION = 2
     STATE_SNAP_FLAGS_OFF = 1
     STATE_SNAP_FLAGS_SIZE = 8
     STATE_SNAP_VARIABLES_OFF = 9
-    STATE_SNAP_PARTY_OFF = 25
-    STATE_SNAP_PARTY_ENTRY_SIZE = 6
-    STATE_SNAP_INVENTORY_OFF = 50
+    STATE_SNAP_CURRENCY_COUNT_OFF = 25
+    STATE_SNAP_CURRENCY_ENTRY_OFF = 26
+    STATE_SNAP_CURRENCY_ENTRY_SIZE = 3
+    STATE_SNAP_PARTY_OFF = 38
+    STATE_SNAP_PARTY_ENTRY_SIZE = 3
+    STATE_SNAP_INVENTORY_OFF = 51
     STATE_SNAP_INVENTORY_ENTRY_SIZE = 2
-    STATE_SNAP_WORLD_OFF = 67
+    STATE_SNAP_WORLD_OFF = 84
     STATE_SNAP_WORLD_ENTRY_SIZE = 3
+    STATE_SNAP_PROGRESSION_COUNT_OFF = 133
+    STATE_SNAP_PROGRESSION_ENTRY_OFF = 134
+    STATE_SNAP_PROGRESSION_ENTRY_SIZE = 6
 
     def state_snapshot(self):
         """Read g_state_snap_buf and return the canonical GameState as a dict."""
@@ -551,16 +599,26 @@ class EmulatorSession:
             if variables[name] >= 0x8000:
                 variables[name] -= 0x10000
 
+        currency = {}
+        currency_count = buf[self.STATE_SNAP_CURRENCY_COUNT_OFF]
+        for i in range(currency_count):
+            off = self.STATE_SNAP_CURRENCY_ENTRY_OFF + i * self.STATE_SNAP_CURRENCY_ENTRY_SIZE
+            cid = buf[off]
+            amt = buf[off + 1] | (buf[off + 2] << 8)
+            if amt >= 0x8000:
+                amt -= 0x10000
+            cname = CURRENCY_ID_TO_NAME.get(cid)
+            if cname:
+                currency[cname] = amt
+
         party = []
         party_count = buf[self.STATE_SNAP_PARTY_OFF]
         for i in range(party_count):
             off = self.STATE_SNAP_PARTY_OFF + 1 + i * self.STATE_SNAP_PARTY_ENTRY_SIZE
             party.append({
                 "id": buf[off],
-                "level": buf[off + 1],
-                "xp": buf[off + 2] | (buf[off + 3] << 8),
-                "hp": buf[off + 4],
-                "max_hp": buf[off + 5],
+                "hp": buf[off + 1],
+                "max_hp": buf[off + 2],
             })
 
         inventory = []
@@ -582,13 +640,54 @@ class EmulatorSession:
                 "state": "DEFEATED" if buf[off + 2] == 1 else "ALIVE",
             })
 
+        progression = []
+        prog_count = buf[self.STATE_SNAP_PROGRESSION_COUNT_OFF]
+        for i in range(prog_count):
+            off = self.STATE_SNAP_PROGRESSION_ENTRY_OFF + i * self.STATE_SNAP_PROGRESSION_ENTRY_SIZE
+            ttype = buf[off]
+            tid = buf[off + 1] | (buf[off + 2] << 8)
+            level = buf[off + 3]
+            progress = buf[off + 4] | (buf[off + 5] << 8)
+            name = PROGRESSION_KEY_TO_NAME.get((ttype, tid),
+                                               f"UNKNOWN_{ttype}_{tid}")
+            progression.append({
+                "name": name,
+                "type": ttype,
+                "id": tid,
+                "level": level,
+                "progress": progress,
+            })
+
         return {
             "flags": flags,
             "variables": variables,
+            "currency": currency,
             "party": party,
             "inventory": inventory,
             "world": world,
+            "progression": progression,
         }
+
+    # ── Debug actions (semantic harness operations) ──────────────────
+
+    DBG_ACT_NONE = 0
+    DBG_ACT_ADD_ITEM = 1
+    DBG_ACT_REMOVE_ITEM = 2
+    DBG_ACT_ADD_CURRENCY = 3
+    DBG_ACT_ADD_PROGRESS = 4
+    DBG_ACT_BUY_ITEM = 5
+    DBG_ACT_USE_ITEM = 6
+
+    def debug_action(self, action, a0=0, a1=0, a2=0):
+        """Run a debug action through the ROM's real mechanic functions."""
+        addr = self.get_symbol("g_debug_action")
+        payload = [action & 0xFF, a0 & 0xFF, a1 & 0xFF, (a1 >> 8) & 0xFF, a2 & 0xFF, 0]
+        for i, val in enumerate(payload):
+            self._memwrite(addr + i, val)
+        flag_addr = self.get_symbol("g_debug_action_pending")
+        self._memwrite(flag_addr, 1)
+        time.sleep(0.005)
+        self.step(2)
 
     def _parse_actors(self, snap_bytes):
         """Parse scene actors from bytes 20+ as (id, x, y, facing) entries."""

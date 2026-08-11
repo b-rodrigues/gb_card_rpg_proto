@@ -1,0 +1,48 @@
+{
+  "name": "buy_item_direct",
+  "test": true,
+  "description": "buy_item performs an atomic purchase through the item/currency primitives",
+  "scenario_id": "NEW_GAME",
+  "actions": [
+    {
+      "type": "buy_item",
+      "item": "POTION"
+    }
+  ],
+  "assertions": [
+    {
+      "type": "currency",
+      "currency": "GOLD",
+      "expected": 80
+    },
+    {
+      "type": "inventory",
+      "item": "POTION",
+      "expected": 1
+    },
+    {
+      "type": "event_occurred",
+      "event": "ITEM_PURCHASED"
+    },
+    {
+      "type": "event_occurred",
+      "event": "CURRENCY_SPENT"
+    },
+    {
+      "type": "event_occurred",
+      "event": "ITEM_ADDED"
+    }
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 4,
+      "y": 4,
+      "facing": "DOWN"
+    },
+    "seed": 8204,
+    "currency": {
+      "GOLD": 100
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "name": "buy_item_insufficient_direct",
+  "test": true,
+  "description": "A failed purchase leaves state unchanged and emits ITEM_PURCHASE_FAILED",
+  "scenario_id": "NEW_GAME",
+  "actions": [
+    {
+      "type": "buy_item",
+      "item": "POTION"
+    }
+  ],
+  "assertions": [
+    {
+      "type": "currency",
+      "currency": "GOLD",
+      "expected": 5
+    },
+    {
+      "type": "inventory",
+      "item": "POTION",
+      "expected": 0
+    },
+    {
+      "type": "event_occurred",
+      "event": "ITEM_PURCHASE_FAILED"
+    },
+    {
+      "type": "event_not_occurred",
+      "event": "ITEM_ADDED"
+    }
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 4,
+      "y": 4,
+      "facing": "DOWN"
+    },
+    "seed": 8205,
+    "currency": {
+      "GOLD": 5
+    }
+  }
+}

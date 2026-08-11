@@ -28,9 +28,9 @@
       "expected": false
     },
     {
-      "type": "variable",
-      "variable": "GOLD",
-      "expected": 0
+      "type": "currency",
+      "expected": 0,
+      "currency": "GOLD"
     },
     {
       "type": "variable",

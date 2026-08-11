@@ -42,9 +42,9 @@
       "expected": "OVERWORLD"
     },
     {
-      "type": "variable",
-      "variable": "GOLD",
-      "expected": 30
+      "type": "currency",
+      "expected": 30,
+      "currency": "GOLD"
     },
     {
       "type": "inventory",
@@ -76,14 +76,14 @@
     "flags": {
       "ARRIVED_TOWN": true
     },
-    "variables": {
-      "GOLD": 50
-    },
     "party": {
       "HERO": {
         "hp": 5,
         "max_hp": 10
       }
+    },
+    "currency": {
+      "GOLD": 50
     }
   }
 }

@@ -31,9 +31,9 @@
       "expected": "OVERWORLD"
     },
     {
-      "type": "variable",
-      "variable": "GOLD",
-      "expected": 30
+      "type": "currency",
+      "expected": 30,
+      "currency": "GOLD"
     },
     {
       "type": "inventory",
@@ -46,7 +46,7 @@
     },
     {
       "type": "event_occurred",
-      "event": "VARIABLE_SET"
+      "event": "CURRENCY_SPENT"
     }
   ],
   "initial_state": {
@@ -60,7 +60,7 @@
     "flags": {
       "ARRIVED_TOWN": true
     },
-    "variables": {
+    "currency": {
       "GOLD": 50
     }
   }

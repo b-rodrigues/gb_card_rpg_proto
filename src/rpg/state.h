@@ -12,12 +12,15 @@
 #define MAX_STATE_FLAGS       64
 #define MAX_STATE_VARIABLES   16
 #define MAX_PERSISTENT_ACTORS 16
+#define MAX_CURRENCIES        4
+#define MAX_PROGRESSION_TARGETS 8
 
 /* Generic, saveable identifiers.  The game layer decides what a given
  * ID means; the state layer only stores and retrieves it. */
 typedef uint16_t FlagId;
 typedef uint16_t VariableId;
 typedef uint16_t ActorId;
+typedef uint16_t CurrencyId;
 
 /* Item catalog (identity only; the foundation stores possession/count). */
 typedef enum {
@@ -35,10 +38,14 @@ typedef enum {
 
 /* Named variables.  VARIABLE_ID_x - 1 indexes VariableState.values[]. */
 typedef enum {
-    VARIABLE_ID_GOLD             = 1,
-    VARIABLE_ID_CHAPTER          = 2,
-    VARIABLE_ID_SLIMES_DEFEATED  = 3
+    VARIABLE_ID_CHAPTER          = 1,
+    VARIABLE_ID_SLIMES_DEFEATED  = 2
 } VariableIdNamed;
+
+/* Named currencies.  CURRENCY_ID_x - 1 indexes CurrencyState.amount[]. */
+typedef enum {
+    CURRENCY_ID_GOLD = 1
+} CurrencyIdNamed;
 
 /* Named flags.  FLAG_ID_x maps to bit (x-1) of FlagState.bytes[]. */
 typedef enum {
@@ -64,8 +71,6 @@ typedef struct {
 
 typedef struct {
     CharacterId id;
-    uint8_t level;
-    uint16_t experience;
     uint8_t hp;
     uint8_t max_hp;
 } CharacterState;
@@ -94,6 +99,42 @@ typedef struct {
     int16_t values[MAX_STATE_VARIABLES];
 } VariableState;
 
+/* Dense currency storage indexed by CurrencyId - 1.  Only currencies the
+ * game actually uses occupy slots. */
+typedef struct {
+    int16_t amount[MAX_CURRENCIES];
+} CurrencyState;
+
+/* Progression: a target (anything in the game that can progress) with its
+ * mutable level/progress.  The engine is generic; target types only tag the
+ * owner (hero, weapon, card, ...) and are resolved to static definitions. */
+typedef enum {
+    PROG_TYPE_NONE = 0,
+    PROG_TYPE_HERO = 1,
+    PROG_TYPE_WEAPON = 2,
+    PROG_TYPE_COMPANION = 3
+} ProgressionTargetType;
+
+typedef struct {
+    uint8_t type;     /* ProgressionTargetType */
+    uint16_t id;
+} ProgressionTarget;
+
+typedef struct {
+    uint8_t level;
+    uint16_t progress;
+} ProgressionState;
+
+typedef struct {
+    ProgressionTarget target;
+    ProgressionState state;
+} ProgressionEntry;
+
+typedef struct {
+    uint8_t count;
+    ProgressionEntry entries[MAX_PROGRESSION_TARGETS];
+} ProgressionStore;
+
 /* Persistent world actor state: survives scene reloads.  Keyed by the
  * stable ActorId of a particular spawned instance, not its type. */
 typedef struct {
@@ -114,7 +155,9 @@ typedef struct {
     InventoryState inventory;
     FlagState flags;
     VariableState variables;
+    CurrencyState currency;
     WorldState world;
+    ProgressionStore progression;
 } GameState;
 
 void game_state_init(GameState *state);

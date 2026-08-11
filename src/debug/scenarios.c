@@ -11,6 +11,10 @@
 #include "battle.h"
 #include "ui.h"
 #include "input.h"
+#include "rpg/inventory.h"
+#include "rpg/currency.h"
+#include "rpg/progression.h"
+#include "rpg/items.h"
 
 extern Game g_game;
 
@@ -19,6 +23,22 @@ extern Game g_game;
 volatile uint8_t g_scen_load = 0;
 volatile uint8_t g_scen_load_state = 0;
 uint8_t g_scen_state_buf[STATE_LOAD_DESC_SIZE];
+
+/* Debug-action channel: the host writes a command + args here and sets
+ * g_debug_action_pending to exercise a real mechanic deterministically
+ * without the UI (add/remove item, currency, progress, buy, use). */
+volatile uint8_t g_debug_action[6];
+volatile uint8_t g_debug_action_pending;
+
+enum {
+    DBG_ACT_NONE = 0,
+    DBG_ACT_ADD_ITEM = 1,
+    DBG_ACT_REMOVE_ITEM = 2,
+    DBG_ACT_ADD_CURRENCY = 3,
+    DBG_ACT_ADD_PROGRESS = 4,
+    DBG_ACT_BUY_ITEM = 5,
+    DBG_ACT_USE_ITEM = 6
+};
 
 /* Shared post-setup: reset frame/flags/input/telemetry/audio. */
 static void scenario_begin(uint32_t seed)
@@ -84,13 +104,21 @@ static void scenario_load_state(void)
             g_game.state.variables.values[vid - 1] = val;
         }
     }
+    for (i = 0; i < b[STATE_LOAD_DESC_CURRENCY_COUNT_OFF]; i++) {
+        uint8_t cid;
+        int16_t amt;
+        n = STATE_LOAD_DESC_CURRENCY_ENTRY_OFF + i * STATE_LOAD_DESC_CURRENCY_ENTRY_SIZE;
+        cid = b[n];
+        amt = (int16_t)((int16_t)b[n + 1] | ((int16_t)b[n + 2] << 8));
+        if (cid >= 1 && cid <= MAX_CURRENCIES) {
+            g_game.state.currency.amount[cid - 1] = amt;
+        }
+    }
     for (i = 0; i < b[STATE_LOAD_DESC_PARTY_COUNT_OFF]; i++) {
         n = STATE_LOAD_DESC_PARTY_ENTRY_OFF + i * STATE_LOAD_DESC_PARTY_ENTRY_SIZE;
         g_game.state.party.members[i].id = (CharacterId)b[n];
-        g_game.state.party.members[i].level = b[n + 1];
-        g_game.state.party.members[i].experience = (uint16_t)(b[n + 2] | (b[n + 3] << 8));
-        g_game.state.party.members[i].hp = b[n + 4];
-        g_game.state.party.members[i].max_hp = b[n + 5];
+        g_game.state.party.members[i].hp = b[n + 1];
+        g_game.state.party.members[i].max_hp = b[n + 2];
         g_game.state.party.count = (uint8_t)(i + 1);
     }
     for (i = 0; i < b[STATE_LOAD_DESC_INVENTORY_COUNT_OFF]; i++) {
@@ -104,6 +132,14 @@ static void scenario_load_state(void)
         g_game.state.world.actors[i].actor_id = (ActorId)(b[n] | (b[n + 1] << 8));
         g_game.state.world.actors[i].state = b[n + 2];
         g_game.state.world.count = (uint8_t)(i + 1);
+    }
+    for (i = 0; i < b[STATE_LOAD_DESC_PROGRESSION_COUNT_OFF]; i++) {
+        ProgressionTarget t;
+        n = STATE_LOAD_DESC_PROGRESSION_ENTRY_OFF + i * STATE_LOAD_DESC_PROGRESSION_ENTRY_SIZE;
+        t.type = b[n];
+        t.id = (uint16_t)(b[n + 1] | (b[n + 2] << 8));
+        progression_ensure(&g_game.state, t, b[n + 3],
+                           (uint16_t)(b[n + 4] | (b[n + 5] << 8)));
     }
 
     /* Scene + world.  Persistent defeats are in state before the world is
@@ -164,12 +200,57 @@ static void scenario_load_state(void)
     debug_snapshot();
 }
 
+/* Run a host-issued debug action through the real mechanic functions.
+ * Unlike scenario setup, these ARE gameplay actions: they emit telemetry. */
+static void debug_run_action(void)
+{
+    uint8_t action = g_debug_action[0];
+    uint8_t a0 = g_debug_action[1];
+    int16_t a1 = (int16_t)((uint16_t)g_debug_action[2]
+                          | ((uint16_t)g_debug_action[3] << 8));
+    uint8_t a2 = g_debug_action[4];
+    ProgressionTarget target;
+    ProgressionAddResult pres;
+
+    switch (action) {
+        case DBG_ACT_ADD_ITEM:
+            inventory_add(&g_game.state.inventory, (ItemId)a0, a2);
+            break;
+        case DBG_ACT_REMOVE_ITEM:
+            inventory_remove(&g_game.state.inventory, (ItemId)a0, a2);
+            break;
+        case DBG_ACT_ADD_CURRENCY:
+            currency_add(&g_game.state, (CurrencyId)a0, a1);
+            break;
+        case DBG_ACT_ADD_PROGRESS:
+            target.type = a0;
+            target.id = (uint16_t)a1;
+            pres = progression_add(&g_game.state, target, a2);
+            if (pres.crossed) {
+                game_on_level_up(&g_game.state, target, &pres);
+            }
+            break;
+        case DBG_ACT_BUY_ITEM:
+            item_purchase(&g_game.state, (ItemId)a0);
+            break;
+        case DBG_ACT_USE_ITEM:
+            item_use(&g_game.state, (ItemId)a0, (CharacterId)a2);
+            break;
+        default:
+            break;
+    }
+    debug_snapshot();
+}
+
 void scenario_check_and_load(void)
 {
     if (g_scen_load_state) {
         g_scen_load_state = 0;
         scenario_load_state();
-        return;
+    }
+    if (g_debug_action_pending) {
+        g_debug_action_pending = 0;
+        debug_run_action();
     }
     g_scen_load = 0;
 }

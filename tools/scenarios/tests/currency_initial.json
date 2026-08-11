@@ -1,14 +1,14 @@
 {
-  "name": "variable_initial",
+  "name": "currency_initial",
   "test": true,
-  "description": "Declarative initial_state injects variables into the canonical GameState without clobbering defaults",
+  "description": "Currency is injectable via initial_state and assertable as a semantic currency (not a variable)",
   "scenario_id": "NEW_GAME",
   "actions": [],
   "assertions": [
     {
-      "type": "variable",
-      "expected": 3,
-      "variable": "SLIMES_DEFEATED"
+      "type": "currency",
+      "currency": "GOLD",
+      "expected": 150
     },
     {
       "type": "variable",
@@ -23,9 +23,9 @@
       "y": 4,
       "facing": "DOWN"
     },
-    "seed": 7002,
-    "variables": {
-      "SLIMES_DEFEATED": 3
+    "seed": 8201,
+    "currency": {
+      "GOLD": 150
     }
   }
 }

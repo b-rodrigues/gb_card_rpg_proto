@@ -1,0 +1,44 @@
+{
+  "name": "progression_weapon",
+  "test": true,
+  "description": "Generic progression works for a non-hero target (WEAPON): the engine contains no target-specific branching",
+  "scenario_id": "NEW_GAME",
+  "actions": [
+    {
+      "type": "add_progress",
+      "target": "IRON_SWORD",
+      "amount": 20
+    }
+  ],
+  "assertions": [
+    {
+      "type": "progression_level",
+      "target": "IRON_SWORD",
+      "expected": 2
+    },
+    {
+      "type": "progression_progress",
+      "target": "IRON_SWORD",
+      "expected": 60
+    },
+    {
+      "type": "event_occurred",
+      "event": "LEVEL_UP"
+    }
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 4,
+      "y": 4,
+      "facing": "DOWN"
+    },
+    "seed": 8208,
+    "progression": {
+      "IRON_SWORD": {
+        "level": 1,
+        "progress": 90
+      }
+    }
+  }
+}

@@ -23,9 +23,9 @@
       "expected": "SHOP"
     },
     {
-      "type": "variable",
-      "variable": "GOLD",
-      "expected": 5
+      "type": "currency",
+      "expected": 5,
+      "currency": "GOLD"
     },
     {
       "type": "inventory",
@@ -48,7 +48,7 @@
     "flags": {
       "ARRIVED_TOWN": true
     },
-    "variables": {
+    "currency": {
       "GOLD": 5
     }
   }

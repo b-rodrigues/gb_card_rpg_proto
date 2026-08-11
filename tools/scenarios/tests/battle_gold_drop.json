@@ -43,13 +43,13 @@
       "expected": "OVERWORLD"
     },
     {
-      "type": "variable",
-      "variable": "GOLD",
-      "expected": 5
+      "type": "currency",
+      "expected": 5,
+      "currency": "GOLD"
     },
     {
       "type": "event_occurred",
-      "event": "VARIABLE_SET"
+      "event": "CURRENCY_ADDED"
     },
     {
       "type": "event_occurred",

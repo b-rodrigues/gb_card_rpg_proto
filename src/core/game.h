@@ -10,6 +10,7 @@
 
 #include "dialogue.h"
 #include "rpg/state.h"
+#include "rpg/progression.h"
 
 typedef struct {
     bool valid;
@@ -48,5 +49,11 @@ void game_restart(Game *g);
 void game_update(Game *g);
 void game_render(Game *g);
 void game_render_reset(Game *g);
+
+/* Game-specific consequence of a generic progression level-up.  Called by
+ * whoever granted the progress when ProgressionAddResult.crossed is true.
+ * The generic progression engine never knows what a level-up means. */
+void game_on_level_up(GameState *state, ProgressionTarget target,
+                      const ProgressionAddResult *result);
 
 #endif /* GAME_H */

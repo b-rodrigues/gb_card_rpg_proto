@@ -159,23 +159,29 @@ void debug_state_snapshot(void)
         b[STATE_SNAP_VARIABLES_OFFSET + i * 2 + 1] = (uint8_t)((st->variables.values[i] >> 8) & 0xFF);
     }
 
+    /* Currency: dense slots; report every slot (id = index + 1). */
+    b[STATE_SNAP_CURRENCY_COUNT_OFF] = MAX_CURRENCIES;
+    for (i = 0; i < MAX_CURRENCIES; i++) {
+        n = STATE_SNAP_CURRENCY_ENTRY_OFF + i * STATE_SNAP_CURRENCY_ENTRY_SIZE;
+        b[n]     = (uint8_t)(i + 1);
+        b[n + 1] = (uint8_t)(st->currency.amount[i] & 0xFF);
+        b[n + 2] = (uint8_t)((st->currency.amount[i] >> 8) & 0xFF);
+    }
+
     b[STATE_SNAP_PARTY_OFFSET] = st->party.count;
     for (i = 0; i < MAX_PARTY_MEMBERS; i++) {
         n = STATE_SNAP_PARTY_OFFSET + 1 + i * STATE_SNAP_PARTY_ENTRY_SIZE;
         if (i < st->party.count) {
             b[n]     = (uint8_t)st->party.members[i].id;
-            b[n + 1] = st->party.members[i].level;
-            b[n + 2] = (uint8_t)(st->party.members[i].experience & 0xFF);
-            b[n + 3] = (uint8_t)((st->party.members[i].experience >> 8) & 0xFF);
-            b[n + 4] = st->party.members[i].hp;
-            b[n + 5] = st->party.members[i].max_hp;
+            b[n + 1] = st->party.members[i].hp;
+            b[n + 2] = st->party.members[i].max_hp;
         } else {
-            b[n] = 0; b[n + 1] = 0; b[n + 2] = 0; b[n + 3] = 0; b[n + 4] = 0; b[n + 5] = 0;
+            b[n] = 0; b[n + 1] = 0; b[n + 2] = 0;
         }
     }
 
     b[STATE_SNAP_INVENTORY_OFFSET] = st->inventory.count;
-    for (i = 0; i < 8; i++) {
+    for (i = 0; i < 16; i++) {
         n = STATE_SNAP_INVENTORY_OFFSET + 1 + i * STATE_SNAP_INVENTORY_ENTRY_SIZE;
         if (i < st->inventory.count) {
             b[n]     = (uint8_t)st->inventory.entries[i].item_id;
@@ -186,7 +192,7 @@ void debug_state_snapshot(void)
     }
 
     b[STATE_SNAP_WORLD_OFFSET] = st->world.count;
-    for (i = 0; i < 8; i++) {
+    for (i = 0; i < 16; i++) {
         n = STATE_SNAP_WORLD_OFFSET + 1 + i * STATE_SNAP_WORLD_ENTRY_SIZE;
         if (i < st->world.count) {
             b[n]     = (uint8_t)(st->world.actors[i].actor_id & 0xFF);
@@ -194,6 +200,21 @@ void debug_state_snapshot(void)
             b[n + 2] = st->world.actors[i].state;
         } else {
             b[n] = 0; b[n + 1] = 0; b[n + 2] = 0;
+        }
+    }
+
+    b[STATE_SNAP_PROGRESSION_COUNT_OFF] = st->progression.count;
+    for (i = 0; i < MAX_PROGRESSION_TARGETS; i++) {
+        n = STATE_SNAP_PROGRESSION_ENTRY_OFF + i * STATE_SNAP_PROGRESSION_ENTRY_SIZE;
+        if (i < st->progression.count) {
+            b[n]     = st->progression.entries[i].target.type;
+            b[n + 1] = (uint8_t)(st->progression.entries[i].target.id & 0xFF);
+            b[n + 2] = (uint8_t)((st->progression.entries[i].target.id >> 8) & 0xFF);
+            b[n + 3] = st->progression.entries[i].state.level;
+            b[n + 4] = (uint8_t)(st->progression.entries[i].state.progress & 0xFF);
+            b[n + 5] = (uint8_t)((st->progression.entries[i].state.progress >> 8) & 0xFF);
+        } else {
+            b[n] = 0; b[n + 1] = 0; b[n + 2] = 0; b[n + 3] = 0; b[n + 4] = 0; b[n + 5] = 0;
         }
     }
 }

@@ -38,9 +38,9 @@
       "expected": true
     },
     {
-      "type": "variable",
-      "variable": "GOLD",
-      "expected": 150
+      "type": "currency",
+      "expected": 150,
+      "currency": "GOLD"
     },
     {
       "type": "variable",
@@ -89,12 +89,8 @@
       "ARRIVED_TOWN": true,
       "MET_MAYOR": true
     },
-    "variables": {
-      "GOLD": 150
-    },
     "party": {
       "HERO": {
-        "level": 3,
         "hp": 24,
         "max_hp": 30
       }
@@ -105,6 +101,14 @@
     "world": {
       "SLIME_FOREST": "DEFEATED",
       "BAT_FOREST": "DEFEATED"
+    },
+    "currency": {
+      "GOLD": 150
+    },
+    "progression": {
+      "HERO_1": {
+        "level": 3
+      }
     }
   }
 }

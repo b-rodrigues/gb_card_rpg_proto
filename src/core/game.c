@@ -5,6 +5,32 @@
 #include "interaction.h"
 #include "telemetry.h"
 #include "scenarios.h"
+#include "rpg/progression.h"
+#include "rpg/party.h"
+
+void game_on_level_up(GameState *state, ProgressionTarget target,
+                      const ProgressionAddResult *result)
+{
+    CharacterState *hero;
+    uint8_t gained;
+    uint8_t i;
+
+    if (!state || !result || !result->crossed) return;
+    gained = (uint8_t)(result->level_after - result->level_before);
+    if (gained == 0) return;
+
+    if (target.type == PROG_TYPE_HERO) {
+        hero = party_get_member(&state->party, CHARACTER_HERO);
+        if (!hero) return;
+        for (i = 0; i < gained; i++) {
+            if (hero->max_hp < 253) {
+                hero->max_hp = (uint8_t)(hero->max_hp + 2);
+            }
+        }
+        hero->hp = hero->max_hp;
+    }
+    /* Other target types have no game-specific consequence yet. */
+}
 
 void game_render_reset(Game *g)
 {

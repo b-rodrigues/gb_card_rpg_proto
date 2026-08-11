@@ -134,6 +134,7 @@ static void load_game_over(void)
 {
     overworld_setup(SCENE_FIELD, MAP_FIELD, 13, 8, DIRECTION_DOWN, 4000, 0);
     g_game.world.player.hp = 2;
+    g_game.state.party.members[0].hp = 2;
     world_set_actor_pos(&g_game.world, ENTITY_ID_SLIME, 14, 8);
     debug_snapshot();
 }
@@ -159,7 +160,8 @@ static void load_battle_boot(void)
 {
     overworld_setup(SCENE_FIELD, MAP_FIELD, 13, 8, DIRECTION_DOWN, 5002, 0);
     world_set_actor_pos(&g_game.world, ENTITY_ID_SLIME, 14, 8);
-    battle_start(&g_game.battle, g_game.world.player.hp, g_game.world.player.max_hp,
+    battle_start(&g_game.battle, g_game.state.party.members[0].hp,
+                 g_game.state.party.members[0].max_hp,
                  g_game.world.actors[0].hp, g_game.world.actors[0].max_hp);
     g_game.screen = SCREEN_BATTLE;
     audio_play_music(MUSIC_BATTLE);

@@ -13,6 +13,7 @@ void battle_screen_update(Game *g)
             bool victory = (g->battle.result == BATTLE_RESULT_VICTORY);
             if (victory) {
                 g->world.player.hp = g->battle.player.hp;
+                g->state.party.members[0].hp = g->battle.player.hp;
                 world_on_battle_end(&g->world, victory);
                 audio_play_music(MUSIC_OVERWORLD);
                 telemetry_emit(EVENT_MUSIC_CHANGED, MUSIC_OVERWORLD, 0, 0, 0);

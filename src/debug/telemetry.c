@@ -1,8 +1,9 @@
 #include "telemetry.h"
 #include "audio.h"
 #include "screen.h"
+#include "actor.h"
 
-uint8_t g_snap_buf[20] = {0};
+uint8_t g_snap_buf[SNAPSHOT_TOTAL_SIZE] = {0};
 GameEvent g_telemetry_buffer[MAX_TELEMETRY_EVENTS] = {{0}};
 uint8_t g_telemetry_count = 0;
 uint8_t g_telemetry_head = 0;
@@ -88,6 +89,9 @@ static uint8_t screen_broad(ScreenId s)
 void debug_snapshot(void)
 {
     const Game *g = &g_game;
+    uint8_t actor_buf[MAX_SNAPSHOT_ACTORS * ACTOR_SNAPSHOT_ENTRY_SIZE];
+    uint8_t actor_count;
+    uint8_t i;
 
     g_snap_buf[0] = screen_broad(g->screen);
     g_snap_buf[1] = g->world.player.position.x;
@@ -101,7 +105,7 @@ void debug_snapshot(void)
     g_snap_buf[9] = g->battle.player.hp;
     g_snap_buf[10] = g->battle.enemy.hp;
     g_snap_buf[11] = (uint8_t)g->world.map_id;
-    g_snap_buf[12] = (uint8_t)g->story_flags; /* Low 8 bits of story_flags bitfield */
+    g_snap_buf[12] = (uint8_t)g->story_flags;
     g_snap_buf[13] = g->dialogue.active ? 1 : 0;
     g_snap_buf[14] = g->dialogue.current_line;
     g_snap_buf[15] = (uint8_t)g->dialogue.id;
@@ -109,4 +113,10 @@ void debug_snapshot(void)
     g_snap_buf[17] = g->game_over_choice;
     g_snap_buf[18] = (uint8_t)g->screen;
     g_snap_buf[19] = (uint8_t)g->scene;
+
+    actor_count = actor_write_snapshot(&g->world, actor_buf, MAX_SNAPSHOT_ACTORS);
+    for (i = 0; i < (MAX_SNAPSHOT_ACTORS * ACTOR_SNAPSHOT_ENTRY_SIZE); i++) {
+        g_snap_buf[SNAPSHOT_BASE_SIZE + i] =
+            (i < (actor_count * ACTOR_SNAPSHOT_ENTRY_SIZE)) ? actor_buf[i] : 0;
+    }
 }

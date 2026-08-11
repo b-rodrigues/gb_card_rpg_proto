@@ -206,6 +206,26 @@ static void load_town_boot(void)
     debug_snapshot();
 }
 
+/* ── World Actor scenarios ──────────────────────────────────────── */
+
+static void load_actor_collision_blocking(void)
+{
+    overworld_setup(SCENE_TOWN, MAP_TOWN, 9, 5, DIRECTION_RIGHT, 6000, STORY_FLAG_ARRIVED_TOWN);
+    debug_snapshot();
+}
+
+static void load_actor_shopkeeper(void)
+{
+    overworld_setup(SCENE_TOWN, MAP_TOWN, 9, 4, DIRECTION_UP, 6001, STORY_FLAG_ARRIVED_TOWN);
+    debug_snapshot();
+}
+
+static void load_actor_bat(void)
+{
+    overworld_setup(SCENE_CASTLE, MAP_CASTLE, 11, 7, DIRECTION_RIGHT, 6002, STORY_FLAG_ARRIVED_TOWN);
+    debug_snapshot();
+}
+
 void scenario_check_and_load(void)
 {
     uint8_t sc = g_scen_load;
@@ -236,6 +256,9 @@ void scenario_check_and_load(void)
         case 21: load_mountain_pass_boot(); break;
         case 22: load_castle_boot(); break;
         case 23: load_town_boot(); break;
+        case 24: load_actor_collision_blocking(); break;
+        case 25: load_actor_shopkeeper(); break;
+        case 26: load_actor_bat(); break;
     }
     game_render_reset(&g_game);
     debug_snapshot();

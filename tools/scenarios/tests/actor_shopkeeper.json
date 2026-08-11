@@ -1,0 +1,36 @@
+{
+  "name": "actor_shopkeeper",
+  "test": true,
+  "description": "Extensibility: a third friendly actor (Shopkeeper) starts dialogue with no generic engine changes",
+  "scenario_id": "ACTOR_SHOPKEEPER",
+  "actions": [
+    {
+      "type": "press",
+      "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 5
+    }
+  ],
+  "assertions": [
+    {
+      "type": "screen",
+      "expected": "DIALOGUE"
+    },
+    {
+      "type": "dialogue_id",
+      "expected": "SHOPKEEPER_GREETING"
+    },
+    {
+      "type": "event_occurred",
+      "event": "ACTOR_INTERACTION"
+    },
+    {
+      "type": "actor_at",
+      "entity": "SHOPKEEPER",
+      "x": 9,
+      "y": 3
+    }
+  ]
+}

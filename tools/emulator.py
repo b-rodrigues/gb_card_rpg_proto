@@ -19,8 +19,12 @@ BATTLE_TURN_MAP = {0: "PLAYER", 1: "ENEMY_DELAY", 2: "ENEMY", 3: "RESULT"}
 BATTLE_RESULT_MAP = {0: "NONE", 1: "VICTORY", 2: "DEFEAT"}
 MAP_NAME_MAP = {0: "FIELD", 1: "TOWN", 2: "FOREST", 3: "MOUNTAIN_PASS", 4: "CASTLE"}
 STORY_FLAG_ID_MAP = {1: "ARRIVED_TOWN", 2: "MET_MAYOR"}
-ENTITY_ID_MAP = {0: "NONE", 1: "PLAYER", 2: "ENEMY", 3: "MAYOR", 4: "GUARD"}
-DIALOGUE_ID_MAP = {0: "NONE", 1: "MAYOR_GREETING", 2: "GUARD_GREETING"}
+ENTITY_ID_MAP = {0: "NONE", 1: "PLAYER", 2: "SLIME", 3: "MAYOR", 4: "GUARD",
+                 5: "SHOPKEEPER", 6: "BAT"}
+INTERACTION_ID_MAP = {0: "NONE", 1: "DIALOGUE", 2: "COMBAT"}
+DIALOGUE_ID_MAP = {0: "NONE", 1: "MAYOR_GREETING", 2: "GUARD_GREETING",
+                   3: "SHOPKEEPER_GREETING"}
+BATTLE_ID_MAP = {0: "NONE", 1: "SLIME", 2: "BAT"}
 EVENT_TYPE_MAP = {
     0: "PLAYER_MOVED", 1: "COLLISION", 2: "ENCOUNTER_STARTED",
     3: "BATTLE_STARTED", 4: "BATTLE_ACTION", 5: "DAMAGE_DEALT",
@@ -29,9 +33,20 @@ EVENT_TYPE_MAP = {
     12: "MAP_CHANGED", 13: "STORY_FLAG_SET", 14: "STORY_FLAG_CLEARED",
     15: "DIALOGUE_STARTED", 16: "DIALOGUE_NEXT", 17: "DIALOGUE_ENDED",
     18: "INTERACTION_ATTEMPT", 19: "RENDER_SCREEN", 20: "RENDER_DIALOGUE",
-    21: "SCREEN_CHANGED", 22: "SCENE_CHANGED"
+    21: "SCREEN_CHANGED", 22: "SCENE_CHANGED",
+    23: "ACTOR_COLLISION", 24: "ACTOR_INTERACTION", 25: "ACTOR_COMBAT_START"
 }
 DIRECTION_MAP = {0: "UP", 1: "DOWN", 2: "LEFT", 3: "RIGHT"}
+
+# Static per-actor semantics resolved from the snapshot's actor ids.
+ACTOR_INFO_MAP = {
+    "PLAYER":      {"visual": "@", "hostile": False, "interaction": "NONE", "dialogue": "NONE", "battle": "NONE"},
+    "SLIME":       {"visual": "E", "hostile": True,  "interaction": "COMBAT", "dialogue": "NONE", "battle": "SLIME"},
+    "MAYOR":       {"visual": "M", "hostile": False, "interaction": "DIALOGUE", "dialogue": "MAYOR_GREETING", "battle": "NONE"},
+    "GUARD":       {"visual": "G", "hostile": False, "interaction": "DIALOGUE", "dialogue": "GUARD_GREETING", "battle": "NONE"},
+    "SHOPKEEPER":  {"visual": "S", "hostile": False, "interaction": "DIALOGUE", "dialogue": "SHOPKEEPER_GREETING", "battle": "NONE"},
+    "BAT":         {"visual": "V", "hostile": True,  "interaction": "COMBAT", "dialogue": "NONE", "battle": "BAT"},
+}
 
 BUTTON_MASKS = {
     "RIGHT": 0x01, "LEFT": 0x02, "UP": 0x04, "DOWN": 0x08,
@@ -46,7 +61,8 @@ SCENARIO_IDS = {
     "BATTLE_ATTACK": 12, "GUARD_INTERACTION_DISTANCE": 13, "GAME_OVER": 14,
     "OVERWORLD_BOOT": 15, "DIALOGUE_BOOT": 16, "BATTLE_BOOT": 17,
     "GAME_OVER_BOOT": 18, "THANKS_BOOT": 19, "FOREST_BOOT": 20,
-    "MOUNTAIN_PASS_BOOT": 21, "CASTLE_BOOT": 22, "TOWN_BOOT": 23
+    "MOUNTAIN_PASS_BOOT": 21, "CASTLE_BOOT": 22, "TOWN_BOOT": 23,
+    "ACTOR_COLLISION_BLOCKING": 24, "ACTOR_SHOPKEEPER": 25, "ACTOR_BAT": 26
 }
 
 def decode_story_flags(flags_mask):
@@ -298,11 +314,16 @@ class EmulatorSession:
 
     # ── State inspection ────────────────────────────────────────────
 
+    SNAPSHOT_BASE_SIZE = 20
+    SNAPSHOT_ACTOR_ENTRY_SIZE = 4
+    MAX_SNAPSHOT_ACTORS = 4
+    SNAPSHOT_TOTAL_SIZE = SNAPSHOT_BASE_SIZE + (MAX_SNAPSHOT_ACTORS * SNAPSHOT_ACTOR_ENTRY_SIZE)
+
     def snapshot(self):
-        """Read 20-byte snapshot from g_snap_buf."""
+        """Read SNAPSHOT_TOTAL_SIZE bytes from g_snap_buf."""
         addr = self.get_symbol("g_snap_buf")
         snap_bytes = []
-        for i in range(20):
+        for i in range(self.SNAPSHOT_TOTAL_SIZE):
             b = self._memread(addr + i)
             if b is not None:
                 snap_bytes.append(b)
@@ -332,11 +353,42 @@ class EmulatorSession:
                 "dialogue_id": snap_bytes[15] if len(snap_bytes) >= 16 else 0,
                 "dialogue_id_name": DIALOGUE_ID_MAP.get(snap_bytes[15], f"UNKNOWN_{snap_bytes[15]}") if len(snap_bytes) >= 16 else "NONE",
                 "player_facing": DIRECTION_MAP.get(snap_bytes[16], f"UNKNOWN_{snap_bytes[16]}") if len(snap_bytes) >= 17 else "UNKNOWN",
-                "game_over_choice": snap_bytes[17] if len(snap_bytes) >= 18 else 0
+                "game_over_choice": snap_bytes[17] if len(snap_bytes) >= 18 else 0,
+                "actors": self._parse_actors(snap_bytes)
             }
             self.current_snapshot = parsed
             return parsed
         return self.current_snapshot
+
+    def _parse_actors(self, snap_bytes):
+        """Parse scene actors from bytes 20+ as (id, x, y, facing) entries."""
+        actors = []
+        if len(snap_bytes) < self.SNAPSHOT_BASE_SIZE:
+            return actors
+        entry = self.SNAPSHOT_ACTOR_ENTRY_SIZE
+        base = self.SNAPSHOT_BASE_SIZE
+        for i in range(self.MAX_SNAPSHOT_ACTORS):
+            off = base + i * entry
+            if off + entry > len(snap_bytes):
+                break
+            eid = snap_bytes[off]
+            if eid == 0:
+                continue
+            id_name = ENTITY_ID_MAP.get(eid, f"UNKNOWN_{eid}")
+            info = ACTOR_INFO_MAP.get(id_name, {})
+            actors.append({
+                "id": eid,
+                "id_name": id_name,
+                "x": snap_bytes[off + 1],
+                "y": snap_bytes[off + 2],
+                "facing": DIRECTION_MAP.get(snap_bytes[off + 3], f"UNKNOWN_{snap_bytes[off + 3]}"),
+                "visual": info.get("visual", "?"),
+                "hostile": info.get("hostile", False),
+                "interaction": info.get("interaction", "NONE"),
+                "dialogue": info.get("dialogue", "NONE"),
+                "battle": info.get("battle", "NONE"),
+            })
+        return actors
 
     def get_screen_buf(self):
         """Read 18×20 characters from g_ui_screen_buf."""
@@ -419,6 +471,13 @@ class EmulatorSession:
                 ev_obj["dialogue_id_name"] = DIALOGUE_ID_MAP.get(data[0], f"UNKNOWN_{data[0]}")
             elif ev_type_str == "INTERACTION_ATTEMPT":
                 ev_obj["target_entity"] = ENTITY_ID_MAP.get(data[3], f"UNKNOWN_{data[3]}")
+            elif ev_type_str == "ACTOR_COLLISION":
+                ev_obj["actor"] = ENTITY_ID_MAP.get(data[2], f"UNKNOWN_{data[2]}")
+            elif ev_type_str == "ACTOR_INTERACTION":
+                ev_obj["actor"] = ENTITY_ID_MAP.get(data[2], f"UNKNOWN_{data[2]}")
+                ev_obj["interaction"] = INTERACTION_ID_MAP.get(data[3], f"UNKNOWN_{data[3]}")
+            elif ev_type_str == "ACTOR_COMBAT_START":
+                ev_obj["actor"] = ENTITY_ID_MAP.get(data[0], f"UNKNOWN_{data[0]}")
             
             all_events.append(ev_obj)
 

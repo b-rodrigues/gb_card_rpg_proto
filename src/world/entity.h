@@ -21,25 +21,20 @@ typedef enum {
     ENTITY_ID_PLAYER = 1,
     ENTITY_ID_SLIME = 2,
     ENTITY_ID_MAYOR = 3,
-    ENTITY_ID_GUARD = 4
+    ENTITY_ID_GUARD = 4,
+    ENTITY_ID_SHOPKEEPER = 5,
+    ENTITY_ID_BAT = 6
 } EntityId;
-
-typedef enum {
-    ENTITY_PLAYER,
-    ENTITY_ENEMY,
-    ENTITY_NPC
-} EntityType;
 
 typedef struct {
     Position position;
     uint8_t hp;
     uint8_t max_hp;
     bool active;
-    EntityType type;
     Direction facing;
-    const char *id;
+    EntityId id;
 } Entity;
 
-void entity_init(Entity *e, EntityType type, const char *id, uint8_t x, uint8_t y, uint8_t hp, uint8_t max_hp);
+void entity_init(Entity *e, EntityId id, uint8_t x, uint8_t y, uint8_t hp, uint8_t max_hp);
 
 #endif /* ENTITY_H */

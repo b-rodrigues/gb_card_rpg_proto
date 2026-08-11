@@ -1,0 +1,31 @@
+{
+  "name": "actor_collision_blocking",
+  "test": true,
+  "description": "Blocking World Actor (Mayor) stops movement and the player position is unchanged",
+  "scenario_id": "ACTOR_COLLISION_BLOCKING",
+  "actions": [
+    {
+      "type": "press",
+      "button": "RIGHT"
+    }
+  ],
+  "assertions": [
+    {
+      "type": "game_state",
+      "expected": "OVERWORLD"
+    },
+    {
+      "type": "player_position",
+      "expected_x": 9,
+      "expected_y": 5
+    },
+    {
+      "type": "event_occurred",
+      "event": "ACTOR_COLLISION"
+    },
+    {
+      "type": "event_not_occurred",
+      "event": "PLAYER_MOVED"
+    }
+  ]
+}

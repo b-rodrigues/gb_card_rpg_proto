@@ -1,0 +1,34 @@
+{
+  "name": "actor_slime_combat",
+  "test": true,
+  "description": "Hostile World Actor (Slime) engagement starts combat with the Slime battle",
+  "scenario_id": "FIRST_ENCOUNTER",
+  "actions": [
+    {
+      "type": "press",
+      "button": "RIGHT"
+    }
+  ],
+  "assertions": [
+    {
+      "type": "screen",
+      "expected": "BATTLE"
+    },
+    {
+      "type": "battle_enemy_hp",
+      "expected": 5
+    },
+    {
+      "type": "battle_turn",
+      "expected": "PLAYER"
+    },
+    {
+      "type": "event_occurred",
+      "event": "ACTOR_COMBAT_START"
+    },
+    {
+      "type": "event_occurred",
+      "event": "BATTLE_STARTED"
+    }
+  ]
+}

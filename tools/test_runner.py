@@ -10,15 +10,17 @@ import json
 import glob
 import os
 import sys
-from emulator import EmulatorSession, STORY_FLAG_ID_MAP, DIALOGUE_ID_MAP, SCENARIO_IDS
+from emulator import EmulatorSession, STORY_FLAG_ID_MAP, DIALOGUE_ID_MAP, SCENARIO_IDS, ENTITY_ID_MAP
 
 VALID_ASSERTION_TYPES = {
     "game_state", "player_position", "player_facing", "player_hp", "music_track",
     "enemy_hp", "battle_turn", "battle_result", "battle_player_hp", "battle_enemy_hp",
     "game_over_choice", "story_flag", "screen", "scene",
     "event_occurred", "event_not_occurred", "dialogue_active", "dialogue_line", "dialogue_id",
-    "screen_row"
+    "screen_row", "actor_at"
 }
+
+VALID_ENTITY_IDS = set(ENTITY_ID_MAP.values())
 
 VALID_STORY_FLAGS = set(STORY_FLAG_ID_MAP.values())
 VALID_DIALOGUE_IDS = set(DIALOGUE_ID_MAP.values())
@@ -119,6 +121,20 @@ def run_scenario(scenario):
         elif a_type == "scene":
             actual = snap.get("scene", "UNKNOWN")
             passed = (actual == expected)
+
+        elif a_type == "actor_at":
+            exp_entity = a.get("entity")
+            exp_x = a.get("x")
+            exp_y = a.get("y")
+            actors = snap.get("actors", [])
+            found = [ac for ac in actors
+                     if ac.get("id_name") == exp_entity and
+                     ac.get("x") == exp_x and ac.get("y") == exp_y]
+            expected = f"{exp_entity} at ({exp_x},{exp_y})"
+            actual = "; ".join(
+                f"{ac.get('id_name')} at ({ac.get('x')},{ac.get('y')})" for ac in actors
+            ) or "NO ACTORS"
+            passed = len(found) > 0
 
         elif a_type == "player_hp":
             actual = snap.get("player_hp", 0)

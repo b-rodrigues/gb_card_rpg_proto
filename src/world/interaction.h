@@ -5,11 +5,11 @@
 #include <stdbool.h>
 #include "world.h"
 #include "dialogue.h"
-#include "npc.h"
+#include "actor.h"
 
-bool interaction_try_at(MapId map_id, uint8_t target_x, uint8_t target_y, DialogueState *dialogue);
-bool interaction_try_facing(const World *world, DialogueState *dialogue);
-bool interaction_try_bump(const World *world, int8_t dx, int8_t dy, DialogueState *dialogue);
+ActorEngageResult interaction_try_at(const World *world, uint8_t target_x, uint8_t target_y, DialogueState *dialogue);
+ActorEngageResult interaction_try_facing(const World *world, DialogueState *dialogue);
+ActorEngageResult interaction_try_bump(const World *world, int8_t dx, int8_t dy, DialogueState *dialogue);
 void interaction_on_dialogue_end(DialogueState *dialogue, uint32_t *story_flags);
 
 #endif /* INTERACTION_H */

@@ -1,6 +1,6 @@
 #include "world.h"
 #include "telemetry.h"
-#include "npc.h"
+#include "actor.h"
 
 void world_load_map(World *w, MapId map_id)
 {
@@ -26,8 +26,6 @@ void world_load_map(World *w, MapId map_id)
     if (map_id == MAP_FIELD) {
         /* Exit gate to Town on East wall (18, 7) */
         w->map[7][18] = TILE_FIELD_EXIT;
-        entity_init(&w->enemy, ENTITY_ENEMY, "slime_01", 14, 8, 5, 5);
-        w->enemy.active = true;
     } else if (map_id == MAP_TOWN) {
         /* Exit gate to Field on West wall (1, 7) */
         w->map[7][1] = TILE_TOWN_EXIT;
@@ -40,8 +38,6 @@ void world_load_map(World *w, MapId map_id)
                 w->map[y][x] = TILE_BUILDING;
             }
         }
-        /* Deactivate wild enemy in Town */
-        w->enemy.active = false;
     } else if (map_id == MAP_FOREST) {
         /* Forest: open floor with scattered tree clusters. */
         static const uint8_t trees[][2] = {{4,2},{5,2},{4,3},{10,6},{11,6},{9,7},
@@ -50,8 +46,6 @@ void world_load_map(World *w, MapId map_id)
         for (i = 0; i < sizeof(trees)/sizeof(trees[0]); i++) {
             w->map[trees[i][1]][trees[i][0]] = TILE_WALL;
         }
-        entity_init(&w->enemy, ENTITY_ENEMY, "forest_slime", 12, 5, 6, 6);
-        w->enemy.active = true;
     } else if (map_id == MAP_MOUNTAIN_PASS) {
         /* Narrow winding pass with rock walls on both sides. */
         for (y = 0; y < WORLD_HEIGHT; y++) {
@@ -63,8 +57,6 @@ void world_load_map(World *w, MapId map_id)
                 }
             }
         }
-        entity_init(&w->enemy, ENTITY_ENEMY, "rock_golem", 14, 7, 8, 8);
-        w->enemy.active = true;
     } else if (map_id == MAP_CASTLE) {
         /* Castle interior: buildings flanking a central hall. */
         for (y = 3; y <= 8; y++) {
@@ -75,14 +67,16 @@ void world_load_map(World *w, MapId map_id)
                 w->map[y][x] = TILE_BUILDING;
             }
         }
-        w->enemy.active = false;
     }
+
+    /* Scene data determines what actors exist here. */
+    actor_load_scene(w, map_id);
 }
 
 void world_init(World *w)
 {
     if (!w) return;
-    entity_init(&w->player, ENTITY_PLAYER, "player", 4, 4, 10, 10);
+    entity_init(&w->player, ENTITY_ID_PLAYER, 4, 4, 10, 10);
     world_load_map(w, MAP_FIELD);
 }
 
@@ -115,7 +109,7 @@ WorldMoveResult world_move_player(World *w, int8_t dx, int8_t dy)
     uint8_t old_x, old_y;
     uint8_t target_x, target_y;
     uint8_t target_tile;
-    const NpcDef *npc_hit;
+    const WorldActorDefinition *actor;
 
     if (!w) return MOVE_RESULT_NONE;
 
@@ -141,16 +135,16 @@ WorldMoveResult world_move_player(World *w, int8_t dx, int8_t dy)
         return MOVE_RESULT_MAP_CHANGED;
     }
 
-    if (w->enemy.active && target_x == w->enemy.position.x && target_y == w->enemy.position.y) {
-        telemetry_emit(EVENT_COLLISION, target_x, target_y, (uint8_t)ENTITY_ENEMY, 0);
-        telemetry_emit(EVENT_ENCOUNTER_STARTED, w->enemy.type, 0, 0, 0);
-        w->encounter_triggered = true;
-        return MOVE_RESULT_ENCOUNTER;
-    }
-
-    npc_hit = npc_find_at(w->map_id, target_x, target_y);
-    if (npc_hit && npc_hit->active) {
-        telemetry_emit(EVENT_COLLISION, target_x, target_y, (uint8_t)ENTITY_NPC, (uint8_t)npc_hit->id);
+    /* Generic World Actor collision: the movement code does not care
+     * whether this is a Mayor, a Guard, a Slime or a Bat. */
+    actor = actor_find_at(w, target_x, target_y);
+    if (actor) {
+        telemetry_emit(EVENT_ACTOR_COLLISION, target_x, target_y, (uint8_t)actor->id, 0);
+        if (actor->flags & ACTOR_FLAG_HOSTILE) {
+            telemetry_emit(EVENT_ENCOUNTER_STARTED, (uint8_t)actor->id, 0, 0, 0);
+            w->encounter_triggered = true;
+            return MOVE_RESULT_ENCOUNTER;
+        }
         return MOVE_RESULT_BLOCKED;
     }
 
@@ -169,7 +163,7 @@ void world_on_battle_end(World *w, bool victory)
     if (victory) {
         w->enemy.active = false;
         w->enemy.hp = 0;
-        telemetry_emit(EVENT_ENTITY_DEFEATED, 0, 0, 0, 0);
+        telemetry_emit(EVENT_ENTITY_DEFEATED, (uint8_t)w->enemy.id, 0, 0, 0);
     }
 }
 

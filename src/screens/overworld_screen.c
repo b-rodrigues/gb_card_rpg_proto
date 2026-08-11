@@ -1,16 +1,27 @@
 #include "game.h"
 #include "screen.h"
-#include "dialogue.h"
 #include "interaction.h"
 #include "story.h"
 #include "telemetry.h"
 #include "audio.h"
+
+static void start_battle_from_world(Game *g)
+{
+    g->world.encounter_triggered = false;
+    battle_start(&g->battle, g->world.player.hp, g->world.player.max_hp,
+                 g->world.enemy.hp, g->world.enemy.max_hp);
+    audio_play_music(MUSIC_BATTLE);
+    telemetry_emit(EVENT_MUSIC_CHANGED, MUSIC_BATTLE, 0, 0, 0);
+    telemetry_emit(EVENT_ACTOR_COMBAT_START, (uint8_t)g->world.enemy.id, 0, 0, 0);
+    screen_change(g, SCREEN_BATTLE);
+}
 
 void overworld_screen_update(Game *g)
 {
     int8_t dx = 0;
     int8_t dy = 0;
     WorldMoveResult move_res = MOVE_RESULT_NONE;
+    ActorEngageResult engage = ENGAGE_NONE;
 
     if (input_pressed(INPUT_UP))    dy = -1;
     if (input_pressed(INPUT_DOWN))  dy = 1;
@@ -27,27 +38,22 @@ void overworld_screen_update(Game *g)
         }
     }
 
-    /* Check interaction: PRESS A checks facing tile; movement bump only
-     * triggers when the move was blocked (player walked into an NPC). */
     if (input_pressed(INPUT_A)) {
-        if (interaction_try_facing(&g->world, &g->dialogue)) {
-            screen_change(g, SCREEN_DIALOGUE);
-            return;
-        }
+        engage = interaction_try_facing(&g->world, &g->dialogue);
     } else if (move_res == MOVE_RESULT_BLOCKED) {
-        if (interaction_try_bump(&g->world, dx, dy, &g->dialogue)) {
-            screen_change(g, SCREEN_DIALOGUE);
-            return;
-        }
+        engage = interaction_try_bump(&g->world, dx, dy, &g->dialogue);
+    }
+
+    if (engage == ENGAGE_DIALOGUE) {
+        screen_change(g, SCREEN_DIALOGUE);
+        return;
+    } else if (engage == ENGAGE_BATTLE) {
+        start_battle_from_world(g);
+        return;
     }
 
     if (g->world.encounter_triggered) {
-        g->world.encounter_triggered = false;
-        battle_start(&g->battle, g->world.player.hp, g->world.player.max_hp,
-                     g->world.enemy.hp, g->world.enemy.max_hp);
-        audio_play_music(MUSIC_BATTLE);
-        telemetry_emit(EVENT_MUSIC_CHANGED, MUSIC_BATTLE, 0, 0, 0);
-        screen_change(g, SCREEN_BATTLE);
+        start_battle_from_world(g);
     }
 }
 

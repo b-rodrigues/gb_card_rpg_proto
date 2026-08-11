@@ -1,0 +1,36 @@
+{
+  "name": "actor_slime_collision",
+  "test": true,
+  "description": "Walking into a hostile World Actor (Slime) emits actor collision and starts an encounter",
+  "scenario_id": "FIRST_ENCOUNTER",
+  "actions": [
+    {
+      "type": "press",
+      "button": "RIGHT"
+    }
+  ],
+  "assertions": [
+    {
+      "type": "game_state",
+      "expected": "BATTLE"
+    },
+    {
+      "type": "screen",
+      "expected": "BATTLE"
+    },
+    {
+      "type": "event_occurred",
+      "event": "ACTOR_COLLISION"
+    },
+    {
+      "type": "event_occurred",
+      "event": "ENCOUNTER_STARTED"
+    },
+    {
+      "type": "actor_at",
+      "entity": "SLIME",
+      "x": 14,
+      "y": 8
+    }
+  ]
+}

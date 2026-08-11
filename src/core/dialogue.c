@@ -16,6 +16,13 @@ static const DialogueDefinition g_dialogue_defs[] = {
         2,
         {"Halt! Keep peace.", "Watch for slimes.", "", ""},
         0
+    },
+    {
+        DIALOGUE_ID_SHOPKEEPER_GREETING,
+        "SHOP:",
+        2,
+        {"Welcome to my shop.", "Rest a while, friend.", "", ""},
+        0
     }
 };
 

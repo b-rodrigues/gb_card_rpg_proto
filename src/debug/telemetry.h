@@ -6,6 +6,14 @@
 
 #define MAX_TELEMETRY_EVENTS 32
 
+/* Debug snapshot layout:
+ *   bytes  0-19 : core game state (see telemetry.c debug_snapshot)
+ *   bytes 20+   : scene actors as (id, x, y, facing) entries */
+#define SNAPSHOT_BASE_SIZE      20
+#define MAX_SNAPSHOT_ACTORS     4
+#define SNAPSHOT_ACTOR_ENTRY_SIZE 4
+#define SNAPSHOT_TOTAL_SIZE     (SNAPSHOT_BASE_SIZE + (MAX_SNAPSHOT_ACTORS * SNAPSHOT_ACTOR_ENTRY_SIZE))
+
 typedef enum {
     EVENT_PLAYER_MOVED,
     EVENT_COLLISION,
@@ -29,7 +37,10 @@ typedef enum {
     EVENT_RENDER_SCREEN,
     EVENT_RENDER_DIALOGUE,
     EVENT_SCREEN_CHANGED,
-    EVENT_SCENE_CHANGED
+    EVENT_SCENE_CHANGED,
+    EVENT_ACTOR_COLLISION,
+    EVENT_ACTOR_INTERACTION,
+    EVENT_ACTOR_COMBAT_START
 } GameEventType;
 
 typedef struct {
@@ -39,7 +50,7 @@ typedef struct {
     uint8_t data[4];
 } GameEvent;
 
-extern uint8_t g_snap_buf[20];
+extern uint8_t g_snap_buf[SNAPSHOT_TOTAL_SIZE];
 extern GameEvent g_telemetry_buffer[MAX_TELEMETRY_EVENTS];
 extern uint8_t g_telemetry_count;
 extern uint8_t g_telemetry_head;

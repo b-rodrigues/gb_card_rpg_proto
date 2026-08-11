@@ -1,5 +1,5 @@
 #include "ui.h"
-#include "npc.h"
+#include "actor.h"
 #include <gb/gb.h>
 #include <gb/cgb.h>
 #include <gbdk/font.h>
@@ -95,26 +95,26 @@ void ui_draw_world_map(const World *world)
     uint8_t x, y;
     uint8_t t;
     char tile_ch;
-    const NpcDef *npc_def;
+    const WorldActorDefinition *actor;
 
     if (!world) return;
 
     for (y = 0; y < WORLD_VIEW_HEIGHT; y++) {
         for (x = 0; x < WORLD_WIDTH; x++) {
-            npc_def = npc_find_at(world->map_id, x, y);
             if (world->player.position.x == x && world->player.position.y == y) {
                 tile_ch = '@';
-            } else if (world->enemy.active && world->enemy.position.x == x && world->enemy.position.y == y) {
-                tile_ch = 'E';
-            } else if (npc_def) {
-                tile_ch = (npc_def->id == ENTITY_ID_GUARD) ? 'G' : 'M';
             } else {
-                t = world->map[y][x];
-                if (t == TILE_WALL) tile_ch = '#';
-                else if (t == TILE_BUILDING) tile_ch = 'B';
-                else if (t == TILE_FIELD_EXIT) tile_ch = '>';
-                else if (t == TILE_TOWN_EXIT) tile_ch = '<';
-                else tile_ch = '.';
+                actor = actor_find_at(world, x, y);
+                if (actor) {
+                    tile_ch = actor->visual;
+                } else {
+                    t = world->map[y][x];
+                    if (t == TILE_WALL) tile_ch = '#';
+                    else if (t == TILE_BUILDING) tile_ch = 'B';
+                    else if (t == TILE_FIELD_EXIT) tile_ch = '>';
+                    else if (t == TILE_TOWN_EXIT) tile_ch = '<';
+                    else tile_ch = '.';
+                }
             }
             gotoxy(x, y);
             putchar(tile_ch);
@@ -151,15 +151,13 @@ void ui_update_player_position(const World *world, uint8_t old_x, uint8_t old_y,
 {
     char old_ch;
     uint8_t t;
-    const NpcDef *npc;
+    const WorldActorDefinition *actor;
 
     if (!world || (old_x == new_x && old_y == new_y)) return;
 
-    npc = npc_find_at(world->map_id, old_x, old_y);
-    if (world->enemy.active && world->enemy.position.x == old_x && world->enemy.position.y == old_y) {
-        old_ch = 'E';
-    } else if (npc) {
-        old_ch = (npc->id == ENTITY_ID_GUARD) ? 'G' : 'M';
+    actor = actor_find_at(world, old_x, old_y);
+    if (actor) {
+        old_ch = actor->visual;
     } else {
         t = world->map[old_y][old_x];
         if (t == TILE_WALL) old_ch = '#';

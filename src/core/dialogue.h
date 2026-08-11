@@ -11,7 +11,8 @@ typedef enum {
     DIALOGUE_ID_NONE = 0,
     DIALOGUE_ID_MAYOR_GREETING = 1,
     DIALOGUE_ID_GUARD_GREETING = 2,
-    DIALOGUE_ID_COUNT = 3
+    DIALOGUE_ID_SHOPKEEPER_GREETING = 3,
+    DIALOGUE_ID_COUNT = 4
 } DialogueId;
 
 typedef struct {

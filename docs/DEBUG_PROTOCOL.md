@@ -856,6 +856,10 @@ PLAYER_MOVED
 PLAYER_FACING_CHANGED
 COLLISION
 
+ACTOR_COLLISION
+ACTOR_INTERACTION
+ACTOR_COMBAT_START
+
 ENCOUNTER_STARTED
 BATTLE_STARTED
 BATTLE_ENDED
@@ -877,6 +881,27 @@ MUSIC_CHANGED
 RNG_SEEDED
 RNG_USED
 ```
+
+## World Actors
+
+**World Actor** is the canonical term for any character-like entity that
+exists in an overworld scene (Mayor, Guard, Shopkeeper, Slime, Bat, Boss,
+Villager, Monster). Friendly NPCs and hostile enemies share one data-driven
+structure; hostility, interaction type, dialogue ID, and battle ID decide
+what happens when the player engages an actor.
+
+Observe actors with:
+
+```text
+ACTOR_COLLISION      actor collided with the player (id, x, y)
+ACTOR_INTERACTION    actor engaged by the player (id, interaction)
+ACTOR_COMBAT_START   hostile actor engagement started combat (id)
+```
+
+The SNAPSHOT `actors` section lists the active scene's actors with their
+semantic `id`, `position`, `facing`, `visual`, `hostile`, `interaction`,
+`dialogue`, and `battle` fields. Do not maintain separate NPC/enemy debug
+formats: every overworld character is a World Actor.
 
 Not every game system needs every event immediately.
 

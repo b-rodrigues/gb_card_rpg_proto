@@ -1804,3 +1804,123 @@ The long-term objective is:
 The human-facing Game Boy UI remains important for the final player experience.
 
 The development-facing semantic interface is equally important for building the game.
+
+---
+
+# 52. Verified GBDK, CRT0 & Harness Gotchas
+
+These findings were discovered and verified during development. Treat them as
+operating constraints. They are the most common sources of "it worked before,
+now it hangs / renders wrong" regressions.
+
+## 52.1 No function pointers in harness-exercised gameplay code
+
+GBDK compiles any indirect call (function pointer) through `___sdcc_call_hl`
+/ `___sdcc_banked_call`. Those helpers are **RAM-resident code copied to RAM
+by CRT0 at boot**. The debug harness jumps straight to `main()` and skips
+CRT0, so the helpers are not in RAM and any function-pointer call hangs the
+ROM under the harness.
+
+Do not use function pointers for gameplay dispatch (e.g. per-scene loader
+functions). Use direct `switch` statements instead. Function pointers are
+only safe in code that always runs through the full CRT0 boot.
+
+## 52.2 The Makefile has no header dependencies
+
+Changing a `.h` does not rebuild dependent `.c` files. Stale object files
+compiled against an older header produce silent struct-layout mismatches
+(e.g. `Entity` field offsets) that manifest as wrong HP values, wrong
+positions, or crashes. After editing any shared header, always do a full
+clean rebuild:
+
+```bash
+make clean && make debug && make release
+```
+
+## 52.3 Custom CRT0 `_DATA` layout is ABI-critical
+
+GBDK expects its WRAM variables (`__cpu`, `_cpu`, `__current_bank`, `.mode`,
+`.int`, `__shadow_OAM_base`, `.sys_time`) at specific addresses. In this
+project `.mode` lives at `0xC0A4` — it was shifted from `0xC0A2` when `_cpu`
+was added to the custom CRT0's `_DATA`. Never hardcode these addresses in C
+code; expose them as C-visible symbols from `src/crt0.s`:
+
+```asm
+.mode:
+        .ds     1
+        .globl  _console_mode
+_console_mode = .mode
+```
+
+and declare `extern uint8_t console_mode;` in C.
+
+## 52.4 Custom CRT0 init order
+
+The CRT0 WRAM clear (0xC000-0xDFFF) wipes anything stored before it. Set
+`__cpu`, `_cpu`, `__is_GBA`, `__current_bank` **after** the clear. Detect the
+CPU type from register A (set by the boot ROM: `0x11` CGB, `0x01` DMG) saved
+before the clear, and store it into **both** `__cpu` and `_cpu` so
+`_cpu == CGB_TYPE` works (this drives the CGB palette path).
+
+## 52.5 `_HOME` area ordering in crt0.s
+
+Declare areas in the order `_CODE`, `_HOME`, then `_DATA` (matching GBDK's
+crt0.o). Declaring `_DATA` first makes sdldgb place gb.lib's `_HOME` code in
+WRAM instead of ROM, breaking `joypad`, fonts, and rendering.
+
+## 52.6 The mGBA CLI debugger does not advance VBlank/LY
+
+While paused at a breakpoint, the mGBA debugger does not advance VBlank, so
+any code that waits on VBlank (`vsync()`, `display_off()`, GBDK
+`set_bkg_data()`) hangs under the harness. Keep VBlank waits out of
+harness-reachable boot paths: the harness sets `g_harness_mode` to skip
+vsync, and `ui_init()` turns the LCD off before `font_load()` so
+`display_off()` returns immediately.
+
+## 52.7 SDCC enums are 1 byte when all values fit
+
+In this toolchain an `enum` whose values fit in a byte is 1 byte wide. Struct
+layouts using small enums are compact. Mismatches come from stale objects
+(52.2), not from enum sizing.
+
+## 52.8 Host-side telemetry read contract
+
+`g_telemetry_count` is a `uint8_t`; the byte after it is `g_telemetry_head`,
+NOT a count high byte. Read it as a single byte, cap at
+`TELEMETRY_CAPACITY`, and loop over `min(count, capacity)`. A 16-bit misread
+caused ~3084 redundant reads and ~40s per scenario.
+
+## 52.9 Emulator process teardown
+
+`disconnect()` must kill the whole process group (SIGTERM then SIGKILL).
+Killing only the `xvfb-run` wrapper orphans Xvfb/mgba processes, which
+accumulate, exhaust display numbers, and slow or hang later connects. SIGKILL
+also leaves stale `/tmp/.X11-unix/X*` sockets; clean them up if connects
+start failing.
+
+## 52.10 Debug input is edge-triggered
+
+`g_inp_mask` is consumed once per `input_update()`. `input_pressed()` fires
+only on a 0→1 edge. Consecutive presses of the same button therefore need a
+reset frame (`WAIT 1`) between them; otherwise only the first press registers.
+Scenario JSONs that walk multiple tiles must interleave `wait` actions.
+
+## 52.11 GBDK RAM-resident library sections
+
+Sections such as `.jpad`, `.hiramcpy`, and the banked-call helpers are
+RAM-resident and copied by CRT0 at boot. The harness never runs that copy.
+Keep `_HOME` in ROM (52.5) and avoid harness-exercised paths that depend on
+RAM-resident library code.
+
+## 52.12 Scenario flag ordering
+
+`scenario_begin()` resets `g_game.story_flags`. Set scenario story flags
+AFTER calling it, or they are silently wiped and story-dependent scenarios
+fail in confusing ways.
+
+## 52.13 Full clean build after structural changes
+
+Whenever the `World`/`Game` struct layout, actor tables, or the CRT0 `_DATA`
+area changes, the snapshot bytes and symbol addresses shift. The harness
+resolves symbols via `get_symbol()`, but the ROM must be fully rebuilt; a
+partial build leaves a stale `.sym`/`.gb` pair that reads garbage.

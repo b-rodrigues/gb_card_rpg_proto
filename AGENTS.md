@@ -1988,3 +1988,54 @@ in sync; changing one without the other silently breaks every scenario.
   at 67..91.
 * Every important gameplay transition must emit a telemetry event; state
   assertions must be possible without screenshots.
+
+## 53.6 Save/load boundary (design, not implementation)
+
+`GameState` is the potential save unit.  Rule:
+
+> **If a piece of state is part of `GameState`, it is potentially saveable;
+> if it is temporary runtime state, it is not.**
+
+Runtime state — `Battle`, `DialogueState`, `RenderCache`, input state,
+`World.actors` HP/facing (the engine copy), `g_game.screen` — must never
+become part of the save format.  Persistent world actor lifecycle lives in
+`GameState.world` keyed by `ActorId`; `World.actors` is rebuilt from scene
+definitions + `GameState.world` on every scene load.
+
+The wire descriptor `g_scen_state_buf` and the extended snapshot
+`g_state_snap_buf` are the save-boundary probes: the host roundtrip check
+(`python3 tools/dev.py roundtrip <scenario>`) loads an `initial_state`,
+dumps the canonical state, rebuilds a descriptor from the dump, reloads,
+and asserts the state is unchanged.  Any section that serializes in but not
+out (or vice versa) breaks the roundtrip.
+
+## 53.7 Semantic layers — never expose byte layouts to the LLM
+
+Keep the layers separate:
+
+```text
+GameState
+    ↓
+semantic state representation (tools/test_runner.format_state)
+    ↓
+debug snapshot / protocol transport (g_snap_buf / g_state_snap_buf)
+    ↓
+LLM
+```
+
+The LLM-facing output is text such as:
+
+```text
+SCENE=FOREST
+PLAYER=(10,8) FACING=RIGHT
+FLAGS: ARRIVED_TOWN MET_MAYOR
+VARIABLES: CHAPTER=1 GOLD=150
+PARTY[0]: HERO lvl=3 24/30
+INVENTORY: POTION x2
+WORLD: SLIME_FOREST=DEFEATED
+```
+
+The byte offsets in `g_snap_buf` / `g_state_snap_buf` are an internal
+transport contract and may change; scenarios must not depend on them.
+Semantic assertions (`flag`, `variable`, `inventory`, `party_hp`,
+`party_level`, `actor_state`, `screen_row`, ...) are the stable API.

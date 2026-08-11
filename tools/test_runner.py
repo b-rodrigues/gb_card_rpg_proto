@@ -13,7 +13,8 @@ import sys
 from emulator import (EmulatorSession, STORY_FLAG_ID_MAP, DIALOGUE_ID_MAP,
                       SCENARIO_IDS, ENTITY_ID_MAP, STATE_FLAG_ID_MAP,
                       VARIABLE_ID_MAP, ITEM_ID_MAP, ACTOR_ID_MAP,
-                      ACTOR_STATE_NAME_MAP, CHARACTER_ID_MAP, SCENE_MAP)
+                      ACTOR_STATE_NAME_MAP, CHARACTER_ID_MAP, SCENE_MAP,
+                      CHARACTER_ID_TO_NAME, ITEM_ID_TO_NAME, ACTOR_ID_TO_NAME)
 
 VALID_ASSERTION_TYPES = {
     "game_state", "player_position", "player_facing", "player_hp", "music_track",
@@ -362,11 +363,177 @@ def run_scenario(scenario):
         "status": "PASS" if passed_all else "FAIL",
         "failure": failure_detail,
         "snapshot": snap,
+        "state": state_snap,
         "telemetry": telemetry,
         "assertions": assertion_results
     }
 
-def print_result(result):
+def format_state(snap, state_snap):
+    """Render the canonical GameState as LLM-readable semantic text.
+
+    This is the intended LLM-facing representation.  The byte layouts in
+    g_snap_buf / g_state_snap_buf are internal transports, not the API.
+    """
+    lines = []
+    if not snap:
+        return "\n".join(lines)
+    scene = snap.get("scene", "UNKNOWN")
+    lines.append(f"SCENE={scene}")
+    lines.append("PLAYER=({},{}) FACING={}".format(
+        snap.get("player_x"), snap.get("player_y"), snap.get("player_facing")))
+
+    flags = sorted((state_snap or {}).get("flags", []))
+    lines.append("FLAGS: " + (" ".join(flags) if flags else "(none)"))
+
+    variables = (state_snap or {}).get("variables", {})
+    vars_str = " ".join(f"{k}={v}" for k, v in sorted(variables.items()))
+    lines.append("VARIABLES: " + (vars_str if vars_str else "(none)"))
+
+    party = (state_snap or {}).get("party", [])
+    for i, m in enumerate(party):
+        name = CHARACTER_ID_TO_NAME.get(m.get("id"), f"ID{m.get('id')}")
+        lines.append("PARTY[{}]: {} lvl={} {}/{} xp={}".format(
+            i, name, m.get("level"), m.get("hp"), m.get("max_hp"), m.get("xp")))
+    if not party:
+        lines.append("PARTY: (none)")
+
+    inventory = (state_snap or {}).get("inventory", [])
+    items = {}
+    for it in inventory:
+        iname = ITEM_ID_TO_NAME.get(it.get("item_id"), f"ID{it.get('item_id')}")
+        items[iname] = items.get(iname, 0) + it.get("quantity", 0)
+    inv_str = " ".join(f"{k} x{v}" for k, v in sorted(items.items()))
+    lines.append("INVENTORY: " + (inv_str if inv_str else "(none)"))
+
+    world = (state_snap or {}).get("world", [])
+    world_str = " ".join("{}={}".format(ACTOR_ID_TO_NAME.get(w.get("actor_id"),
+                        f"ID{w.get('actor_id')}"), w.get("state")) for w in world)
+    lines.append("WORLD: " + (world_str if world_str else "(none)"))
+    return "\n".join(lines)
+
+
+def build_initial_state_from_snapshot(snap, state_snap):
+    """Rebuild an initial_state dict from observed snapshot state.
+
+    Used by the roundtrip check to prove GameState <-> descriptor is
+    lossless (the save/load boundary design, roadmap section 20).
+    """
+    initial = {
+        "scene": snap.get("scene", "FIELD"),
+        "player": {
+            "x": snap.get("player_x", 4),
+            "y": snap.get("player_y", 4),
+            "facing": snap.get("player_facing", "DOWN"),
+        },
+        "seed": 1,
+    }
+    if state_snap is None:
+        return initial
+
+    flags = {name: True for name in state_snap.get("flags", [])}
+    if flags:
+        initial["flags"] = flags
+
+    variables = {k: v for k, v in state_snap.get("variables", {}).items()}
+    if variables:
+        initial["variables"] = variables
+
+    party = {}
+    for m in state_snap.get("party", []):
+        name = CHARACTER_ID_TO_NAME.get(m.get("id"))
+        if name:
+            party[name] = {
+                "level": m.get("level", 1),
+                "xp": m.get("xp", 0),
+                "hp": m.get("hp", 10),
+                "max_hp": m.get("max_hp", 10),
+            }
+    if party:
+        initial["party"] = party
+
+    inventory = {}
+    for it in state_snap.get("inventory", []):
+        iname = ITEM_ID_TO_NAME.get(it.get("item_id"))
+        if iname:
+            inventory[iname] = inventory.get(iname, 0) + it.get("quantity", 0)
+    if inventory:
+        initial["inventory"] = inventory
+
+    world = {}
+    for w in state_snap.get("world", []):
+        aname = ACTOR_ID_TO_NAME.get(w.get("actor_id"))
+        if aname:
+            world[aname] = w.get("state", "ALIVE")
+    if world:
+        initial["world"] = world
+
+    return initial
+
+
+def normalize_semantic_state(snap, state_snap):
+    """Canonical comparable form of the semantic state (for roundtrip)."""
+    return {
+        "scene": snap.get("scene"),
+        "player": (snap.get("player_x"), snap.get("player_y"),
+                   snap.get("player_facing")),
+        "flags": sorted((state_snap or {}).get("flags", [])),
+        "variables": (state_snap or {}).get("variables", {}),
+        "party": (state_snap or {}).get("party", []),
+        "inventory": sorted((it.get("item_id"), it.get("quantity"))
+                            for it in (state_snap or {}).get("inventory", [])),
+        "world": sorted((w.get("actor_id"), w.get("state"))
+                        for w in (state_snap or {}).get("world", [])),
+    }
+
+
+def run_roundtrip(scenario):
+    """Load a scenario, dump its semantic state, re-inject it, and verify
+    the observed state is unchanged (GameState <-> descriptor lossless)."""
+    session = EmulatorSession()
+    try:
+        session.connect()
+        session.load_scenario(scenario)
+        session.step(2)
+        snap1 = session.snapshot()
+        st1 = session.state_snapshot()
+        rebuilt = build_initial_state_from_snapshot(snap1, st1)
+        session.load_scenario(rebuilt)
+        session.step(2)
+        snap2 = session.snapshot()
+        st2 = session.state_snapshot()
+    finally:
+        session.disconnect()
+
+    first = normalize_semantic_state(snap1, st1)
+    second = normalize_semantic_state(snap2, st2)
+    passed = (first == second)
+    diff = {k: (first.get(k), second.get(k)) for k in first
+            if first.get(k) != second.get(k)}
+    return {
+        "scenario": scenario.get("name", "unknown"),
+        "status": "PASS" if passed else "FAIL",
+        "diff": diff,
+        "rebuilt_initial_state": rebuilt,
+    }
+
+
+def print_roundtrip(result):
+    print(f"SCENARIO: {result['scenario']}")
+    print(f"ROUNDTRIP STATUS: {result['status']}")
+    if result["status"] == "FAIL":
+        print("\nDIFF:")
+        for key, (a, b) in result["diff"].items():
+            print(f"  {key}:")
+            print(f"    first:  {a}")
+            print(f"    second: {b}")
+        print("\nREBUILT INITIAL_STATE:")
+        print(json.dumps(result["rebuilt_initial_state"], indent=2))
+    else:
+        print("  state survived a load -> dump -> re-inject -> reload cycle")
+    print()
+
+
+def print_result(result, show_state=False):
     """Print structured scenario execution result per dev-harness.md spec."""
     print(f"SCENARIO: {result['scenario']}")
     print(f"STATUS:   {result['status']}")
@@ -377,6 +544,12 @@ def print_result(result):
     for a in result.get("assertions", []):
         mark = "✓" if a['status'] == "PASS" else "✗"
         print(f"  {mark} [{a['status']}] {a['type']}: expected={a['expected']}, actual={a['actual']}")
+
+    if show_state:
+        print("\nSEMANTIC STATE:")
+        dump = format_state(result.get("snapshot"), result.get("state"))
+        for line in dump.splitlines():
+            print(f"  {line}")
 
     if result["status"] == "FAIL" and result.get("failure"):
         print("\nFAILED ASSERTION:")
@@ -406,7 +579,7 @@ def print_result(result):
 
     print()
 
-def run_all(scenarios_dir="tools/scenarios"):
+def run_all(scenarios_dir="tools/scenarios", show_state=False):
     """Run all standard test scenarios and return exit code 0 on PASS, 1 on FAIL."""
     all_scenarios = load_scenarios(scenarios_dir)
     # Exclude non-test / demonstration scenarios (test == False or in examples/)
@@ -424,7 +597,7 @@ def run_all(scenarios_dir="tools/scenarios"):
 
     for s in scenarios:
         res = run_scenario(s)
-        print_result(res)
+        print_result(res, show_state=show_state)
         if res["status"] == "PASS":
             passed += 1
         else:

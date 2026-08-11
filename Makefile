@@ -29,7 +29,7 @@ OBJS_DEBUG = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/debug/%.o,$(SRCS))
 # Emulator detection
 EMULATOR ?= $(shell command -v sameboy 2>/dev/null || command -v mgba-sdl 2>/dev/null || command -v mgba-qt 2>/dev/null || command -v mgba 2>/dev/null || echo "")
 
-.PHONY: all release debug run run-debug test test-harness test-scenario screenshot clean
+.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot clean
 
 all: $(TARGET)
 
@@ -91,6 +91,12 @@ test-harness: debug
 
 test-scenario: debug
 	@python3 tools/dev.py scenario $(SCENARIO)
+
+state: debug
+	@python3 tools/dev.py state $(SCENARIO)
+
+roundtrip: debug
+	@python3 tools/dev.py roundtrip $(SCENARIO)
 
 screenshot: $(TARGET)
 	@bash tools/screenshot.sh $(BUILD_DIR)/screenshot.png $(TARGET)

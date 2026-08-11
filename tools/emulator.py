@@ -110,6 +110,11 @@ ACTOR_ID_MAP = {"SLIME_FIELD": 1, "SLIME_FOREST": 2, "BAT_FOREST": 3,
 ACTOR_STATE_NAME_MAP = {"ALIVE": 0, "DEFEATED": 1}
 DIALOGUE_NAME_TO_ID = {v: k for k, v in DIALOGUE_ID_MAP.items()}
 
+# Inverted maps for turning parsed snapshot state back into names.
+CHARACTER_ID_TO_NAME = {v: k for k, v in CHARACTER_ID_MAP.items()}
+ITEM_ID_TO_NAME = {v: k for k, v in ITEM_ID_MAP.items()}
+ACTOR_ID_TO_NAME = {v: k for k, v in ACTOR_ID_MAP.items()}
+
 
 def serialize_initial_state(initial_state):
     """Serialize a scenario initial_state dict into the fixed-size byte

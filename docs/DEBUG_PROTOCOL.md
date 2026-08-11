@@ -408,6 +408,43 @@ Rules:
   GAME_OVER/THANKS); `dialogue` + `start_battle` configure the active
   runtime screens.
 
+### Semantic state dump (LLM-facing)
+
+The byte buffers (`g_snap_buf`, `g_state_snap_buf`) are internal transports.
+The LLM-facing representation is semantic text rendered host-side from the
+parsed snapshot:
+
+```text
+SCENE=FOREST
+PLAYER=(10,8) FACING=RIGHT
+FLAGS: ARRIVED_TOWN MET_MAYOR
+VARIABLES: CHAPTER=1 GOLD=150
+PARTY[0]: HERO lvl=3 24/30
+INVENTORY: POTION x2
+WORLD: SLIME_FOREST=DEFEATED
+```
+
+It is opt-in via `dev.py`:
+
+```text
+python3 tools/dev.py scenario <name> --state   # run + dump semantic state
+python3 tools/dev.py state <name>              # run + dump semantic state
+python3 tools/dev.py test --state              # every scenario
+```
+
+### Save/load boundary check
+
+`GameState` is the potential save unit; `Battle`, `DialogueState`,
+`RenderCache`, input, and `World.actors` HP/facing are runtime state and are
+excluded.  The roundtrip check proves the boundary is lossless:
+
+```text
+python3 tools/dev.py roundtrip <scenario>
+```
+
+It loads an `initial_state`, dumps the canonical state, rebuilds a descriptor
+from the dump, reloads, and asserts the observed state is unchanged.
+
 ---
 
 # 11. Scenario Format

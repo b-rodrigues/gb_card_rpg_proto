@@ -14,12 +14,12 @@ void battle_screen_update(Game *g)
             if (victory) {
                 g->world.player.hp = g->battle.player.hp;
                 g->state.party.members[0].hp = g->battle.player.hp;
-                world_on_battle_end(&g->world, victory);
+                world_on_battle_end(&g->world, &g->state, true);
                 audio_play_music(MUSIC_OVERWORLD);
                 telemetry_emit(EVENT_MUSIC_CHANGED, MUSIC_OVERWORLD, 0, 0, 0);
                 screen_change(g, SCREEN_OVERWORLD);
             } else {
-                world_on_battle_end(&g->world, false);
+                world_on_battle_end(&g->world, &g->state, false);
                 g->game_over_choice = 0;
                 screen_change(g, SCREEN_GAME_OVER);
             }

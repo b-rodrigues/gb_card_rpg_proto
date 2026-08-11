@@ -2,6 +2,7 @@
 #define WORLD_H
 
 #include "entity.h"
+#include "rpg/state.h"
 #include <stdbool.h>
 
 #define WORLD_WIDTH  20
@@ -38,8 +39,10 @@ typedef enum {
 
 /* Mutable runtime state for a spawned World Actor.  Static actor
  * configuration lives in WorldActorDefinition; hostile actors are spawned
- * into World.actors by actor_load_scene(). */
+ * into World.actors by actor_load_scene().  actor_id is the persistent
+ * ActorId copied from the definition (0 for non-persistent). */
 typedef struct {
+    uint16_t actor_id;
     EntityId id;
     uint8_t active;
     uint8_t x;
@@ -61,12 +64,14 @@ typedef struct {
     uint8_t map[WORLD_HEIGHT][WORLD_WIDTH];
 } World;
 
-void world_init(World *w);
-void world_load_map(World *w, MapId map_id);
-void world_change_map(World *w, MapId map_id, uint8_t spawn_x, uint8_t spawn_y);
+void world_init(World *w, const GameState *state);
+void world_load_map(World *w, MapId map_id, const GameState *state);
+void world_change_map(World *w, MapId map_id, uint8_t spawn_x, uint8_t spawn_y,
+                      const GameState *state);
 bool world_is_walkable(const World *w, uint8_t x, uint8_t y);
-WorldMoveResult world_move_player(World *w, int8_t dx, int8_t dy);
-void world_on_battle_end(World *w, bool victory);
+WorldMoveResult world_move_player(World *w, int8_t dx, int8_t dy,
+                                  const GameState *state);
+void world_on_battle_end(World *w, GameState *state, bool victory);
 void world_set_player_pos(World *w, uint8_t x, uint8_t y);
 void world_set_actor_pos(World *w, EntityId id, uint8_t x, uint8_t y);
 void world_set_player_facing(World *w, Direction facing);

@@ -119,3 +119,44 @@ void game_variable_add(GameState *state, VariableId variable, int16_t amount)
     telemetry_emit(EVENT_VARIABLE_SET, (uint8_t)variable,
                    (uint8_t)(new_value & 0xFF), (uint8_t)((new_value >> 8) & 0xFF), 0);
 }
+
+bool game_world_actor_is_defeated(const GameState *state, ActorId actor_id)
+{
+    uint8_t i;
+    if (!state || actor_id == 0) return false;
+    for (i = 0; i < state->world.count; i++) {
+        if (state->world.actors[i].actor_id == actor_id) {
+            return (state->world.actors[i].state == (uint8_t)ACTOR_STATE_DEFEATED);
+        }
+    }
+    return false;
+}
+
+void game_world_set_actor_state(GameState *state, ActorId actor_id,
+                                ActorStateId actor_state)
+{
+    uint8_t i;
+    if (!state || actor_id == 0) return;
+
+    for (i = 0; i < state->world.count; i++) {
+        if (state->world.actors[i].actor_id == actor_id) {
+            if (state->world.actors[i].state != (uint8_t)actor_state) {
+                state->world.actors[i].state = (uint8_t)actor_state;
+                telemetry_emit(EVENT_ACTOR_STATE_CHANGE,
+                               (uint8_t)(actor_id & 0xFF),
+                               (uint8_t)((actor_id >> 8) & 0xFF),
+                               (uint8_t)actor_state, 0);
+            }
+            return;
+        }
+    }
+
+    if (state->world.count >= MAX_PERSISTENT_ACTORS) return;
+    state->world.actors[state->world.count].actor_id = actor_id;
+    state->world.actors[state->world.count].state = (uint8_t)actor_state;
+    state->world.count++;
+    telemetry_emit(EVENT_ACTOR_STATE_CHANGE,
+                   (uint8_t)(actor_id & 0xFF),
+                   (uint8_t)((actor_id >> 8) & 0xFF),
+                   (uint8_t)actor_state, 0);
+}

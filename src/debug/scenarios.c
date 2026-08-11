@@ -34,8 +34,8 @@ static void overworld_setup(SceneId scene, MapId map, uint8_t x, uint8_t y,
     g_game.screen = SCREEN_OVERWORLD;
     g_game.prev_screen = SCREEN_OVERWORLD;
     g_game.state.scene.scene_id = scene;
-    world_init(&g_game.world);
-    world_load_map(&g_game.world, map);
+    world_init(&g_game.world, &g_game.state);
+    world_load_map(&g_game.world, map, &g_game.state);
     g_game.world.player.position.x = x;
     g_game.world.player.position.y = y;
     g_game.world.player.facing = facing;

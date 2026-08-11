@@ -36,7 +36,7 @@ void overworld_screen_update(Game *g)
     if (input_pressed(INPUT_RIGHT)) dx = 1;
 
     if (dx != 0 || dy != 0) {
-        move_res = world_move_player(&g->world, dx, dy);
+        move_res = world_move_player(&g->world, dx, dy, &g->state);
 
         if (move_res == MOVE_RESULT_MAP_CHANGED) {
             g->world.map_changed = false;

@@ -34,7 +34,7 @@ void game_init(Game *g)
     telemetry_init();
     telemetry_set_frame_ptr(&g->frame);
     game_state_init(&g->state);
-    world_init(&g->world);
+    world_init(&g->world, &g->state);
     dialogue_init(&g->dialogue);
     audio_play_music(MUSIC_OVERWORLD);
     telemetry_emit(EVENT_MUSIC_CHANGED, MUSIC_OVERWORLD, 0, 0, 0);
@@ -56,7 +56,7 @@ void game_restart(Game *g)
     g->screen = SCREEN_OVERWORLD;
     g->prev_screen = SCREEN_OVERWORLD;
     game_state_init(&g->state);
-    world_init(&g->world);
+    world_init(&g->world, &g->state);
     dialogue_init(&g->dialogue);
     audio_play_music(MUSIC_OVERWORLD);
     telemetry_emit(EVENT_MUSIC_CHANGED, MUSIC_OVERWORLD, 0, 0, 0);

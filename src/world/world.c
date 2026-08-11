@@ -3,7 +3,7 @@
 #include "actor.h"
 #include "scene.h"
 
-void world_load_map(World *w, MapId map_id)
+void world_load_map(World *w, MapId map_id, const GameState *state)
 {
     if (!w) return;
 
@@ -16,23 +16,25 @@ void world_load_map(World *w, MapId map_id)
     /* Scene data determines the terrain and the exits. */
     scene_load_tiles(w, map_id);
 
-    /* Scene data determines which hostile actors are spawned. */
-    actor_load_scene(w, map_id);
+    /* Scene data determines which hostile actors are spawned.  Actors
+     * whose ActorId is DEFEATED in state are not re-spawned. */
+    actor_load_scene(w, map_id, state);
 }
 
-void world_init(World *w)
+void world_init(World *w, const GameState *state)
 {
     if (!w) return;
     entity_init(&w->player, ENTITY_ID_PLAYER, 4, 4, 10, 10);
-    world_load_map(w, MAP_FIELD);
+    world_load_map(w, MAP_FIELD, state);
 }
 
-void world_change_map(World *w, MapId map_id, uint8_t spawn_x, uint8_t spawn_y)
+void world_change_map(World *w, MapId map_id, uint8_t spawn_x, uint8_t spawn_y,
+                      const GameState *state)
 {
     MapId old_map;
     if (!w) return;
     old_map = w->map_id;
-    world_load_map(w, map_id);
+    world_load_map(w, map_id, state);
     w->player.position.x = spawn_x;
     w->player.position.y = spawn_y;
     w->map_changed = true;
@@ -51,7 +53,8 @@ bool world_is_walkable(const World *w, uint8_t x, uint8_t y)
     return true;
 }
 
-WorldMoveResult world_move_player(World *w, int8_t dx, int8_t dy)
+WorldMoveResult world_move_player(World *w, int8_t dx, int8_t dy,
+                                  const GameState *state)
 {
     uint8_t old_x, old_y;
     uint8_t target_x, target_y;
@@ -81,7 +84,7 @@ WorldMoveResult world_move_player(World *w, int8_t dx, int8_t dy)
         const SceneExit *ex = scene_exit_at(def, target_x, target_y);
         if (ex) {
             world_change_map(w, scene_id_to_map(ex->target_scene),
-                             ex->spawn_x, ex->spawn_y);
+                             ex->spawn_x, ex->spawn_y, state);
             return MOVE_RESULT_MAP_CHANGED;
         }
     }
@@ -114,9 +117,10 @@ WorldMoveResult world_move_player(World *w, int8_t dx, int8_t dy)
     return MOVE_RESULT_MOVED;
 }
 
-void world_on_battle_end(World *w, bool victory)
+void world_on_battle_end(World *w, GameState *state, bool victory)
 {
     uint8_t idx;
+    uint16_t actor_id;
     if (!w) return;
 
     idx = w->encounter_actor_index;
@@ -124,10 +128,14 @@ void world_on_battle_end(World *w, bool victory)
     if (idx == NO_ACTOR_INDEX) return;
 
     if (victory) {
+        actor_id = w->actors[idx].actor_id;
         w->actors[idx].active = 0;
         w->actors[idx].hp = 0;
         w->actors[idx].flags = ACTOR_STATE_NONE;
         telemetry_emit(EVENT_ENTITY_DEFEATED, (uint8_t)w->actors[idx].id, 0, 0, 0);
+        if (state && actor_id != 0) {
+            game_world_set_actor_state(state, actor_id, ACTOR_STATE_DEFEATED);
+        }
     }
 }
 

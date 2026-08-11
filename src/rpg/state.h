@@ -130,4 +130,9 @@ int16_t game_variable_get(const GameState *state, VariableId variable);
 void game_variable_set(GameState *state, VariableId variable, int16_t value);
 void game_variable_add(GameState *state, VariableId variable, int16_t amount);
 
+/* ── Persistent actor state ──────────────────────────────────────── */
+bool game_world_actor_is_defeated(const GameState *state, ActorId actor_id);
+void game_world_set_actor_state(GameState *state, ActorId actor_id,
+                                ActorStateId actor_state);
+
 #endif /* RPG_STATE_H */

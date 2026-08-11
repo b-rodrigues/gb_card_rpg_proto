@@ -29,7 +29,7 @@ void scene_load(Game *g, SceneId scene, uint8_t spawn_x, uint8_t spawn_y)
     g->state.scene.scene_id = scene;
     g->state.scene.player_x = spawn_x;
     g->state.scene.player_y = spawn_y;
-    world_change_map(&g->world, scene_id_to_map(scene), spawn_x, spawn_y);
+    world_change_map(&g->world, scene_id_to_map(scene), spawn_x, spawn_y, &g->state);
     if (old_scene != scene) {
         telemetry_emit(EVENT_SCENE_CHANGED, (uint8_t)old_scene, (uint8_t)scene, spawn_x, spawn_y);
     }

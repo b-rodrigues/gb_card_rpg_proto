@@ -7,7 +7,7 @@ AssertResult assert_screen(const Game *g, ScreenId expected)
 
 AssertResult assert_scene(const Game *g, SceneId expected)
 {
-    return g && g->scene == expected ? ASSERT_PASS : ASSERT_FAIL;
+    return g && g->state.scene.scene_id == expected ? ASSERT_PASS : ASSERT_FAIL;
 }
 
 AssertResult assert_player_hp(const Game *g, uint8_t expected_hp)

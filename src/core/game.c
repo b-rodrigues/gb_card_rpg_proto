@@ -32,7 +32,6 @@ void game_init(Game *g)
     g->game_over_choice = 0;
     g->screen = SCREEN_OVERWORLD;
     g->prev_screen = SCREEN_OVERWORLD;
-    g->scene = SCENE_FIELD;
     telemetry_init();
     telemetry_set_frame_ptr(&g->frame);
     game_state_init(&g->state);
@@ -58,7 +57,6 @@ void game_restart(Game *g)
     g->game_over_choice = 0;
     g->screen = SCREEN_OVERWORLD;
     g->prev_screen = SCREEN_OVERWORLD;
-    g->scene = SCENE_FIELD;
     game_state_init(&g->state);
     world_init(&g->world);
     dialogue_init(&g->dialogue);
@@ -77,6 +75,7 @@ void game_update(Game *g)
     g->frame++;
 
     screen_update(g);
+    scene_sync_from_world(g);
 
 #ifdef DEBUG_BUILD
     debug_snapshot();

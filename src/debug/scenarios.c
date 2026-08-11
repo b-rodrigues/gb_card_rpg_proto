@@ -30,13 +30,16 @@ static void overworld_setup(SceneId scene, MapId map, uint8_t x, uint8_t y,
 {
     g_game.screen = SCREEN_OVERWORLD;
     g_game.prev_screen = SCREEN_OVERWORLD;
-    g_game.scene = scene;
+    g_game.state.scene.scene_id = scene;
     world_init(&g_game.world);
     world_load_map(&g_game.world, map);
     g_game.world.player.position.x = x;
     g_game.world.player.position.y = y;
     g_game.world.player.facing = facing;
     g_game.world.encounter_actor_index = NO_ACTOR_INDEX;
+    g_game.state.scene.player_x = x;
+    g_game.state.scene.player_y = y;
+    g_game.state.scene.player_facing = facing;
     dialogue_init(&g_game.dialogue);
     scenario_begin(seed);
     g_game.story_flags = flags;

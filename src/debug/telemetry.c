@@ -127,7 +127,7 @@ void debug_snapshot(void)
     g_snap_buf[16] = (uint8_t)g->world.player.facing;
     g_snap_buf[17] = g->game_over_choice;
     g_snap_buf[18] = (uint8_t)g->screen;
-    g_snap_buf[19] = (uint8_t)g->scene;
+    g_snap_buf[19] = (uint8_t)g->state.scene.scene_id;
 
     actor_count = actor_write_snapshot(&g->world, actor_buf, MAX_SNAPSHOT_ACTORS);
     for (i = 0; i < (MAX_SNAPSHOT_ACTORS * ACTOR_SNAPSHOT_ENTRY_SIZE); i++) {

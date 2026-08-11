@@ -13,8 +13,8 @@ void scene_update_from_map(Game *g)
     if (!g) return;
 
     new_scene = map_to_scene_id(g->world.map_id);
-    old_scene = g->scene;
-    g->scene = new_scene;
+    old_scene = g->state.scene.scene_id;
+    g->state.scene.scene_id = new_scene;
     if (old_scene != new_scene) {
         telemetry_emit(EVENT_SCENE_CHANGED, (uint8_t)old_scene, (uint8_t)new_scene, 0, 0);
     }
@@ -25,13 +25,26 @@ void scene_load(Game *g, SceneId scene, uint8_t spawn_x, uint8_t spawn_y)
     SceneId old_scene;
     if (!g) return;
 
-    old_scene = g->scene;
-    g->scene = scene;
+    old_scene = g->state.scene.scene_id;
+    g->state.scene.scene_id = scene;
+    g->state.scene.player_x = spawn_x;
+    g->state.scene.player_y = spawn_y;
     world_change_map(&g->world, scene_id_to_map(scene), spawn_x, spawn_y);
     if (old_scene != scene) {
         telemetry_emit(EVENT_SCENE_CHANGED, (uint8_t)old_scene, (uint8_t)scene, spawn_x, spawn_y);
     }
     game_render_reset(g);
+}
+
+/* Sync the canonical GameState.scene from the runtime World copy.  Called
+ * once per frame from game_update(); the World stays the engine copy. */
+void scene_sync_from_world(Game *g)
+{
+    if (!g) return;
+    g->state.scene.scene_id = map_to_scene_id(g->world.map_id);
+    g->state.scene.player_x = g->world.player.position.x;
+    g->state.scene.player_y = g->world.player.position.y;
+    g->state.scene.player_facing = (uint8_t)g->world.player.facing;
 }
 
 void screen_change(Game *g, ScreenId screen)

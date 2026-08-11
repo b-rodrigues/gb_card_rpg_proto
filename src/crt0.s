@@ -127,6 +127,8 @@ __current_bank:
         .ds     1
 .mode:
         .ds     1
+        .globl  _console_mode
+_console_mode = .mode
 .int:
         .ds     1
 __shadow_OAM_base:

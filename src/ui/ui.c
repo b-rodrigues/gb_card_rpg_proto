@@ -8,6 +8,9 @@
 
 char g_ui_screen_buf[18][21];
 
+/* GBDK console .mode byte (defined in crt0.s _DATA). Bit 2 is M_NO_SCROLL. */
+extern uint8_t console_mode;
+
 static font_t ibm_font;
 
 static const palette_color_t cgb_palette[4] = {
@@ -32,9 +35,9 @@ void ui_init(void)
 
     /* Disable GBDK console auto-scroll.  When putchar() advances the cursor
      * past the bottom-right tile, the console normally scrolls the whole
-     * screen up one line.  M_NO_SCROLL (bit 2 of the console .mode byte at
-     * 0xC0A2) makes it reset the cursor instead. */
-    *((volatile uint8_t *)0xC0A2) |= M_NO_SCROLL;
+     * screen up one line.  M_NO_SCROLL (bit 2 of the console .mode byte,
+     * exposed as console_mode by crt0.s) makes it reset the cursor instead. */
+    console_mode |= M_NO_SCROLL;
 
     /* Set DMG palettes: 0xE4 = 11 10 01 00 (Lightest to Darkest) */
     BGP_REG = 0xE4;

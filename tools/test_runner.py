@@ -14,7 +14,8 @@ from emulator import EmulatorSession, STORY_FLAG_ID_MAP, DIALOGUE_ID_MAP, SCENAR
 
 VALID_ASSERTION_TYPES = {
     "game_state", "player_position", "player_facing", "player_hp", "music_track",
-    "enemy_hp", "battle_turn", "battle_result", "story_flag",
+    "enemy_hp", "battle_turn", "battle_result", "battle_player_hp", "battle_enemy_hp",
+    "story_flag",
     "event_occurred", "event_not_occurred", "dialogue_active", "dialogue_line", "dialogue_id",
     "screen_row"
 }
@@ -139,6 +140,14 @@ def run_scenario(scenario):
         elif a_type == "battle_turn":
             actual = snap.get("battle_turn", "UNKNOWN")
             passed = (actual == expected)
+
+        elif a_type == "battle_player_hp":
+            actual = snap.get("battle_player_hp", 0)
+            passed = (actual == int(expected))
+
+        elif a_type == "battle_enemy_hp":
+            actual = snap.get("battle_enemy_hp", 0)
+            passed = (actual == int(expected))
 
         elif a_type == "battle_result":
             actual = snap.get("battle_result", "UNKNOWN")

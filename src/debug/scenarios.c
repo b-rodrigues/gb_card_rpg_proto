@@ -309,6 +309,62 @@ static void load_dialogue_render_test(void)
     debug_snapshot();
 }
 
+static void load_battle_attack(void)
+{
+    World *w = &g_game.world;
+    GameStateMachine *sm = &g_game.state_machine;
+
+    sm->current = GAME_STATE_OVERWORLD;
+    sm->previous = GAME_STATE_OVERWORLD;
+    sm->state_changed = false;
+
+    world_init(w);
+    w->player.position.x = 13;
+    w->player.position.y = 8;
+    w->enemy.position.x = 14;
+    w->enemy.position.y = 8;
+    w->encounter_triggered = false;
+    dialogue_init(&g_game.dialogue);
+
+    g_game.frame = 0;
+    g_game.story_flags = 0;
+
+    rng_set_seed(3000);
+    input_reset();
+    telemetry_init();
+    telemetry_set_frame_ptr(&g_game.frame);
+    audio_play_music(MUSIC_OVERWORLD);
+    debug_snapshot();
+}
+
+static void load_guard_interaction_distance(void)
+{
+    World *w = &g_game.world;
+    GameStateMachine *sm = &g_game.state_machine;
+
+    sm->current = GAME_STATE_OVERWORLD;
+    sm->previous = GAME_STATE_OVERWORLD;
+    sm->state_changed = false;
+
+    world_init(w);
+    world_load_map(w, MAP_TOWN);
+    w->player.position.x = 8;
+    w->player.position.y = 8;
+    w->player.facing = DIRECTION_RIGHT;
+    w->encounter_triggered = false;
+    dialogue_init(&g_game.dialogue);
+
+    g_game.frame = 0;
+    g_game.story_flags = STORY_FLAG_ARRIVED_TOWN;
+
+    rng_set_seed(3001);
+    input_reset();
+    telemetry_init();
+    telemetry_set_frame_ptr(&g_game.frame);
+    audio_play_music(MUSIC_OVERWORLD);
+    debug_snapshot();
+}
+
 void scenario_check_and_load(void)
 {
     uint8_t sc = g_scen_load;
@@ -337,6 +393,10 @@ void scenario_check_and_load(void)
         load_font_test();
     } else if (sc == 11) {
         load_dialogue_render_test();
+    } else if (sc == 12) {
+        load_battle_attack();
+    } else if (sc == 13) {
+        load_guard_interaction_distance();
     }
     game_render_reset(&g_game);
     debug_snapshot();

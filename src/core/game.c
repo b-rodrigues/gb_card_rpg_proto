@@ -47,7 +47,7 @@ static void update_overworld(Game *g)
 {
     int8_t dx = 0;
     int8_t dy = 0;
-    WorldMoveResult move_res;
+    WorldMoveResult move_res = MOVE_RESULT_NONE;
 
     if (g->dialogue.active) {
         if (input_pressed(INPUT_A)) {
@@ -73,12 +73,13 @@ static void update_overworld(Game *g)
         }
     }
 
-    /* Check interaction: PRESS A checks facing tile; movement bump checks targeted tile */
+    /* Check interaction: PRESS A checks facing tile; movement bump only
+     * triggers when the move was blocked (player walked into an NPC). */
     if (input_pressed(INPUT_A)) {
         if (interaction_try_facing(&g->world, &g->dialogue)) {
             return;
         }
-    } else if (dx != 0 || dy != 0) {
+    } else if (move_res == MOVE_RESULT_BLOCKED) {
         if (interaction_try_bump(&g->world, dx, dy, &g->dialogue)) {
             return;
         }

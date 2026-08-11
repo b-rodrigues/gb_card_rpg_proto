@@ -168,6 +168,37 @@ void ui_update_player_position(const World *world, uint8_t old_x, uint8_t old_y,
     g_ui_screen_buf[new_y][new_x] = '@';
 }
 
+static void ui_put_char(uint8_t x, uint8_t y, char ch)
+{
+    gotoxy(x, y);
+    putchar((int)ch);
+    if (y < 18 && x < 20) {
+        g_ui_screen_buf[y][x] = ch;
+    }
+}
+
+/* Draw a value right-aligned in a 2-wide field (space padded) at (x,y). */
+static void ui_draw_num2(uint8_t x, uint8_t y, uint8_t val)
+{
+    char c;
+    if (val >= 10) {
+        c = '0' + (val / 10);
+    } else {
+        c = ' ';
+    }
+    ui_put_char(x, y, c);
+    ui_put_char(x + 1, y, '0' + (val % 10));
+}
+
+/* Draw a battle HP line: "  HP: <hp>/<max>" at row y. */
+static void ui_draw_hp_row(uint8_t y, uint8_t hp, uint8_t max_hp)
+{
+    ui_draw_text_line(0, y, "  HP: ", 6);
+    ui_draw_num2(6, y, hp);
+    ui_put_char(8, y, '/');
+    ui_draw_num2(9, y, max_hp);
+}
+
 void ui_draw_battle_full(const Battle *battle)
 {
     if (!battle) return;
@@ -179,10 +210,10 @@ void ui_draw_battle_full(const Battle *battle)
     ui_draw_text_line(0, 2, "====================", 20);
 
     ui_draw_text_line(0, 5, "  ENEMY: SLIME [E]", 20);
-    ui_draw_text_line(0, 6, "  HP:  5/ 5", 20);
+    ui_draw_hp_row(6, battle->enemy.hp, battle->enemy.max_hp);
 
     ui_draw_text_line(0, 9, "  HERO:  HERO [@]", 20);
-    ui_draw_text_line(0, 10, "  HP: 10/10", 20);
+    ui_draw_hp_row(10, battle->player.hp, battle->player.max_hp);
 
     ui_draw_text_line(0, 13, "--------------------", 20);
 
@@ -192,6 +223,10 @@ void ui_draw_battle_full(const Battle *battle)
 void ui_update_battle(const Battle *battle)
 {
     if (!battle) return;
+
+    /* Keep HP readouts current as damage is dealt/received */
+    ui_draw_hp_row(6, battle->enemy.hp, battle->enemy.max_hp);
+    ui_draw_hp_row(10, battle->player.hp, battle->player.max_hp);
 
     if (battle->result == BATTLE_RESULT_VICTORY) {
         ui_draw_text_line(0, 15, " VICTORY! PRESS [A]", 20);

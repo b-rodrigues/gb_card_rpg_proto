@@ -1,0 +1,51 @@
+{
+  "name": "battle_attack",
+  "test": true,
+  "description": "Enter battle with Slime and attack once, asserting the on-screen enemy HP readout decreases from 5 to 2",
+  "scenario_id": "BATTLE_ATTACK",
+  "actions": [
+    {
+      "type": "wait",
+      "frames": 5
+    },
+    {
+      "type": "press",
+      "button": "RIGHT"
+    },
+    {
+      "type": "wait",
+      "frames": 5
+    },
+    {
+      "type": "press",
+      "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 5
+    }
+  ],
+  "assertions": [
+    {
+      "type": "game_state",
+      "expected": "BATTLE"
+    },
+    {
+      "type": "event_occurred",
+      "event": "BATTLE_ACTION"
+    },
+    {
+      "type": "event_occurred",
+      "event": "DAMAGE_DEALT"
+    },
+    {
+      "type": "battle_enemy_hp",
+      "expected": 2
+    },
+    {
+      "type": "screen_row",
+      "row": 6,
+      "contains": "  HP:  2/ 5"
+    }
+  ]
+}

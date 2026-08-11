@@ -11,7 +11,7 @@ DEBUG_PROTOCOL_VERSION = 1
 TELEMETRY_CAPACITY = 32
 TELEMETRY_EVENT_SIZE = 13
 
-GAME_STATE_MAP = {0: "OVERWORLD", 1: "BATTLE"}
+GAME_STATE_MAP = {0: "OVERWORLD", 1: "BATTLE", 2: "GAME_OVER", 3: "THANKS"}
 MUSIC_TRACK_MAP = {0: "NONE", 1: "OVERWORLD", 2: "BATTLE"}
 BATTLE_TURN_MAP = {0: "PLAYER", 1: "ENEMY_DELAY", 2: "ENEMY", 3: "RESULT"}
 BATTLE_RESULT_MAP = {0: "NONE", 1: "VICTORY", 2: "DEFEAT"}
@@ -40,7 +40,7 @@ SCENARIO_IDS = {
     "TOWN_DEPARTURE": 4, "TOWN_REENTRY": 5, "MAYOR_ENCOUNTER": 6,
     "MAYOR_DIALOGUE": 7, "MAYOR_DIALOGUE_MOVEMENT_BLOCKED": 8,
     "GUARD_DIALOGUE": 9, "FONT_TEST": 10, "DIALOGUE_RENDER_TEST": 11,
-    "BATTLE_ATTACK": 12, "GUARD_INTERACTION_DISTANCE": 13
+    "BATTLE_ATTACK": 12, "GUARD_INTERACTION_DISTANCE": 13, "GAME_OVER": 14
 }
 
 def decode_story_flags(flags_mask):
@@ -181,11 +181,22 @@ class EmulatorSession:
         boot_phase_addr = self.get_symbol("g_boot_phase")
         boot_phase = self._memread(boot_phase_addr)
 
-        # Set frame-sync breakpoint and run to first frame
+        # Set frame-sync breakpoint and run to first frame.
+        # Retry: if the breakpoint fired but its output raced with a drain,
+        # re-sync PC to main and try again.
         self._cmd(f'break 0x{game_render_addr:04X}')
-        self._send('c')
-        out = self._read_until(timeout=20.0)
-        if b'Hit breakpoint' not in out:
+        hit = False
+        for _ in range(8):
+            self._send('c')
+            out = self._read_until(timeout=10.0)
+            if b'Hit breakpoint' in out:
+                hit = True
+                break
+            # Not hit — the emulator may have raced ahead or paused elsewhere.
+            # Re-sync to main and retry.
+            self._set_pc(main_addr)
+            time.sleep(0.1)
+        if not hit:
             raise RuntimeError("connect: game_render breakpoint not hit")
 
         # First breakpoint may fire inside game_init() inner game_render().
@@ -269,10 +280,10 @@ class EmulatorSession:
     # ── State inspection ────────────────────────────────────────────
 
     def snapshot(self):
-        """Read 17-byte snapshot from g_snap_buf."""
+        """Read 18-byte snapshot from g_snap_buf."""
         addr = self.get_symbol("g_snap_buf")
         snap_bytes = []
-        for i in range(17):
+        for i in range(18):
             b = self._memread(addr + i)
             if b is not None:
                 snap_bytes.append(b)
@@ -297,7 +308,8 @@ class EmulatorSession:
                 "dialogue_line": snap_bytes[14] if len(snap_bytes) >= 15 else 0,
                 "dialogue_id": snap_bytes[15] if len(snap_bytes) >= 16 else 0,
                 "dialogue_id_name": DIALOGUE_ID_MAP.get(snap_bytes[15], f"UNKNOWN_{snap_bytes[15]}") if len(snap_bytes) >= 16 else "NONE",
-                "player_facing": DIRECTION_MAP.get(snap_bytes[16], f"UNKNOWN_{snap_bytes[16]}") if len(snap_bytes) >= 17 else "UNKNOWN"
+                "player_facing": DIRECTION_MAP.get(snap_bytes[16], f"UNKNOWN_{snap_bytes[16]}") if len(snap_bytes) >= 17 else "UNKNOWN",
+                "game_over_choice": snap_bytes[17] if len(snap_bytes) >= 18 else 0
             }
             self.current_snapshot = parsed
             return parsed

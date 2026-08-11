@@ -20,6 +20,7 @@ void game_render_reset(Game *g)
     g->render_cache.prev_player_hp = 255;
     g->render_cache.prev_enemy_hp = 255;
     g->render_cache.prev_battle_result = (BattleResult)255;
+    g->render_cache.prev_game_over_choice = 255;
 }
 
 void game_init(Game *g)
@@ -41,6 +42,21 @@ void game_init(Game *g)
 #ifdef DEBUG_BUILD
     debug_snapshot();
 #endif
+}
+
+/* Reset the world to a fresh new-game state (used by the Continue? menu). */
+void game_restart(Game *g)
+{
+    if (!g) return;
+    g->frame = 0;
+    g->story_flags = 0;
+    g->game_over_choice = 0;
+    state_init(&g->state_machine);
+    world_init(&g->world);
+    dialogue_init(&g->dialogue);
+    audio_play_music(MUSIC_OVERWORLD);
+    telemetry_emit(EVENT_MUSIC_CHANGED, MUSIC_OVERWORLD, 0, 0, 0);
+    game_render_reset(g);
 }
 
 static void update_overworld(Game *g)
@@ -100,11 +116,15 @@ static void update_battle(Game *g)
             bool victory = (g->battle.result == BATTLE_RESULT_VICTORY);
             if (victory) {
                 g->world.player.hp = g->battle.player.hp;
+                world_on_battle_end(&g->world, victory);
+                state_set(&g->state_machine, GAME_STATE_OVERWORLD);
+                audio_play_music(MUSIC_OVERWORLD);
+                telemetry_emit(EVENT_MUSIC_CHANGED, MUSIC_OVERWORLD, 0, 0, 0);
+            } else {
+                world_on_battle_end(&g->world, false);
+                g->game_over_choice = 0;
+                state_set(&g->state_machine, GAME_STATE_GAME_OVER);
             }
-            world_on_battle_end(&g->world, victory);
-            state_set(&g->state_machine, GAME_STATE_OVERWORLD);
-            audio_play_music(MUSIC_OVERWORLD);
-            telemetry_emit(EVENT_MUSIC_CHANGED, MUSIC_OVERWORLD, 0, 0, 0);
         }
     } else {
         if (g->battle.turn == BATTLE_TURN_PLAYER) {
@@ -116,6 +136,27 @@ static void update_battle(Game *g)
         }
         battle_update(&g->battle);
     }
+}
+
+/* Game-over continue prompt: Up/Down moves YES/NO, A/START confirms. */
+static void update_game_over(Game *g)
+{
+    if (input_pressed(INPUT_UP) || input_pressed(INPUT_DOWN)) {
+        g->game_over_choice = !g->game_over_choice;
+    }
+    if (input_pressed(INPUT_A) || input_pressed(INPUT_START)) {
+        if (g->game_over_choice == 0) {
+            game_restart(g);
+        } else {
+            state_set(&g->state_machine, GAME_STATE_THANKS);
+        }
+    }
+}
+
+/* Terminal "Thanks for playing!" screen — no further interaction. */
+static void update_thanks(Game *g)
+{
+    (void)g;
 }
 
 void game_update(Game *g)
@@ -138,6 +179,12 @@ void game_update(Game *g)
             break;
         case GAME_STATE_BATTLE:
             update_battle(g);
+            break;
+        case GAME_STATE_GAME_OVER:
+            update_game_over(g);
+            break;
+        case GAME_STATE_THANKS:
+            update_thanks(g);
             break;
     }
 
@@ -173,6 +220,30 @@ void game_render(Game *g)
             rc->prev_player_hp = g->battle.player.hp;
             rc->prev_enemy_hp = g->battle.enemy.hp;
             rc->prev_battle_result = g->battle.result;
+        }
+        return;
+    }
+
+    /* Game over continue prompt */
+    if (g->state_machine.current == GAME_STATE_GAME_OVER) {
+        if (!rc->valid || rc->prev_state != GAME_STATE_GAME_OVER ||
+            g->game_over_choice != rc->prev_game_over_choice) {
+            ui_draw_game_over(g->game_over_choice);
+            telemetry_emit(EVENT_RENDER_SCREEN, (uint8_t)GAME_STATE_GAME_OVER, 0, 0, 0);
+            rc->valid = true;
+            rc->prev_state = GAME_STATE_GAME_OVER;
+            rc->prev_game_over_choice = g->game_over_choice;
+        }
+        return;
+    }
+
+    /* Terminal thanks screen */
+    if (g->state_machine.current == GAME_STATE_THANKS) {
+        if (!rc->valid || rc->prev_state != GAME_STATE_THANKS) {
+            ui_draw_thanks();
+            telemetry_emit(EVENT_RENDER_SCREEN, (uint8_t)GAME_STATE_THANKS, 0, 0, 0);
+            rc->valid = true;
+            rc->prev_state = GAME_STATE_THANKS;
         }
         return;
     }

@@ -1,0 +1,63 @@
+{
+  "name": "game_over_quit",
+  "test": true,
+  "description": "On the Game Over Continue? prompt, choosing NO shows the terminal Thanks for playing! screen",
+  "scenario_id": "GAME_OVER",
+  "actions": [
+    {
+      "type": "wait",
+      "frames": 5
+    },
+    {
+      "type": "press",
+      "button": "RIGHT"
+    },
+    {
+      "type": "wait",
+      "frames": 5
+    },
+    {
+      "type": "press",
+      "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 40
+    },
+    {
+      "type": "press",
+      "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 5
+    },
+    {
+      "type": "press",
+      "button": "DOWN"
+    },
+    {
+      "type": "wait",
+      "frames": 5
+    },
+    {
+      "type": "press",
+      "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 5
+    }
+  ],
+  "assertions": [
+    {
+      "type": "game_state",
+      "expected": "THANKS"
+    },
+    {
+      "type": "screen_row",
+      "row": 8,
+      "contains": "THANKS FOR PLAYING!"
+    }
+  ]
+}

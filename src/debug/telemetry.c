@@ -1,8 +1,7 @@
 #include "telemetry.h"
 #include "audio.h"
-#include <string.h>
 
-uint8_t g_snap_buf[17] = {0};
+uint8_t g_snap_buf[18] = {0};
 GameEvent g_telemetry_buffer[MAX_TELEMETRY_EVENTS] = {{0}};
 uint8_t g_telemetry_count = 0;
 uint8_t g_telemetry_head = 0;
@@ -11,12 +10,31 @@ static const uint32_t *telemetry_frame_ptr = NULL;
 
 void telemetry_init(void)
 {
+    uint8_t i;
+    uint8_t *b = g_snap_buf;
+    GameEvent *ev;
+
     g_telemetry_count = 0;
     g_telemetry_head = 0;
     event_seq = 0;
     telemetry_frame_ptr = NULL;
-    memset(g_snap_buf, 0, sizeof(g_snap_buf));
-    memset(g_telemetry_buffer, 0, sizeof(g_telemetry_buffer));
+
+    /* Manual zero-fill instead of memset(): memset lives in a banked ROM
+     * region and banked calls from this debug init path hang under the mGBA
+     * debugger. */
+    for (i = 0; i < sizeof(g_snap_buf); i++) {
+        b[i] = 0;
+    }
+    for (i = 0; i < MAX_TELEMETRY_EVENTS; i++) {
+        ev = &g_telemetry_buffer[i];
+        ev->seq = 0;
+        ev->frame = 0;
+        ev->type = 0;
+        ev->data[0] = 0;
+        ev->data[1] = 0;
+        ev->data[2] = 0;
+        ev->data[3] = 0;
+    }
 }
 
 void telemetry_emit(GameEventType type, uint8_t d0, uint8_t d1, uint8_t d2, uint8_t d3)
@@ -75,4 +93,5 @@ void debug_snapshot(void)
     g_snap_buf[14] = g->dialogue.current_line;
     g_snap_buf[15] = (uint8_t)g->dialogue.id;
     g_snap_buf[16] = (uint8_t)g->world.player.facing;
+    g_snap_buf[17] = g->game_over_choice;
 }

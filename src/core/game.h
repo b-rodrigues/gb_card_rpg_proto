@@ -23,6 +23,7 @@ typedef struct {
     uint8_t prev_player_hp;
     uint8_t prev_enemy_hp;
     BattleResult prev_battle_result;
+    uint8_t prev_game_over_choice;
 } RenderCache;
 
 typedef struct {
@@ -32,12 +33,14 @@ typedef struct {
     DialogueState dialogue;
     uint32_t story_flags;
     uint32_t frame;
+    uint8_t game_over_choice;  /* 0 = YES, 1 = NO on the continue prompt */
     RenderCache render_cache;
 } Game;
 
 extern Game g_game;
 
 void game_init(Game *g);
+void game_restart(Game *g);
 void game_update(Game *g);
 void game_render(Game *g);
 void game_render_reset(Game *g);

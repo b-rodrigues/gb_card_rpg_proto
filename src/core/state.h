@@ -5,7 +5,9 @@
 
 typedef enum {
     GAME_STATE_OVERWORLD,
-    GAME_STATE_BATTLE
+    GAME_STATE_BATTLE,
+    GAME_STATE_GAME_OVER,
+    GAME_STATE_THANKS
 } GameState;
 
 typedef struct {

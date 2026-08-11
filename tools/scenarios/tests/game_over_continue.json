@@ -1,0 +1,63 @@
+{
+  "name": "game_over_continue",
+  "test": true,
+  "description": "On the Game Over Continue? prompt, choosing YES restarts the game to a fresh overworld",
+  "scenario_id": "GAME_OVER",
+  "actions": [
+    {
+      "type": "wait",
+      "frames": 5
+    },
+    {
+      "type": "press",
+      "button": "RIGHT"
+    },
+    {
+      "type": "wait",
+      "frames": 5
+    },
+    {
+      "type": "press",
+      "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 40
+    },
+    {
+      "type": "press",
+      "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 5
+    },
+    {
+      "type": "press",
+      "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 5
+    }
+  ],
+  "assertions": [
+    {
+      "type": "game_state",
+      "expected": "OVERWORLD"
+    },
+    {
+      "type": "player_position",
+      "expected_x": 4,
+      "expected_y": 4
+    },
+    {
+      "type": "player_hp",
+      "expected": 10
+    },
+    {
+      "type": "music_track",
+      "expected": "OVERWORLD"
+    }
+  ]
+}

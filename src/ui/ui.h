@@ -23,6 +23,8 @@ void ui_draw_battle_full(const Battle *battle);
 void ui_update_battle(const Battle *battle);
 
 void ui_draw_dialogue(const DialogueState *dialogue);
+void ui_draw_game_over(uint8_t choice);
+void ui_draw_thanks(void);
 void ui_draw_font_test(void);
 
 #endif /* UI_H */

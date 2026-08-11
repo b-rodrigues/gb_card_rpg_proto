@@ -19,6 +19,13 @@ static const palette_color_t cgb_palette[4] = {
 
 void ui_init(void)
 {
+    /* Turn the LCD off before loading the font so that display_off() inside
+     * set_bkg_data() returns immediately (it waits for VBlank otherwise).
+     * The CRT0 boot already leaves the LCD off; the harness (which skips
+     * CRT0) needs this too, and mGBA's debugger does not advance VBlank
+     * during single-stepping. */
+    LCDC_REG &= ~0x80;
+
     font_init();
     ibm_font = font_load(font_ibm);
     font_set(ibm_font);
@@ -280,6 +287,27 @@ void ui_draw_dialogue(const DialogueState *dialogue)
     g_ui_screen_buf[16][19] = '|';
 
     ui_draw_text_line(0, 17, "+------------------+", 20);
+}
+
+void ui_draw_game_over(uint8_t choice)
+{
+    ui_clear_screen();
+    ui_draw_text_line(0, 3, "    GAME OVER", 20);
+    ui_draw_text_line(0, 8, "   CONTINUE?", 20);
+    if (choice == 0) {
+        ui_draw_text_line(0, 11, "> YES", 20);
+        ui_draw_text_line(0, 12, "  NO", 20);
+    } else {
+        ui_draw_text_line(0, 11, "  YES", 20);
+        ui_draw_text_line(0, 12, "> NO", 20);
+    }
+    ui_draw_text_line(0, 16, " [A] CONFIRM", 20);
+}
+
+void ui_draw_thanks(void)
+{
+    ui_clear_screen();
+    ui_draw_text_line(0, 8, " THANKS FOR PLAYING!", 20);
 }
 
 void ui_draw_font_test(void)

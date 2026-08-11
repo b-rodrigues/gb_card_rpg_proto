@@ -37,7 +37,7 @@ typedef struct {
     uint8_t data[4];
 } GameEvent;
 
-extern uint8_t g_snap_buf[17];
+extern uint8_t g_snap_buf[18];
 extern GameEvent g_telemetry_buffer[MAX_TELEMETRY_EVENTS];
 extern uint8_t g_telemetry_count;
 extern uint8_t g_telemetry_head;

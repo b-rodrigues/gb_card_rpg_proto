@@ -11,6 +11,9 @@ char g_ui_screen_buf[18][21];
 /* GBDK console .mode byte (defined in crt0.s _DATA). Bit 2 is M_NO_SCROLL. */
 extern uint8_t console_mode;
 
+static void ui_put_char(uint8_t x, uint8_t y, char ch);
+static void ui_draw_num2(uint8_t x, uint8_t y, uint8_t val);
+
 static font_t ibm_font;
 
 static const palette_color_t cgb_palette[4] = {
@@ -111,8 +114,14 @@ void ui_draw_world_map(const World *world)
                     t = world->map[y][x];
                     if (t == TILE_WALL) tile_ch = '#';
                     else if (t == TILE_BUILDING) tile_ch = 'B';
-                    else if (t == TILE_FIELD_EXIT) tile_ch = '>';
-                    else if (t == TILE_TOWN_EXIT) tile_ch = '<';
+                    else if (t == TILE_FIELD_EXIT ||
+                             t == TILE_EXIT_FIELD_FOREST ||
+                             t == TILE_EXIT_FOREST_MOUNTAIN ||
+                             t == TILE_EXIT_MOUNTAIN_CASTLE) tile_ch = '>';
+                    else if (t == TILE_TOWN_EXIT ||
+                             t == TILE_EXIT_FOREST_FIELD ||
+                             t == TILE_EXIT_MOUNTAIN_FOREST ||
+                             t == TILE_EXIT_CASTLE_MOUNTAIN) tile_ch = '<';
                     else tile_ch = '.';
                 }
             }
@@ -125,14 +134,23 @@ void ui_draw_world_map(const World *world)
 
 void ui_draw_overworld_hud(const World *world)
 {
+    const char *label;
+
     if (!world) return;
 
-    ui_draw_text_line(0, 12, "====================", 20);
-    if (world->map_id == MAP_TOWN) {
-        ui_draw_text_line(0, 13, " MAP: TOWN | HP:10/10", 20);
-    } else {
-        ui_draw_text_line(0, 13, " MAP: FIELD| HP:10/10", 20);
+    switch (world->map_id) {
+        case MAP_TOWN:          label = "MAP: TOWN | HP:";  break;
+        case MAP_FOREST:        label = "MAP: FORST| HP:";  break;
+        case MAP_MOUNTAIN_PASS: label = "MAP: MOUNT| HP:";  break;
+        case MAP_CASTLE:        label = "MAP: CASTL| HP:";  break;
+        default:                label = "MAP: FIELD| HP:";  break;
     }
+
+    ui_draw_text_line(0, 12, "====================", 20);
+    ui_draw_text_line(0, 13, label, 15);
+    ui_draw_num2(15, 13, world->player.hp);
+    ui_put_char(17, 13, '/');
+    ui_draw_num2(18, 13, world->player.max_hp);
     ui_draw_text_line(0, 14, "", 20);
     ui_draw_text_line(0, 15, "", 20);
     ui_draw_text_line(0, 16, "", 20);
@@ -162,8 +180,14 @@ void ui_update_player_position(const World *world, uint8_t old_x, uint8_t old_y,
         t = world->map[old_y][old_x];
         if (t == TILE_WALL) old_ch = '#';
         else if (t == TILE_BUILDING) old_ch = 'B';
-        else if (t == TILE_FIELD_EXIT) old_ch = '>';
-        else if (t == TILE_TOWN_EXIT) old_ch = '<';
+        else if (t == TILE_FIELD_EXIT ||
+                 t == TILE_EXIT_FIELD_FOREST ||
+                 t == TILE_EXIT_FOREST_MOUNTAIN ||
+                 t == TILE_EXIT_MOUNTAIN_CASTLE) old_ch = '>';
+        else if (t == TILE_TOWN_EXIT ||
+                 t == TILE_EXIT_FOREST_FIELD ||
+                 t == TILE_EXIT_MOUNTAIN_FOREST ||
+                 t == TILE_EXIT_CASTLE_MOUNTAIN) old_ch = '<';
         else old_ch = '.';
     }
 

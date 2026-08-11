@@ -36,7 +36,7 @@ static const WorldActorDefinition g_field_actors[] = {
 
 static const WorldActorDefinition g_forest_actors[] = {
     {
-        ENTITY_ID_SLIME, 12, 5, DIRECTION_DOWN,
+        ENTITY_ID_SLIME, 10, 8, DIRECTION_DOWN,
         ACTOR_FLAG_HOSTILE | ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
         'E', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_SLIME, 6, 6
     }

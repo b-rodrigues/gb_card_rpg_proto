@@ -36,16 +36,10 @@ typedef enum {
 /* Centralised screen transition: exits the old screen, sets the new screen,
  * and emits SCREEN_CHANGED telemetry. */
 void screen_change(Game *g, ScreenId screen);
-
-/* Frame dispatch through the currently active screen. */
 void screen_update(Game *g);
 void screen_render(Game *g);
-
-/* ── Scene loading ───────────────────────────────────────────────── */
-
-/* Load a scene and place the player at (spawn_x, spawn_y).  Used by both
- * normal gameplay transitions and the development harness. */
 void scene_load(Game *g, SceneId scene, uint8_t spawn_x, uint8_t spawn_y);
+void scene_update_from_map(Game *g);
 
 /* ── Screen module lifecycle entry points ────────────────────────── */
 

@@ -24,11 +24,17 @@ typedef enum {
 } MapId;
 
 typedef enum {
-    TILE_FLOOR      = 0,
-    TILE_WALL       = 1,
-    TILE_FIELD_EXIT = 2,
-    TILE_TOWN_EXIT  = 3,
-    TILE_BUILDING   = 4
+    TILE_FLOOR              = 0,
+    TILE_WALL               = 1,
+    TILE_FIELD_EXIT         = 2,
+    TILE_TOWN_EXIT          = 3,
+    TILE_BUILDING           = 4,
+    TILE_EXIT_FIELD_FOREST  = 5,
+    TILE_EXIT_FOREST_FIELD  = 6,
+    TILE_EXIT_FOREST_MOUNTAIN = 7,
+    TILE_EXIT_MOUNTAIN_FOREST = 8,
+    TILE_EXIT_MOUNTAIN_CASTLE = 9,
+    TILE_EXIT_CASTLE_MOUNTAIN = 10
 } TileType;
 
 typedef struct {

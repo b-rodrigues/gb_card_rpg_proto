@@ -26,6 +26,8 @@ void world_load_map(World *w, MapId map_id)
     if (map_id == MAP_FIELD) {
         /* Exit gate to Town on East wall (18, 7) */
         w->map[7][18] = TILE_FIELD_EXIT;
+        /* Exit gate to Forest on North wall (12, 0) */
+        w->map[0][12] = TILE_EXIT_FIELD_FOREST;
     } else if (map_id == MAP_TOWN) {
         /* Exit gate to Field on West wall (1, 7) */
         w->map[7][1] = TILE_TOWN_EXIT;
@@ -46,6 +48,9 @@ void world_load_map(World *w, MapId map_id)
         for (i = 0; i < sizeof(trees)/sizeof(trees[0]); i++) {
             w->map[trees[i][1]][trees[i][0]] = TILE_WALL;
         }
+        /* Gates: South wall to Field, North wall to Mountain Pass */
+        w->map[11][12] = TILE_EXIT_FOREST_FIELD;
+        w->map[0][12]  = TILE_EXIT_FOREST_MOUNTAIN;
     } else if (map_id == MAP_MOUNTAIN_PASS) {
         /* Narrow winding pass with rock walls on both sides. */
         for (y = 0; y < WORLD_HEIGHT; y++) {
@@ -57,6 +62,9 @@ void world_load_map(World *w, MapId map_id)
                 }
             }
         }
+        /* Gates: South wall to Forest, North wall to Castle */
+        w->map[11][12] = TILE_EXIT_MOUNTAIN_FOREST;
+        w->map[0][12]  = TILE_EXIT_MOUNTAIN_CASTLE;
     } else if (map_id == MAP_CASTLE) {
         /* Castle interior: buildings flanking a central hall. */
         for (y = 3; y <= 8; y++) {
@@ -67,6 +75,8 @@ void world_load_map(World *w, MapId map_id)
                 w->map[y][x] = TILE_BUILDING;
             }
         }
+        /* Gate: South wall back to Mountain Pass */
+        w->map[11][12] = TILE_EXIT_CASTLE_MOUNTAIN;
     }
 
     /* Scene data determines what actors exist here. */
@@ -132,6 +142,24 @@ WorldMoveResult world_move_player(World *w, int8_t dx, int8_t dy)
         return MOVE_RESULT_MAP_CHANGED;
     } else if (target_tile == TILE_TOWN_EXIT) {
         world_change_map(w, MAP_FIELD, 17, 7);
+        return MOVE_RESULT_MAP_CHANGED;
+    } else if (target_tile == TILE_EXIT_FIELD_FOREST) {
+        world_change_map(w, MAP_FOREST, 12, 10);
+        return MOVE_RESULT_MAP_CHANGED;
+    } else if (target_tile == TILE_EXIT_FOREST_FIELD) {
+        world_change_map(w, MAP_FIELD, 12, 1);
+        return MOVE_RESULT_MAP_CHANGED;
+    } else if (target_tile == TILE_EXIT_FOREST_MOUNTAIN) {
+        world_change_map(w, MAP_MOUNTAIN_PASS, 12, 10);
+        return MOVE_RESULT_MAP_CHANGED;
+    } else if (target_tile == TILE_EXIT_MOUNTAIN_FOREST) {
+        world_change_map(w, MAP_FOREST, 12, 1);
+        return MOVE_RESULT_MAP_CHANGED;
+    } else if (target_tile == TILE_EXIT_MOUNTAIN_CASTLE) {
+        world_change_map(w, MAP_CASTLE, 10, 10);
+        return MOVE_RESULT_MAP_CHANGED;
+    } else if (target_tile == TILE_EXIT_CASTLE_MOUNTAIN) {
+        world_change_map(w, MAP_MOUNTAIN_PASS, 12, 1);
         return MOVE_RESULT_MAP_CHANGED;
     }
 

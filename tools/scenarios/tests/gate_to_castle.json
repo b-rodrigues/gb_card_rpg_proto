@@ -1,0 +1,285 @@
+{
+  "name": "gate_to_castle",
+  "test": true,
+  "description": "Walk the overworld gate path from Field to Castle and reach the Bat",
+  "scenario_id": "NEW_GAME",
+  "actions": [
+    {
+      "type": "press",
+      "button": "RIGHT"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "RIGHT"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "RIGHT"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "RIGHT"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "RIGHT"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "RIGHT"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "RIGHT"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "RIGHT"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "UP"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "UP"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "UP"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "UP"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "UP"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "UP"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "UP"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "UP"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "UP"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "UP"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "UP"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "UP"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "UP"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "UP"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "UP"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "UP"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "UP"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "UP"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "UP"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "UP"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "UP"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "UP"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "UP"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    },
+    {
+      "type": "press",
+      "button": "UP"
+    },
+    {
+      "type": "wait",
+      "frames": 1
+    }
+  ],
+  "assertions": [
+    {
+      "type": "scene",
+      "expected": "CASTLE"
+    },
+    {
+      "type": "player_position",
+      "expected_x": 10,
+      "expected_y": 10
+    },
+    {
+      "type": "actor_at",
+      "entity": "BAT",
+      "x": 12,
+      "y": 7
+    },
+    {
+      "type": "event_occurred",
+      "event": "MAP_CHANGED"
+    }
+  ]
+}

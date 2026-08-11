@@ -14,6 +14,33 @@ static MapId scene_to_map(SceneId scene)
     }
 }
 
+static SceneId map_to_scene(MapId map)
+{
+    switch (map) {
+        case MAP_TOWN:          return SCENE_TOWN;
+        case MAP_FOREST:        return SCENE_FOREST;
+        case MAP_MOUNTAIN_PASS: return SCENE_MOUNTAIN_PASS;
+        case MAP_CASTLE:        return SCENE_CASTLE;
+        default:                return SCENE_FIELD;
+    }
+}
+
+/* Sync Game.scene with the world's current map after a runtime map
+ * change (walking through a gate).  Emits SCENE_CHANGED when it differs. */
+void scene_update_from_map(Game *g)
+{
+    SceneId new_scene;
+    SceneId old_scene;
+    if (!g) return;
+
+    new_scene = map_to_scene(g->world.map_id);
+    old_scene = g->scene;
+    g->scene = new_scene;
+    if (old_scene != new_scene) {
+        telemetry_emit(EVENT_SCENE_CHANGED, (uint8_t)old_scene, (uint8_t)new_scene, 0, 0);
+    }
+}
+
 void scene_load(Game *g, SceneId scene, uint8_t spawn_x, uint8_t spawn_y)
 {
     SceneId old_scene;

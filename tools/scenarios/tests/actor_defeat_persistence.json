@@ -1,0 +1,85 @@
+{
+  "name": "actor_defeat_persistence",
+  "test": true,
+  "description": "Defeating a hostile World Actor records persistent ActorState.DEFEATED and prevents re-engagement on the same tile after returning to the overworld",
+  "scenario_id": "FIRST_ENCOUNTER",
+  "actions": [
+    {
+      "type": "press",
+      "button": "RIGHT"
+    },
+    {
+      "type": "wait",
+      "frames": 3
+    },
+    {
+      "type": "press",
+      "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 26
+    },
+    {
+      "type": "press",
+      "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 4
+    },
+    {
+      "type": "press",
+      "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 4
+    },
+    {
+      "type": "press",
+      "button": "RIGHT"
+    },
+    {
+      "type": "wait",
+      "frames": 2
+    }
+  ],
+  "assertions": [
+    {
+      "type": "game_state",
+      "expected": "OVERWORLD"
+    },
+    {
+      "type": "player_position",
+      "expected_x": 14,
+      "expected_y": 8
+    },
+    {
+      "type": "event_occurred",
+      "event": "ENTITY_DEFEATED"
+    },
+    {
+      "type": "event_occurred",
+      "event": "ACTOR_STATE_CHANGE"
+    },
+    {
+      "type": "event_occurred",
+      "event": "SCREEN_CHANGED"
+    },
+    {
+      "type": "actor_state",
+      "actor": "SLIME_FIELD",
+      "expected_state": "DEFEATED"
+    }
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 13,
+      "y": 8,
+      "facing": "DOWN"
+    },
+    "seed": 12345
+  }
+}

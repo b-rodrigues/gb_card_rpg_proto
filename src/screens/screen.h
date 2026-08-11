@@ -40,6 +40,7 @@ void screen_update(Game *g);
 void screen_render(Game *g);
 void scene_load(Game *g, SceneId scene, uint8_t spawn_x, uint8_t spawn_y);
 void scene_update_from_map(Game *g);
+void scene_sync_from_world(Game *g);
 
 /* ── Screen module lifecycle entry points ────────────────────────── */
 

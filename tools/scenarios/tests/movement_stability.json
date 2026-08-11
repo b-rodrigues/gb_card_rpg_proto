@@ -43,5 +43,14 @@
       "type": "event_occurred",
       "event": "PLAYER_MOVED"
     }
-  ]
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 4,
+      "y": 4,
+      "facing": "DOWN"
+    },
+    "seed": 42
+  }
 }

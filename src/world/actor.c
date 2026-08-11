@@ -5,22 +5,24 @@
  *
  * Friendly actors are pure static definitions.  Hostile actors are
  * spawned into World.actors runtime slots by actor_load_scene(), so a
- * scene can hold several hostile actors at once.
+ * scene can hold several hostile actors at once.  Each hostile definition
+ * carries a stable ActorId (unique across scenes) so its defeat can be
+ * recorded persistently in GameState.world and survive scene reloads.
  */
 
 static const WorldActorDefinition g_town_actors[] = {
     {
-        ENTITY_ID_MAYOR, 10, 5, DIRECTION_DOWN,
+        0, ENTITY_ID_MAYOR, 10, 5, DIRECTION_DOWN,
         ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
         'M', INTERACTION_DIALOGUE, DIALOGUE_ID_MAYOR_GREETING, BATTLE_NONE, 0, 0
     },
     {
-        ENTITY_ID_GUARD, 10, 8, DIRECTION_DOWN,
+        0, ENTITY_ID_GUARD, 10, 8, DIRECTION_DOWN,
         ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
         'G', INTERACTION_DIALOGUE, DIALOGUE_ID_GUARD_GREETING, BATTLE_NONE, 0, 0
     },
     {
-        ENTITY_ID_SHOPKEEPER, 9, 3, DIRECTION_DOWN,
+        0, ENTITY_ID_SHOPKEEPER, 9, 3, DIRECTION_DOWN,
         ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
         'S', INTERACTION_DIALOGUE, DIALOGUE_ID_SHOPKEEPER_GREETING, BATTLE_NONE, 0, 0
     }
@@ -28,7 +30,7 @@ static const WorldActorDefinition g_town_actors[] = {
 
 static const WorldActorDefinition g_field_actors[] = {
     {
-        ENTITY_ID_SLIME, 14, 8, DIRECTION_DOWN,
+        1, ENTITY_ID_SLIME, 14, 8, DIRECTION_DOWN,
         ACTOR_FLAG_HOSTILE | ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
         'E', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_SLIME, 5, 5
     }
@@ -36,12 +38,12 @@ static const WorldActorDefinition g_field_actors[] = {
 
 static const WorldActorDefinition g_forest_actors[] = {
     {
-        ENTITY_ID_SLIME, 10, 8, DIRECTION_DOWN,
+        2, ENTITY_ID_SLIME, 10, 8, DIRECTION_DOWN,
         ACTOR_FLAG_HOSTILE | ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
         'E', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_SLIME, 6, 6
     },
     {
-        ENTITY_ID_BAT, 7, 4, DIRECTION_DOWN,
+        3, ENTITY_ID_BAT, 7, 4, DIRECTION_DOWN,
         ACTOR_FLAG_HOSTILE | ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
         'V', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_BAT, 4, 4
     }
@@ -49,7 +51,7 @@ static const WorldActorDefinition g_forest_actors[] = {
 
 static const WorldActorDefinition g_mountain_pass_actors[] = {
     {
-        ENTITY_ID_SLIME, 14, 7, DIRECTION_DOWN,
+        4, ENTITY_ID_SLIME, 14, 7, DIRECTION_DOWN,
         ACTOR_FLAG_HOSTILE | ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
         'E', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_SLIME, 8, 8
     }
@@ -57,7 +59,7 @@ static const WorldActorDefinition g_mountain_pass_actors[] = {
 
 static const WorldActorDefinition g_castle_actors[] = {
     {
-        ENTITY_ID_BAT, 12, 7, DIRECTION_DOWN,
+        5, ENTITY_ID_BAT, 12, 7, DIRECTION_DOWN,
         ACTOR_FLAG_HOSTILE | ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
         'V', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_BAT, 4, 4
     }
@@ -103,6 +105,7 @@ static const WorldActorDefinition *actor_find_def_by_id(MapId map_id, EntityId i
 
 static void actor_spawn(WorldActorRuntime *r, const WorldActorDefinition *def)
 {
+    r->actor_id = def->actor_id;
     r->id = def->id;
     r->active = 1;
     r->x = def->x;
@@ -165,7 +168,7 @@ ActorEngageResult actor_engage(const WorldActorDefinition *actor, DialogueState 
     return ENGAGE_NONE;
 }
 
-void actor_load_scene(World *world, MapId map_id)
+void actor_load_scene(World *world, MapId map_id, const GameState *state)
 {
     const WorldActorDefinition *defs;
     uint8_t count, i, slot;
@@ -180,6 +183,10 @@ void actor_load_scene(World *world, MapId map_id)
     slot = 0;
     for (i = 0; i < count && slot < MAX_WORLD_ACTORS; i++) {
         if (defs[i].flags & ACTOR_FLAG_HOSTILE) {
+            if (defs[i].actor_id != 0 &&
+                game_world_actor_is_defeated(state, defs[i].actor_id)) {
+                continue;
+            }
             actor_spawn(&world->actors[slot], &defs[i]);
             slot++;
         }

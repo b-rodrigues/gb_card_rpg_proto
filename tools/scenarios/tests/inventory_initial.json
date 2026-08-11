@@ -1,0 +1,31 @@
+{
+  "name": "inventory_initial",
+  "test": true,
+  "description": "Declarative initial_state injects inventory quantities into the canonical GameState",
+  "scenario_id": "NEW_GAME",
+  "actions": [],
+  "assertions": [
+    {
+      "type": "inventory",
+      "item": "POTION",
+      "expected": 2
+    },
+    {
+      "type": "inventory",
+      "item": "BOMB",
+      "expected": 0
+    }
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 4,
+      "y": 4,
+      "facing": "DOWN"
+    },
+    "seed": 7003,
+    "inventory": {
+      "POTION": 2
+    }
+  }
+}

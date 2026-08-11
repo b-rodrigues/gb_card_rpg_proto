@@ -9,6 +9,11 @@ SRC_DIR = src
 TARGET = $(BUILD_DIR)/rpg_card_proto.gb
 TARGET_DEBUG = $(BUILD_DIR)/rpg_card_proto_debug.gb
 
+# sdldgb links entire archives; trimmed closures keep the non-bankable
+# _HOME area below 0x8000 on MBC5 (see docs/roadmap.md state foundation).
+GB_LITE = $(BUILD_DIR)/gb_lite.lib
+SM83_LITE = $(BUILD_DIR)/sm83_lite.lib
+
 INCLUDES = -I$(SRC_DIR) -I$(SRC_DIR)/core -I$(SRC_DIR)/world -I$(SRC_DIR)/battle -I$(SRC_DIR)/input -I$(SRC_DIR)/audio -I$(SRC_DIR)/ui -I$(SRC_DIR)/debug -I$(SRC_DIR)/screens
 
 SRCS = $(wildcard $(SRC_DIR)/*.c) $(wildcard $(SRC_DIR)/*/*.c)
@@ -24,7 +29,7 @@ OBJS_DEBUG = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/debug/%.o,$(SRCS))
 # Emulator detection
 EMULATOR ?= $(shell command -v sameboy 2>/dev/null || command -v mgba-sdl 2>/dev/null || command -v mgba-qt 2>/dev/null || command -v mgba 2>/dev/null || echo "")
 
-.PHONY: all release debug run run-debug test test-harness test-scenario screenshot clean
+.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot clean
 
 all: $(TARGET)
 
@@ -43,11 +48,14 @@ $(BUILD_DIR)/debug/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	@mkdir -p $(dir $@)
 	$(CC) -c -DDEBUG_BUILD $(INCLUDES) -o $@ $<
 
-$(TARGET): $(OBJS) build/crt0.o | $(BUILD_DIR)
-	$(CC) -no-crt -Wm-yc -Wl-yt0x19 -Wl-yo8 -o $@ build/crt0.o $(OBJS) $(GBDKDIR)lib/gb/gb.lib $(GBDKDIR)lib/sm83/sm83.lib
+$(GB_LITE) $(SM83_LITE): $(OBJS) $(OBJS_DEBUG) | $(BUILD_DIR)
+	python3 tools/make_lite_libs.py $(BUILD_DIR)
 
-$(TARGET_DEBUG): $(OBJS_DEBUG) build/crt0.o | $(BUILD_DIR)
-	$(CC) -no-crt -Wm-yc -Wl-yt0x19 -Wl-yo8 -Wl-m -Wl-j -Wl-y -o $@ build/crt0.o $(OBJS_DEBUG) $(GBDKDIR)lib/gb/gb.lib $(GBDKDIR)lib/sm83/sm83.lib
+$(TARGET): $(OBJS) build/crt0.o $(GB_LITE) $(SM83_LITE) | $(BUILD_DIR)
+	$(CC) -no-crt -Wm-yc -Wl-yt0x19 -Wl-yo8 -o $@ build/crt0.o $(OBJS) $(GB_LITE) $(SM83_LITE)
+
+$(TARGET_DEBUG): $(OBJS_DEBUG) build/crt0.o $(GB_LITE) $(SM83_LITE) | $(BUILD_DIR)
+	$(CC) -no-crt -Wm-yc -Wl-yt0x19 -Wl-yo8 -Wl-m -Wl-j -Wl-y -o $@ build/crt0.o $(OBJS_DEBUG) $(GB_LITE) $(SM83_LITE)
 	@python3 tools/make_sym.py $(BUILD_DIR)/rpg_card_proto_debug.noi $(BUILD_DIR)/rpg_card_proto_debug.sym
 
 build/crt0.o: src/crt0.s | $(BUILD_DIR)
@@ -83,6 +91,12 @@ test-harness: debug
 
 test-scenario: debug
 	@python3 tools/dev.py scenario $(SCENARIO)
+
+state: debug
+	@python3 tools/dev.py state $(SCENARIO)
+
+roundtrip: debug
+	@python3 tools/dev.py roundtrip $(SCENARIO)
 
 screenshot: $(TARGET)
 	@bash tools/screenshot.sh $(BUILD_DIR)/screenshot.png $(TARGET)

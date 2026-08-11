@@ -21,5 +21,14 @@
       "x": 7,
       "y": 4
     }
-  ]
+  ],
+  "initial_state": {
+    "scene": "FOREST",
+    "player": {
+      "x": 8,
+      "y": 6,
+      "facing": "DOWN"
+    },
+    "seed": 5005
+  }
 }

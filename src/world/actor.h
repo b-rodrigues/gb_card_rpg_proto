@@ -6,6 +6,7 @@
 #include "entity.h"
 #include "world.h"
 #include "dialogue.h"
+#include "rpg/state.h"
 
 /* World Actor flags.  Hostility is a property of the actor: a hostile
  * actor starts combat when engaged, a non-hostile actor runs its
@@ -33,8 +34,11 @@ typedef enum {
     BATTLE_BAT = 2
 } BattleId;
 
-/* Static, scene-owned actor configuration.  No mutable gameplay state. */
+/* Static, scene-owned actor configuration.  No mutable gameplay state.
+ * actor_id is the stable persistent instance id (ActorId) used to track
+ * defeat/lifecycle in GameState.world; it must be unique across scenes. */
 typedef struct {
+    uint16_t actor_id;
     EntityId id;
     uint8_t x;
     uint8_t y;
@@ -69,8 +73,9 @@ uint8_t actor_find_hostile_slot(const World *world, uint8_t x, uint8_t y);
 ActorEngageResult actor_engage(const WorldActorDefinition *actor, DialogueState *dialogue);
 
 /* Spawn all hostile actor definitions for the given map into
- * World.actors runtime slots. */
-void actor_load_scene(World *world, MapId map_id);
+ * World.actors runtime slots.  Actors whose ActorId is marked DEFEATED in
+ * state are not spawned (persistent defeat). */
+void actor_load_scene(World *world, MapId map_id, const GameState *state);
 
 /* Write the active scene's actors as compact (id, x, y, facing) 4-byte
  * entries into out.  Returns the number of entries written.  Used by the

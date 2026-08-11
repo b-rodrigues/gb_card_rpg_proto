@@ -11,7 +11,10 @@ static void start_battle_from_world(Game *g)
     uint8_t idx = g->world.encounter_actor_index;
     if (idx == NO_ACTOR_INDEX) return;
 
-    battle_start(&g->battle, g->world.player.hp, g->world.player.max_hp,
+    /* Hero HP is authoritative in the party state; the world entity is the
+     * runtime engine copy. */
+    battle_start(&g->battle, g->state.party.members[0].hp,
+                 g->state.party.members[0].max_hp,
                  g->world.actors[idx].hp, g->world.actors[idx].max_hp);
     audio_play_music(MUSIC_BATTLE);
     telemetry_emit(EVENT_MUSIC_CHANGED, MUSIC_BATTLE, 0, 0, 0);
@@ -33,12 +36,12 @@ void overworld_screen_update(Game *g)
     if (input_pressed(INPUT_RIGHT)) dx = 1;
 
     if (dx != 0 || dy != 0) {
-        move_res = world_move_player(&g->world, dx, dy);
+        move_res = world_move_player(&g->world, dx, dy, &g->state);
 
         if (move_res == MOVE_RESULT_MAP_CHANGED) {
             g->world.map_changed = false;
             scene_update_from_map(g);
-            story_on_map_enter(&g->story_flags, g->world.map_id);
+            story_on_map_enter(&g->state, g->world.map_id);
             return;
         }
     }

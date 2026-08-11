@@ -28,14 +28,13 @@ void game_init(Game *g)
 {
     if (!g) return;
     g->frame = 0;
-    g->story_flags = 0;
     g->game_over_choice = 0;
     g->screen = SCREEN_OVERWORLD;
     g->prev_screen = SCREEN_OVERWORLD;
-    g->scene = SCENE_FIELD;
     telemetry_init();
     telemetry_set_frame_ptr(&g->frame);
-    world_init(&g->world);
+    game_state_init(&g->state);
+    world_init(&g->world, &g->state);
     dialogue_init(&g->dialogue);
     audio_play_music(MUSIC_OVERWORLD);
     telemetry_emit(EVENT_MUSIC_CHANGED, MUSIC_OVERWORLD, 0, 0, 0);
@@ -53,12 +52,11 @@ void game_restart(Game *g)
 {
     if (!g) return;
     g->frame = 0;
-    g->story_flags = 0;
     g->game_over_choice = 0;
     g->screen = SCREEN_OVERWORLD;
     g->prev_screen = SCREEN_OVERWORLD;
-    g->scene = SCENE_FIELD;
-    world_init(&g->world);
+    game_state_init(&g->state);
+    world_init(&g->world, &g->state);
     dialogue_init(&g->dialogue);
     audio_play_music(MUSIC_OVERWORLD);
     telemetry_emit(EVENT_MUSIC_CHANGED, MUSIC_OVERWORLD, 0, 0, 0);
@@ -75,6 +73,7 @@ void game_update(Game *g)
     g->frame++;
 
     screen_update(g);
+    scene_sync_from_world(g);
 
 #ifdef DEBUG_BUILD
     debug_snapshot();

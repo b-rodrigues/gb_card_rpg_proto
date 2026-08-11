@@ -22,5 +22,17 @@
       "expected_x": 8,
       "expected_y": 6
     }
-  ]
+  ],
+  "initial_state": {
+    "scene": "CASTLE",
+    "player": {
+      "x": 8,
+      "y": 6,
+      "facing": "DOWN"
+    },
+    "seed": 5007,
+    "flags": {
+      "ARRIVED_TOWN": true
+    }
+  }
 }

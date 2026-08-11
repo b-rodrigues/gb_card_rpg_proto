@@ -363,6 +363,88 @@ Loading a scenario must:
 
 The scenario must then run through normal gameplay logic.
 
+### Declarative loading (`initial_state`)
+
+Scenarios specify their starting state declaratively in the JSON
+`initial_state` field.  The host serializes it into a fixed-size byte
+descriptor in `g_scen_state_buf` (layout documented in
+`src/debug/telemetry.h`, `STATE_LOAD_DESC_*`), sets `g_scen_load_state`,
+and the ROM applies it through a single general loader
+(`scenario_load_state()`) that constructs the canonical `GameState`,
+loads the world through the normal `world_init`/`world_load_map` paths
+(so persistent actor defeats are respected), and starts the game in the
+requested screen.
+
+Supported `initial_state` fields:
+
+```json
+{
+  "scene": "TOWN",
+  "player": { "x": 8, "y": 6, "facing": "DOWN" },
+  "seed": 42,
+  "flags": { "ARRIVED_TOWN": true, "MET_MAYOR": false },
+  "variables": { "GOLD": 150, "CHAPTER": 2 },
+  "party": { "HERO": { "level": 3, "hp": 24, "max_hp": 30 } },
+  "inventory": { "POTION": 2, "BOMB": 1 },
+  "world": { "SLIME_FIELD": "DEFEATED" },
+  "screen": "BATTLE",
+  "dialogue": "MAYOR_GREETING",
+  "start_battle": true,
+  "game_over_choice": 1,
+  "font_test": true
+}
+```
+
+Rules:
+
+* Each variable-length section carries a count; only the listed entries
+  are applied, so unspecified sections keep the game's default state
+  (e.g. leaving `variables` out keeps `CHAPTER == 1`).
+* A `DEFEATED` actor in `world` is honoured by `actor_load_scene()`: the
+  actor is not spawned into the scene.
+* Scenario setup must never emit gameplay telemetry; all descriptor state
+  is written directly into `GameState`.
+* `screen` starts a non-overworld screen directly (DIALOGUE/BATTLE/
+  GAME_OVER/THANKS); `dialogue` + `start_battle` configure the active
+  runtime screens.
+
+### Semantic state dump (LLM-facing)
+
+The byte buffers (`g_snap_buf`, `g_state_snap_buf`) are internal transports.
+The LLM-facing representation is semantic text rendered host-side from the
+parsed snapshot:
+
+```text
+SCENE=FOREST
+PLAYER=(10,8) FACING=RIGHT
+FLAGS: ARRIVED_TOWN MET_MAYOR
+VARIABLES: CHAPTER=1 GOLD=150
+PARTY[0]: HERO lvl=3 24/30
+INVENTORY: POTION x2
+WORLD: SLIME_FOREST=DEFEATED
+```
+
+It is opt-in via `dev.py`:
+
+```text
+python3 tools/dev.py scenario <name> --state   # run + dump semantic state
+python3 tools/dev.py state <name>              # run + dump semantic state
+python3 tools/dev.py test --state              # every scenario
+```
+
+### Save/load boundary check
+
+`GameState` is the potential save unit; `Battle`, `DialogueState`,
+`RenderCache`, input, and `World.actors` HP/facing are runtime state and are
+excluded.  The roundtrip check proves the boundary is lossless:
+
+```text
+python3 tools/dev.py roundtrip <scenario>
+```
+
+It loads an `initial_state`, dumps the canonical state, rebuilds a descriptor
+from the dump, reloads, and asserts the observed state is unchanged.
+
 ---
 
 # 11. Scenario Format

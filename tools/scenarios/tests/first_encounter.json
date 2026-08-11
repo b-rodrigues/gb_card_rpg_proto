@@ -22,5 +22,14 @@
       "type": "event_occurred",
       "event": "ENCOUNTER_STARTED"
     }
-  ]
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 13,
+      "y": 8,
+      "facing": "DOWN"
+    },
+    "seed": 12345
+  }
 }

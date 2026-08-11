@@ -31,5 +31,15 @@
       "row": 8,
       "contains": "CONTINUE?"
     }
-  ]
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 4,
+      "y": 4,
+      "facing": "DOWN"
+    },
+    "seed": 5003,
+    "screen": "GAME_OVER"
+  }
 }

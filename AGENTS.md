@@ -1912,11 +1912,13 @@ RAM-resident and copied by CRT0 at boot. The harness never runs that copy.
 Keep `_HOME` in ROM (52.5) and avoid harness-exercised paths that depend on
 RAM-resident library code.
 
-## 52.12 Scenario flag ordering
+## 52.12 Scenario state ordering
 
-`scenario_begin()` resets `g_game.story_flags`. Set scenario story flags
-AFTER calling it, or they are silently wiped and story-dependent scenarios
-fail in confusing ways.
+`scenario_begin()` (called by the declarative loader) resets
+`g_game.state.flags.bytes[]`. The general loader re-applies descriptor flags
+AFTER `scenario_begin()`. Any scenario code that pokes state directly must do
+the same ordering, or its flags are silently wiped and story-dependent
+scenarios fail in confusing ways.
 
 ## 52.13 Full clean build after structural changes
 
@@ -1924,3 +1926,116 @@ Whenever the `World`/`Game` struct layout, actor tables, or the CRT0 `_DATA`
 area changes, the snapshot bytes and symbol addresses shift. The harness
 resolves symbols via `get_symbol()`, but the ROM must be fully rebuilt; a
 partial build leaves a stale `.sym`/`.gb` pair that reads garbage.
+
+---
+
+# 53. State Ownership
+
+`GameState` (`src/rpg/state.h`) is the **canonical persistent game state**:
+scene, party, inventory, flags, variables, and persistent world actor state.
+Treat it as the single source of truth for anything a save file would
+contain.
+
+## 53.1 Canonical state vs runtime engine copies
+
+* `g_game.state` is authoritative.
+* `g_game.world` holds the runtime engine copy of the current scene: terrain,
+  exits, the player entity, and spawned hostile actors.  `scene_sync_from_world()`
+  copies the scene + player position back into `GameState` once per frame.
+* `Battle`, `DialogueState`, `RenderCache`, and input are temporary runtime
+  state, never persistent.
+
+## 53.2 Single-writer rules
+
+* Scene/position: `scene_load()`, `scene_update_from_map()`, and
+  `scene_sync_from_world()` write `state.scene`.  Do not set
+  `state.scene.*` from gameplay code directly.
+* Party HP: `battle_start` reads the hero HP from `state.party.members[0]`;
+  victory writes the post-battle HP back to both the party and the world copy.
+* Flags/variables: use `game_flag_set/clear`, `game_variable_set/add`.
+  Story flags are a sub-set of `GameState.flags`; `story.c` operates on
+  `GameState*`.
+* Persistent actor defeat: `world_on_battle_end()` records
+  `ACTOR_STATE_DEFEATED` into `state.world` keyed by the stable ActorId.
+  `actor_load_scene()` skips spawning defeated actors.
+* Static actor definitions (`WorldActorDefinition`) must never hold mutable
+  state; lifecycle lives in `state.world` + `World.actors`.
+
+## 53.3 Debug injection must not emit gameplay telemetry
+
+Scenario/`initial_state` setup writes state directly into `GameState`
+(flags via `state.flags.bytes[]`, variables via `state.variables.values[]`,
+etc.) and must NOT go through `game_flag_set` / `game_variable_set`, which
+emit `STORY_FLAG_SET` / `VARIABLE_SET` events.  Setup that emits gameplay
+telemetry breaks scenarios that assert `event_not_occurred`
+(e.g. `town_reentry`).
+
+## 53.4 Descriptor layout is a wire contract
+
+The host serializes `initial_state` JSON into the fixed-size descriptor
+`g_scen_state_buf` (`STATE_LOAD_DESC_*` in `src/debug/telemetry.h`), and the
+ROM applies it in `scenario_load_state()`.  The extended snapshot
+`g_state_snap_buf` (`STATE_SNAP_*`) mirrors the same sections for
+host-side assertion.  Keep the host (`tools/emulator.py`) and ROM constants
+in sync; changing one without the other silently breaks every scenario.
+
+## 53.5 Snapshot / telemetry observability contract
+
+* Core snapshot (`g_snap_buf`, 36 bytes): byte 12 is `state.flags.bytes[0]`,
+  byte 19 is `state.scene.scene_id`.  Existing scenarios depend on these.
+* Extended snapshot (`g_state_snap_buf`, 92 bytes): version byte 0, flags
+  at 1..8, variables at 9..24, party at 25..49, inventory at 50..66, world
+  at 67..91.
+* Every important gameplay transition must emit a telemetry event; state
+  assertions must be possible without screenshots.
+
+## 53.6 Save/load boundary (design, not implementation)
+
+`GameState` is the potential save unit.  Rule:
+
+> **If a piece of state is part of `GameState`, it is potentially saveable;
+> if it is temporary runtime state, it is not.**
+
+Runtime state — `Battle`, `DialogueState`, `RenderCache`, input state,
+`World.actors` HP/facing (the engine copy), `g_game.screen` — must never
+become part of the save format.  Persistent world actor lifecycle lives in
+`GameState.world` keyed by `ActorId`; `World.actors` is rebuilt from scene
+definitions + `GameState.world` on every scene load.
+
+The wire descriptor `g_scen_state_buf` and the extended snapshot
+`g_state_snap_buf` are the save-boundary probes: the host roundtrip check
+(`python3 tools/dev.py roundtrip <scenario>`) loads an `initial_state`,
+dumps the canonical state, rebuilds a descriptor from the dump, reloads,
+and asserts the state is unchanged.  Any section that serializes in but not
+out (or vice versa) breaks the roundtrip.
+
+## 53.7 Semantic layers — never expose byte layouts to the LLM
+
+Keep the layers separate:
+
+```text
+GameState
+    ↓
+semantic state representation (tools/test_runner.format_state)
+    ↓
+debug snapshot / protocol transport (g_snap_buf / g_state_snap_buf)
+    ↓
+LLM
+```
+
+The LLM-facing output is text such as:
+
+```text
+SCENE=FOREST
+PLAYER=(10,8) FACING=RIGHT
+FLAGS: ARRIVED_TOWN MET_MAYOR
+VARIABLES: CHAPTER=1 GOLD=150
+PARTY[0]: HERO lvl=3 24/30
+INVENTORY: POTION x2
+WORLD: SLIME_FOREST=DEFEATED
+```
+
+The byte offsets in `g_snap_buf` / `g_state_snap_buf` are an internal
+transport contract and may change; scenarios must not depend on them.
+Semantic assertions (`flag`, `variable`, `inventory`, `party_hp`,
+`party_level`, `actor_state`, `screen_row`, ...) are the stable API.

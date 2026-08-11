@@ -34,7 +34,9 @@ EVENT_TYPE_MAP = {
     15: "DIALOGUE_STARTED", 16: "DIALOGUE_NEXT", 17: "DIALOGUE_ENDED",
     18: "INTERACTION_ATTEMPT", 19: "RENDER_SCREEN", 20: "RENDER_DIALOGUE",
     21: "SCREEN_CHANGED", 22: "SCENE_CHANGED",
-    23: "ACTOR_COLLISION", 24: "ACTOR_INTERACTION", 25: "ACTOR_COMBAT_START"
+    23: "ACTOR_COLLISION", 24: "ACTOR_INTERACTION", 25: "ACTOR_COMBAT_START",
+    26: "VARIABLE_SET", 27: "ITEM_ADDED", 28: "ITEM_REMOVED",
+    29: "ACTOR_STATE_CHANGE"
 }
 DIRECTION_MAP = {0: "UP", 1: "DOWN", 2: "LEFT", 3: "RIGHT"}
 
@@ -64,6 +66,134 @@ SCENARIO_IDS = {
     "MOUNTAIN_PASS_BOOT": 21, "CASTLE_BOOT": 22, "TOWN_BOOT": 23,
     "ACTOR_COLLISION_BLOCKING": 24, "ACTOR_SHOPKEEPER": 25, "ACTOR_BAT": 26
 }
+
+# ── Declarative initial-state descriptor ─────────────────────────────
+# Mirrors STATE_LOAD_DESC_* in src/debug/telemetry.h.  The host serializes
+# a scenario's initial_state JSON into this fixed-size byte descriptor and
+# writes it to g_scen_state_buf, then sets g_scen_load_state.
+STATE_LOAD_DESC_SIZE = 178
+STATE_LOAD_DESC_VERSION = 0x01
+STATE_LOAD_DESC_SCREEN_OFF = 1
+STATE_LOAD_DESC_SCENE_OFF = 2
+STATE_LOAD_DESC_PLAYER_X_OFF = 3
+STATE_LOAD_DESC_PLAYER_Y_OFF = 4
+STATE_LOAD_DESC_PLAYER_FACING_OFF = 5
+STATE_LOAD_DESC_SEED_OFF = 6
+STATE_LOAD_DESC_FLAGS_OFF = 10
+STATE_LOAD_DESC_FLAGS_SIZE = 8
+STATE_LOAD_DESC_VARIABLES_COUNT_OFF = 18
+STATE_LOAD_DESC_VARIABLES_ENTRY_OFF = 19
+STATE_LOAD_DESC_VARIABLES_ENTRY_SIZE = 3
+STATE_LOAD_DESC_PARTY_COUNT_OFF = 67
+STATE_LOAD_DESC_PARTY_ENTRY_OFF = 68
+STATE_LOAD_DESC_PARTY_ENTRY_SIZE = 6
+STATE_LOAD_DESC_INVENTORY_COUNT_OFF = 92
+STATE_LOAD_DESC_INVENTORY_ENTRY_OFF = 93
+STATE_LOAD_DESC_INVENTORY_ENTRY_SIZE = 2
+STATE_LOAD_DESC_WORLD_COUNT_OFF = 125
+STATE_LOAD_DESC_WORLD_ENTRY_OFF = 126
+STATE_LOAD_DESC_WORLD_ENTRY_SIZE = 3
+STATE_LOAD_DESC_DIALOGUE_ID_OFF = 174
+STATE_LOAD_DESC_START_BATTLE_OFF = 175
+STATE_LOAD_DESC_GAME_OVER_CHOICE_OFF = 176
+STATE_LOAD_DESC_FONT_TEST_OFF = 177
+
+SCENE_NAME_TO_ID = {v: k for k, v in SCENE_MAP.items()}
+SCREEN_NAME_TO_ID = {v: k for k, v in SCREEN_MAP.items()}
+DIRECTION_NAME_TO_ID = {v: k for k, v in DIRECTION_MAP.items()}
+STATE_FLAG_ID_MAP = {"ARRIVED_TOWN": 1, "MET_MAYOR": 2}
+VARIABLE_ID_MAP = {"GOLD": 1, "CHAPTER": 2, "SLIMES_DEFEATED": 3}
+CHARACTER_ID_MAP = {"HERO": 1}
+ITEM_ID_MAP = {"POTION": 1, "BOMB": 2, "ETHER": 3}
+ACTOR_ID_MAP = {"SLIME_FIELD": 1, "SLIME_FOREST": 2, "BAT_FOREST": 3,
+                "SLIME_MOUNTAIN_PASS": 4, "BAT_CASTLE": 5}
+ACTOR_STATE_NAME_MAP = {"ALIVE": 0, "DEFEATED": 1}
+DIALOGUE_NAME_TO_ID = {v: k for k, v in DIALOGUE_ID_MAP.items()}
+
+# Inverted maps for turning parsed snapshot state back into names.
+CHARACTER_ID_TO_NAME = {v: k for k, v in CHARACTER_ID_MAP.items()}
+ITEM_ID_TO_NAME = {v: k for k, v in ITEM_ID_MAP.items()}
+ACTOR_ID_TO_NAME = {v: k for k, v in ACTOR_ID_MAP.items()}
+
+
+def serialize_initial_state(initial_state):
+    """Serialize a scenario initial_state dict into the fixed-size byte
+    descriptor written into g_scen_state_buf."""
+    buf = [0] * STATE_LOAD_DESC_SIZE
+    buf[0] = STATE_LOAD_DESC_VERSION
+    if not initial_state:
+        return buf
+
+    buf[STATE_LOAD_DESC_SCENE_OFF] = SCENE_NAME_TO_ID[initial_state.get("scene", "FIELD")]
+    buf[STATE_LOAD_DESC_SEED_OFF:STATE_LOAD_DESC_SEED_OFF + 4] = list(
+        (initial_state.get("seed", 42) & 0xFFFFFFFF).to_bytes(4, "little"))
+
+    player = initial_state.get("player", {})
+    buf[STATE_LOAD_DESC_PLAYER_X_OFF] = player.get("x", 4)
+    buf[STATE_LOAD_DESC_PLAYER_Y_OFF] = player.get("y", 4)
+    buf[STATE_LOAD_DESC_PLAYER_FACING_OFF] = DIRECTION_NAME_TO_ID.get(player.get("facing", "DOWN"), 1)
+
+    screen = initial_state.get("screen")
+    if screen:
+        buf[STATE_LOAD_DESC_SCREEN_OFF] = SCREEN_NAME_TO_ID[screen]
+
+    for name, val in (initial_state.get("flags") or {}).items():
+        flag_id = STATE_FLAG_ID_MAP[name]
+        byte = STATE_LOAD_DESC_FLAGS_OFF + (flag_id - 1) // 8
+        bit = 1 << ((flag_id - 1) % 8)
+        if val:
+            buf[byte] |= bit
+
+    for name, val in (initial_state.get("variables") or {}).items():
+        var_id = VARIABLE_ID_MAP[name]
+        count_off = STATE_LOAD_DESC_VARIABLES_COUNT_OFF
+        entry_idx = buf[count_off]
+        off = STATE_LOAD_DESC_VARIABLES_ENTRY_OFF + entry_idx * STATE_LOAD_DESC_VARIABLES_ENTRY_SIZE
+        buf[off] = var_id
+        buf[off + 1] = val & 0xFF
+        buf[off + 2] = (val >> 8) & 0xFF
+        buf[count_off] = entry_idx + 1
+
+    party = initial_state.get("party") or {}
+    members = list(party.items())
+    buf[STATE_LOAD_DESC_PARTY_COUNT_OFF] = len(members)
+    for i, (name, stats) in enumerate(members):
+        off = STATE_LOAD_DESC_PARTY_ENTRY_OFF + i * STATE_LOAD_DESC_PARTY_ENTRY_SIZE
+        buf[off] = CHARACTER_ID_MAP[name]
+        buf[off + 1] = stats.get("level", 1)
+        xp = stats.get("xp", 0)
+        buf[off + 2] = xp & 0xFF
+        buf[off + 3] = (xp >> 8) & 0xFF
+        buf[off + 4] = stats.get("hp", 10)
+        buf[off + 5] = stats.get("max_hp", 10)
+
+    inventory = initial_state.get("inventory") or {}
+    items = list(inventory.items())
+    buf[STATE_LOAD_DESC_INVENTORY_COUNT_OFF] = len(items)
+    for i, (name, qty) in enumerate(items):
+        off = STATE_LOAD_DESC_INVENTORY_ENTRY_OFF + i * STATE_LOAD_DESC_INVENTORY_ENTRY_SIZE
+        buf[off] = ITEM_ID_MAP[name]
+        buf[off + 1] = qty
+
+    world = initial_state.get("world") or {}
+    actors = list(world.items())
+    buf[STATE_LOAD_DESC_WORLD_COUNT_OFF] = len(actors)
+    for i, (name, actor_state) in enumerate(actors):
+        off = STATE_LOAD_DESC_WORLD_ENTRY_OFF + i * STATE_LOAD_DESC_WORLD_ENTRY_SIZE
+        actor_id = ACTOR_ID_MAP[name]
+        buf[off] = actor_id & 0xFF
+        buf[off + 1] = (actor_id >> 8) & 0xFF
+        buf[off + 2] = ACTOR_STATE_NAME_MAP.get(actor_state, 0)
+
+    dialogue = initial_state.get("dialogue")
+    if dialogue:
+        buf[STATE_LOAD_DESC_DIALOGUE_ID_OFF] = DIALOGUE_NAME_TO_ID.get(dialogue, 0)
+    if initial_state.get("start_battle"):
+        buf[STATE_LOAD_DESC_START_BATTLE_OFF] = 1
+    buf[STATE_LOAD_DESC_GAME_OVER_CHOICE_OFF] = initial_state.get("game_over_choice", 0)
+    if initial_state.get("font_test"):
+        buf[STATE_LOAD_DESC_FONT_TEST_OFF] = 1
+    return buf
 
 def decode_story_flags(flags_mask):
     active = []
@@ -303,12 +433,26 @@ class EmulatorSession:
 
     # ── Scenario loading ────────────────────────────────────────────
 
-    def load_scenario(self, scenario_id_str):
-        if scenario_id_str not in SCENARIO_IDS:
-            raise ValueError(f"Unknown scenario ID '{scenario_id_str}'")
-        sid = SCENARIO_IDS[scenario_id_str]
-        addr = self.get_symbol("g_scen_load")
-        self._memwrite(addr, sid)
+    def load_scenario(self, scenario):
+        """Load a scenario from its initial_state descriptor.
+
+        ``scenario`` may be a scenario dict (with an ``initial_state`` key)
+        or a bare dict of initial_state fields.  The descriptor is written
+        into g_scen_state_buf and g_scen_load_state is set; the ROM applies
+        it through the general declarative loader on the next frame.
+        """
+        if isinstance(scenario, dict) and "initial_state" in scenario:
+            initial = scenario.get("initial_state", {})
+        elif isinstance(scenario, dict):
+            initial = scenario
+        else:
+            raise ValueError("load_scenario requires an initial_state dict")
+        payload = serialize_initial_state(initial)
+        addr = self.get_symbol("g_scen_state_buf")
+        for i, val in enumerate(payload):
+            self._memwrite(addr + i, val)
+        flag_addr = self.get_symbol("g_scen_load_state")
+        self._memwrite(flag_addr, 1)
         time.sleep(0.005)
         self.step(2)
 
@@ -359,6 +503,85 @@ class EmulatorSession:
             self.current_snapshot = parsed
             return parsed
         return self.current_snapshot
+
+    # Extended RPG state snapshot: parses g_state_snap_buf (92 bytes,
+    # layout in src/debug/telemetry.h STATE_SNAP_*).
+    STATE_SNAP_SIZE = 92
+    STATE_SNAP_VERSION = 1
+    STATE_SNAP_FLAGS_OFF = 1
+    STATE_SNAP_FLAGS_SIZE = 8
+    STATE_SNAP_VARIABLES_OFF = 9
+    STATE_SNAP_PARTY_OFF = 25
+    STATE_SNAP_PARTY_ENTRY_SIZE = 6
+    STATE_SNAP_INVENTORY_OFF = 50
+    STATE_SNAP_INVENTORY_ENTRY_SIZE = 2
+    STATE_SNAP_WORLD_OFF = 67
+    STATE_SNAP_WORLD_ENTRY_SIZE = 3
+
+    def state_snapshot(self):
+        """Read g_state_snap_buf and return the canonical GameState as a dict."""
+        addr = self.get_symbol("g_state_snap_buf")
+        buf = []
+        for i in range(self.STATE_SNAP_SIZE):
+            b = self._memread(addr + i)
+            if b is None:
+                b = 0
+            buf.append(b)
+
+        if not buf or buf[0] != self.STATE_SNAP_VERSION:
+            return None
+
+        flags = []
+        for name, fid in STATE_FLAG_ID_MAP.items():
+            byte = buf[self.STATE_SNAP_FLAGS_OFF + (fid - 1) // 8]
+            if byte & (1 << ((fid - 1) % 8)):
+                flags.append(name)
+
+        variables = {}
+        for name, vid in VARIABLE_ID_MAP.items():
+            off = self.STATE_SNAP_VARIABLES_OFF + (vid - 1) * 2
+            variables[name] = buf[off] | (buf[off + 1] << 8)
+            if variables[name] >= 0x8000:
+                variables[name] -= 0x10000
+
+        party = []
+        party_count = buf[self.STATE_SNAP_PARTY_OFF]
+        for i in range(party_count):
+            off = self.STATE_SNAP_PARTY_OFF + 1 + i * self.STATE_SNAP_PARTY_ENTRY_SIZE
+            party.append({
+                "id": buf[off],
+                "level": buf[off + 1],
+                "xp": buf[off + 2] | (buf[off + 3] << 8),
+                "hp": buf[off + 4],
+                "max_hp": buf[off + 5],
+            })
+
+        inventory = []
+        inv_count = buf[self.STATE_SNAP_INVENTORY_OFF]
+        for i in range(inv_count):
+            off = self.STATE_SNAP_INVENTORY_OFF + 1 + i * self.STATE_SNAP_INVENTORY_ENTRY_SIZE
+            inventory.append({
+                "item_id": buf[off],
+                "quantity": buf[off + 1],
+            })
+
+        world = []
+        world_count = buf[self.STATE_SNAP_WORLD_OFF]
+        for i in range(world_count):
+            off = self.STATE_SNAP_WORLD_OFF + 1 + i * self.STATE_SNAP_WORLD_ENTRY_SIZE
+            actor_id = buf[off] | (buf[off + 1] << 8)
+            world.append({
+                "actor_id": actor_id,
+                "state": "DEFEATED" if buf[off + 2] == 1 else "ALIVE",
+            })
+
+        return {
+            "flags": flags,
+            "variables": variables,
+            "party": party,
+            "inventory": inventory,
+            "world": world,
+        }
 
     def _parse_actors(self, snap_bytes):
         """Parse scene actors from bytes 20+ as (id, x, y, facing) entries."""

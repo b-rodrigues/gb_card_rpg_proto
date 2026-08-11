@@ -43,5 +43,17 @@
       "type": "event_occurred",
       "event": "DIALOGUE_STARTED"
     }
-  ]
+  ],
+  "initial_state": {
+    "scene": "TOWN",
+    "player": {
+      "x": 8,
+      "y": 8,
+      "facing": "RIGHT"
+    },
+    "seed": 3001,
+    "flags": {
+      "ARRIVED_TOWN": true
+    }
+  }
 }

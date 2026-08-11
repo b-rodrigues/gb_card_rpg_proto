@@ -9,6 +9,7 @@
 #include "ui.h"
 
 #include "dialogue.h"
+#include "rpg/state.h"
 
 typedef struct {
     bool valid;
@@ -29,11 +30,10 @@ typedef struct {
 typedef struct Game {
     ScreenId screen;      /* currently active screen */
     ScreenId prev_screen; /* previous screen (for transitions) */
-    SceneId scene;        /* currently loaded overworld scene */
+    GameState state;      /* canonical persistent RPG state */
     World world;
     Battle battle;
     DialogueState dialogue;
-    uint32_t story_flags;
     uint32_t frame;
     uint8_t game_over_choice;  /* 0 = YES, 1 = NO on the continue prompt */
     RenderCache render_cache;

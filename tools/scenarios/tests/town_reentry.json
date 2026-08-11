@@ -33,5 +33,17 @@
       "flag": "ARRIVED_TOWN",
       "expected": true
     }
-  ]
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 17,
+      "y": 7,
+      "facing": "DOWN"
+    },
+    "seed": 1001,
+    "flags": {
+      "ARRIVED_TOWN": true
+    }
+  }
 }

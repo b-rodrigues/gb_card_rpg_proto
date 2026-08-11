@@ -71,10 +71,10 @@ ActorEngageResult interaction_try_bump(World *world, int8_t dx, int8_t dy, Dialo
     return interaction_try_at(world, target_x, target_y, dialogue);
 }
 
-void interaction_on_dialogue_end(DialogueState *dialogue, uint32_t *story_flags)
+void interaction_on_dialogue_end(DialogueState *dialogue, GameState *state)
 {
-    if (!dialogue || !story_flags) return;
+    if (!dialogue || !state) return;
     if (dialogue->completion_flag != 0) {
-        story_set_flag(story_flags, dialogue->completion_flag);
+        story_set_flag(state, dialogue->completion_flag);
     }
 }

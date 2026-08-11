@@ -17,5 +17,15 @@
       "type": "game_state",
       "expected": "THANKS"
     }
-  ]
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 4,
+      "y": 4,
+      "facing": "DOWN"
+    },
+    "seed": 5004,
+    "screen": "THANKS"
+  }
 }

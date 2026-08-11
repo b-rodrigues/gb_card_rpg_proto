@@ -1,0 +1,31 @@
+{
+  "name": "variable_initial",
+  "test": true,
+  "description": "Declarative initial_state injects variables into the canonical GameState without clobbering defaults",
+  "scenario_id": "NEW_GAME",
+  "actions": [],
+  "assertions": [
+    {
+      "type": "variable",
+      "variable": "GOLD",
+      "expected": 150
+    },
+    {
+      "type": "variable",
+      "variable": "CHAPTER",
+      "expected": 1
+    }
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 4,
+      "y": 4,
+      "facing": "DOWN"
+    },
+    "seed": 7002,
+    "variables": {
+      "GOLD": 150
+    }
+  }
+}

@@ -445,6 +445,33 @@ python3 tools/dev.py roundtrip <scenario>
 It loads an `initial_state`, dumps the canonical state, rebuilds a descriptor
 from the dump, reloads, and asserts the observed state is unchanged.
 
+### Scripted events
+
+Gameplay sequences (dialogue selection, story flags, scene transitions) are
+declarative `EventDefinition` records in `src/core/event.c`, not hard-coded
+into `game.c`.  An event has a trigger (`INTERACT` with a specific actor, or
+`MAP_ENTER` on a scene), an optional flag condition, and a fixed action list
+(start dialogue, set/clear flag, set/add variable, scene change).  First match
+in table order wins.  Actions call the normal state APIs, so they emit their
+own existing telemetry (`DIALOGUE_STARTED`, `STORY_FLAG_SET`,
+`VARIABLE_SET`, ...).
+
+Every fired event emits:
+
+```text
+SCRIPT_TRIGGERED
+  event: MAYOR_INTRO
+```
+
+(`EVENT_SCRIPT_TRIGGERED`, type 30; `data[0]` is the stable `EventId`).
+The host maps the id to its name via `EVENT_ID_MAP`.
+
+Example event chain tested by scenarios: `TOWN_ARRIVAL` (sets `ARRIVED_TOWN`
+on first entry), `MAYOR_INTRO` (first interaction with the Mayor → intro
+dialogue + sets `MET_MAYOR`), `MAYOR_GREETING` (already met),
+`GUARD_AFTER_MAYOR` / `GUARD_GREETING` (Guard reacts differently once
+`MET_MAYOR`).
+
 ---
 
 # 11. Scenario Format

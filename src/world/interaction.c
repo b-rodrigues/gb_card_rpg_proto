@@ -1,44 +1,55 @@
 #include "interaction.h"
+#include "game.h"
+#include "event.h"
 #include "telemetry.h"
 #include "story.h"
 #include <stddef.h>
 
-ActorEngageResult interaction_try_at(World *world, uint8_t target_x, uint8_t target_y, DialogueState *dialogue)
+ActorEngageResult interaction_try_at(Game *g, uint8_t target_x, uint8_t target_y)
 {
     const WorldActorDefinition *actor;
     ActorEngageResult result;
     uint8_t slot;
 
-    if (!world || !dialogue) return ENGAGE_NONE;
+    if (!g) return ENGAGE_NONE;
 
-    actor = actor_find_at(world, target_x, target_y);
+    actor = actor_find_at(&g->world, target_x, target_y);
     if (!actor) return ENGAGE_NONE;
 
     telemetry_emit(EVENT_ACTOR_INTERACTION, target_x, target_y,
                    (uint8_t)actor->id, (uint8_t)actor->interaction);
 
-    result = actor_engage(actor, dialogue);
-    if (result == ENGAGE_BATTLE) {
+    /* Hostile actors always start combat (events don't override this). */
+    if (actor->flags & ACTOR_FLAG_HOSTILE) {
         /* Record the hostile runtime slot so battle can read its HP. */
-        slot = actor_find_hostile_slot(world, target_x, target_y);
-        world->encounter_actor_index = slot;
+        slot = actor_find_hostile_slot(&g->world, target_x, target_y);
+        g->world.encounter_actor_index = slot;
+        return ENGAGE_BATTLE;
     }
-    return result;
+
+    /* Non-hostile actors resolve through the scripted event system first;
+     * the static interaction (dialogue) is the fallback when no event
+     * matches (e.g. the shopkeeper). */
+    result = event_engage_actor(g, actor);
+    if (result != ENGAGE_NONE) {
+        return result;
+    }
+    return actor_engage(actor, &g->dialogue);
 }
 
-ActorEngageResult interaction_try_facing(World *world, DialogueState *dialogue)
+ActorEngageResult interaction_try_facing(Game *g)
 {
     int8_t dx = 0;
     int8_t dy = 0;
     uint8_t px, py, target_x, target_y;
     const WorldActorDefinition *actor;
 
-    if (!world || !dialogue) return ENGAGE_NONE;
+    if (!g) return ENGAGE_NONE;
 
-    px = world->player.position.x;
-    py = world->player.position.y;
+    px = g->world.player.position.x;
+    py = g->world.player.position.y;
 
-    switch (world->player.facing) {
+    switch (g->world.player.facing) {
         case DIRECTION_UP:    dy = -1; break;
         case DIRECTION_DOWN:  dy = 1;  break;
         case DIRECTION_LEFT:  dx = -1; break;
@@ -48,27 +59,27 @@ ActorEngageResult interaction_try_facing(World *world, DialogueState *dialogue)
     target_x = (uint8_t)((int16_t)px + dx);
     target_y = (uint8_t)((int16_t)py + dy);
 
-    actor = actor_find_at(world, target_x, target_y);
+    actor = actor_find_at(&g->world, target_x, target_y);
     telemetry_emit(EVENT_INTERACTION_ATTEMPT, target_x, target_y,
-                   (uint8_t)world->player.facing,
+                   (uint8_t)g->world.player.facing,
                    actor ? (uint8_t)actor->id : 0);
 
-    return interaction_try_at(world, target_x, target_y, dialogue);
+    return interaction_try_at(g, target_x, target_y);
 }
 
-ActorEngageResult interaction_try_bump(World *world, int8_t dx, int8_t dy, DialogueState *dialogue)
+ActorEngageResult interaction_try_bump(Game *g, int8_t dx, int8_t dy)
 {
     uint8_t px, py, target_x, target_y;
 
-    if (!world || !dialogue || (dx == 0 && dy == 0)) return ENGAGE_NONE;
+    if (!g || (dx == 0 && dy == 0)) return ENGAGE_NONE;
 
-    px = world->player.position.x;
-    py = world->player.position.y;
+    px = g->world.player.position.x;
+    py = g->world.player.position.y;
 
     target_x = (uint8_t)((int16_t)px + dx);
     target_y = (uint8_t)((int16_t)py + dy);
 
-    return interaction_try_at(world, target_x, target_y, dialogue);
+    return interaction_try_at(g, target_x, target_y);
 }
 
 void interaction_on_dialogue_end(DialogueState *dialogue, GameState *state)

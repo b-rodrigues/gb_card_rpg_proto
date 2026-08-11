@@ -411,6 +411,7 @@ The following kinds of behavior MUST emit telemetry:
 * battle defeat;
 * story event triggers;
 * story flag changes;
+* scripted event triggers (`SCRIPT_TRIGGERED` with the stable `EventId`);
 * dialogue start/end;
 * card actions;
 * deck changes;

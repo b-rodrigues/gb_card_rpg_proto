@@ -1,16 +1,12 @@
 {
-  "name": "actor_mayor_interaction",
+  "name": "mayor_intro_event",
   "test": true,
-  "description": "Friendly World Actor (Mayor) starts dialogue when engaged",
+  "description": "MAYOR_INTRO event: first interaction with the Mayor starts the intro dialogue and sets MET_MAYOR immediately",
   "scenario_id": "MAYOR_DIALOGUE",
   "actions": [
     {
-      "type": "press",
-      "button": "RIGHT"
-    },
-    {
-      "type": "wait",
-      "frames": 5
+      "type": "interact",
+      "actor": "MAYOR"
     }
   ],
   "assertions": [
@@ -23,18 +19,17 @@
       "expected": "MAYOR_INTRO"
     },
     {
-      "type": "event_occurred",
-      "event": "ACTOR_INTERACTION"
+      "type": "flag",
+      "flag": "MET_MAYOR",
+      "expected": true
     },
     {
       "type": "event_occurred",
       "event": "SCRIPT_TRIGGERED"
     },
     {
-      "type": "actor_at",
-      "entity": "MAYOR",
-      "x": 10,
-      "y": 5
+      "type": "event_occurred",
+      "event": "DIALOGUE_STARTED"
     }
   ],
   "initial_state": {
@@ -44,9 +39,10 @@
       "y": 5,
       "facing": "RIGHT"
     },
-    "seed": 1003,
+    "seed": 8001,
     "flags": {
-      "ARRIVED_TOWN": true
+      "ARRIVED_TOWN": true,
+      "MET_MAYOR": false
     }
   }
 }

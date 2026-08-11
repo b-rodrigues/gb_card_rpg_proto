@@ -40,6 +40,12 @@ def validate_scenario(data, filepath):
     if scen_id and scen_id not in SCENARIO_IDS:
         raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown scenario_id '{scen_id}'. Valid IDs: {list(SCENARIO_IDS.keys())}")
 
+    for act in data.get("actions", []):
+        if act.get("type") == "interact":
+            actor = act.get("actor")
+            if actor and actor not in VALID_ENTITY_IDS:
+                raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown interact actor '{actor}'. Valid entities: {sorted(list(VALID_ENTITY_IDS))}")
+
     for a in data.get("assertions", []):
         a_type = a.get("type")
         if a_type not in VALID_ASSERTION_TYPES:
@@ -137,6 +143,11 @@ def run_scenario(scenario):
                 session.press(act.get("button", "A"))
             elif act_type == "wait":
                 session.wait(act.get("frames", 1))
+            elif act_type == "interact":
+                # Semantic interaction: the player must already be adjacent
+                # and facing the target (set via initial_state); press A.
+                session.press("A")
+                session.wait(act.get("frames", 5))
 
         # Read final snapshot, canonical state buffer and telemetry
         snap = session.snapshot()

@@ -40,7 +40,7 @@
     },
     {
       "type": "dialogue_id",
-      "expected": "MAYOR_GREETING"
+      "expected": "MAYOR_INTRO"
     }
   ],
   "initial_state": {

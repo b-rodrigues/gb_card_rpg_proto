@@ -23,7 +23,8 @@ ENTITY_ID_MAP = {0: "NONE", 1: "PLAYER", 2: "SLIME", 3: "MAYOR", 4: "GUARD",
                  5: "SHOPKEEPER", 6: "BAT"}
 INTERACTION_ID_MAP = {0: "NONE", 1: "DIALOGUE", 2: "COMBAT"}
 DIALOGUE_ID_MAP = {0: "NONE", 1: "MAYOR_GREETING", 2: "GUARD_GREETING",
-                   3: "SHOPKEEPER_GREETING"}
+                   3: "SHOPKEEPER_GREETING", 4: "MAYOR_INTRO",
+                   5: "GUARD_AFTER_MAYOR"}
 BATTLE_ID_MAP = {0: "NONE", 1: "SLIME", 2: "BAT"}
 EVENT_TYPE_MAP = {
     0: "PLAYER_MOVED", 1: "COLLISION", 2: "ENCOUNTER_STARTED",
@@ -36,8 +37,10 @@ EVENT_TYPE_MAP = {
     21: "SCREEN_CHANGED", 22: "SCENE_CHANGED",
     23: "ACTOR_COLLISION", 24: "ACTOR_INTERACTION", 25: "ACTOR_COMBAT_START",
     26: "VARIABLE_SET", 27: "ITEM_ADDED", 28: "ITEM_REMOVED",
-    29: "ACTOR_STATE_CHANGE"
+    29: "ACTOR_STATE_CHANGE", 30: "SCRIPT_TRIGGERED"
 }
+EVENT_ID_MAP = {1: "TOWN_ARRIVAL", 2: "MAYOR_INTRO", 3: "MAYOR_GREETING",
+                4: "GUARD_AFTER_MAYOR", 5: "GUARD_GREETING"}
 DIRECTION_MAP = {0: "UP", 1: "DOWN", 2: "LEFT", 3: "RIGHT"}
 
 # Static per-actor semantics resolved from the snapshot's actor ids.
@@ -701,6 +704,8 @@ class EmulatorSession:
                 ev_obj["interaction"] = INTERACTION_ID_MAP.get(data[3], f"UNKNOWN_{data[3]}")
             elif ev_type_str == "ACTOR_COMBAT_START":
                 ev_obj["actor"] = ENTITY_ID_MAP.get(data[0], f"UNKNOWN_{data[0]}")
+            elif ev_type_str == "SCRIPT_TRIGGERED":
+                ev_obj["event_name"] = EVENT_ID_MAP.get(data[0], f"UNKNOWN_{data[0]}")
             
             all_events.append(ev_obj)
 

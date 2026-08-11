@@ -23,11 +23,3 @@ void story_clear_flag(GameState *state, StoryFlagId flag_id)
     if (!story_flag_id_valid(flag_id)) return;
     game_flag_clear(state, (FlagId)flag_id);
 }
-
-void story_on_map_enter(GameState *state, MapId to_map)
-{
-    if (!state) return;
-    if (to_map == MAP_TOWN && !story_has_flag(state, STORY_FLAG_ID_ARRIVED_TOWN)) {
-        story_set_flag(state, STORY_FLAG_ID_ARRIVED_TOWN);
-    }
-}

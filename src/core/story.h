@@ -19,6 +19,5 @@ bool story_flag_id_valid(StoryFlagId flag_id);
 bool story_has_flag(const GameState *state, StoryFlagId flag_id);
 void story_set_flag(GameState *state, StoryFlagId flag_id);
 void story_clear_flag(GameState *state, StoryFlagId flag_id);
-void story_on_map_enter(GameState *state, MapId to_map);
 
 #endif /* STORY_H */

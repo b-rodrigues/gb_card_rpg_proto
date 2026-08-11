@@ -8,7 +8,7 @@ static const DialogueDefinition g_dialogue_defs[] = {
         "MAYOR:",
         2,
         {"Hello! I am Mayor.", "Welcome to town!", "", ""},
-        STORY_FLAG_ID_MET_MAYOR
+        0
     },
     {
         DIALOGUE_ID_GUARD_GREETING,
@@ -22,6 +22,20 @@ static const DialogueDefinition g_dialogue_defs[] = {
         "SHOP:",
         2,
         {"Welcome to my shop.", "Rest a while, friend.", "", ""},
+        0
+    },
+    {
+        DIALOGUE_ID_MAYOR_INTRO,
+        "MAYOR:",
+        3,
+        {"I am the Mayor.", "Slimes menace the forest.", "Please help us!", ""},
+        0
+    },
+    {
+        DIALOGUE_ID_GUARD_AFTER_MAYOR,
+        "GUARD:",
+        2,
+        {"The Mayor trusts you.", "Welcome, hero!", "", ""},
         0
     }
 };

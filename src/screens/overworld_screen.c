@@ -2,7 +2,7 @@
 #include "screen.h"
 #include "scene.h"
 #include "interaction.h"
-#include "story.h"
+#include "event.h"
 #include "telemetry.h"
 #include "audio.h"
 
@@ -41,15 +41,15 @@ void overworld_screen_update(Game *g)
         if (move_res == MOVE_RESULT_MAP_CHANGED) {
             g->world.map_changed = false;
             scene_update_from_map(g);
-            story_on_map_enter(&g->state, g->world.map_id);
+            event_resolve_map_enter(g, g->world.map_id);
             return;
         }
     }
 
     if (input_pressed(INPUT_A)) {
-        engage = interaction_try_facing(&g->world, &g->dialogue);
+        engage = interaction_try_facing(g);
     } else if (move_res == MOVE_RESULT_BLOCKED) {
-        engage = interaction_try_bump(&g->world, dx, dy, &g->dialogue);
+        engage = interaction_try_bump(g, dx, dy);
     }
 
     if (engage == ENGAGE_DIALOGUE) {

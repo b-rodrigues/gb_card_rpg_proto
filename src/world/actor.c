@@ -14,17 +14,17 @@ static const WorldActorDefinition g_town_actors[] = {
     {
         0, ENTITY_ID_MAYOR, 10, 5, DIRECTION_DOWN,
         ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
-        'M', INTERACTION_DIALOGUE, DIALOGUE_ID_MAYOR_GREETING, BATTLE_NONE, 0, 0
+        'M', INTERACTION_DIALOGUE, DIALOGUE_ID_MAYOR_GREETING, BATTLE_NONE, 0, 0, 0
     },
     {
         0, ENTITY_ID_GUARD, 10, 8, DIRECTION_DOWN,
         ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
-        'G', INTERACTION_DIALOGUE, DIALOGUE_ID_GUARD_GREETING, BATTLE_NONE, 0, 0
+        'G', INTERACTION_DIALOGUE, DIALOGUE_ID_GUARD_GREETING, BATTLE_NONE, 0, 0, 0
     },
     {
         0, ENTITY_ID_SHOPKEEPER, 9, 3, DIRECTION_DOWN,
         ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
-        'S', INTERACTION_DIALOGUE, DIALOGUE_ID_SHOPKEEPER_GREETING, BATTLE_NONE, 0, 0
+        'S', INTERACTION_SHOP, DIALOGUE_ID_NONE, BATTLE_NONE, 0, 0, 0
     }
 };
 
@@ -32,7 +32,7 @@ static const WorldActorDefinition g_field_actors[] = {
     {
         1, ENTITY_ID_SLIME, 14, 8, DIRECTION_DOWN,
         ACTOR_FLAG_HOSTILE | ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
-        'E', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_SLIME, 5, 5
+        'E', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_SLIME, 5, 5, 5
     }
 };
 
@@ -40,12 +40,12 @@ static const WorldActorDefinition g_forest_actors[] = {
     {
         2, ENTITY_ID_SLIME, 10, 8, DIRECTION_DOWN,
         ACTOR_FLAG_HOSTILE | ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
-        'E', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_SLIME, 6, 6
+        'E', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_SLIME, 6, 6, 5
     },
     {
         3, ENTITY_ID_BAT, 7, 4, DIRECTION_DOWN,
         ACTOR_FLAG_HOSTILE | ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
-        'V', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_BAT, 4, 4
+        'V', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_BAT, 4, 4, 8
     }
 };
 
@@ -53,7 +53,7 @@ static const WorldActorDefinition g_mountain_pass_actors[] = {
     {
         4, ENTITY_ID_SLIME, 14, 7, DIRECTION_DOWN,
         ACTOR_FLAG_HOSTILE | ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
-        'E', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_SLIME, 8, 8
+        'E', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_SLIME, 8, 8, 5
     }
 };
 
@@ -61,7 +61,7 @@ static const WorldActorDefinition g_castle_actors[] = {
     {
         5, ENTITY_ID_BAT, 12, 7, DIRECTION_DOWN,
         ACTOR_FLAG_HOSTILE | ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
-        'V', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_BAT, 4, 4
+        'V', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_BAT, 4, 4, 8
     }
 };
 
@@ -114,6 +114,7 @@ static void actor_spawn(WorldActorRuntime *r, const WorldActorDefinition *def)
     r->hp = def->hp;
     r->max_hp = def->max_hp;
     r->flags = ACTOR_STATE_NONE;
+    r->gold_reward = def->gold_reward;
 }
 
 uint8_t actor_find_hostile_slot(const World *world, uint8_t x, uint8_t y)
@@ -163,6 +164,10 @@ ActorEngageResult actor_engage(const WorldActorDefinition *actor, DialogueState 
     if (actor->interaction == INTERACTION_DIALOGUE) {
         dialogue_start_def(dialogue, actor->dialogue_id);
         return ENGAGE_DIALOGUE;
+    }
+
+    if (actor->interaction == INTERACTION_SHOP) {
+        return ENGAGE_SHOP;
     }
 
     return ENGAGE_NONE;

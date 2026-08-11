@@ -94,6 +94,34 @@ void ui_draw_text_line(uint8_t x, uint8_t y, const char *text, uint8_t max_chars
     }
 }
 
+void ui_format_int(int16_t value, char *out)
+{
+    char tmp[7];
+    uint8_t i = 0;
+    uint8_t j = 0;
+    int32_t mag;
+    int16_t digit;
+
+    if (!out) return;
+    mag = (value < 0) ? -(int32_t)value : (int32_t)value;
+
+    if (mag == 0) {
+        tmp[i++] = '0';
+    }
+    while (mag > 0) {
+        digit = (int16_t)(mag % 10);
+        tmp[i++] = (char)('0' + digit);
+        mag /= 10;
+    }
+    if (value < 0) {
+        tmp[i++] = '-';
+    }
+    while (i > 0) {
+        out[j++] = tmp[--i];
+    }
+    out[j] = '\0';
+}
+
 void ui_draw_world_map(const World *world)
 {
     uint8_t x, y;

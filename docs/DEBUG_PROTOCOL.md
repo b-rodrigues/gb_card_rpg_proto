@@ -472,6 +472,20 @@ dialogue + sets `MET_MAYOR`), `MAYOR_GREETING` (already met),
 `GUARD_AFTER_MAYOR` / `GUARD_GREETING` (Guard reacts differently once
 `MET_MAYOR`).
 
+### Items, money & the shop
+
+* `POTION` heals party member 0 by 5 HP (capped at `max_hp`) and costs 20G.
+  Item effects live in `src/rpg/items.{h,c}` (`ItemDefinition`).
+* Money is the `GOLD` variable.  Defeated hostile actors grant their
+  `gold_reward` (slime 5G, bat 8G) on battle victory; the shop spends gold.
+* Interacting with the shopkeeper opens `SCREEN_SHOP` (`[A] Buy  [B] Leave`);
+  buying deducts gold (`VARIABLE_SET`) and adds the item (`ITEM_ADDED`).
+* Pressing `SELECT` opens the item menu (`SCREEN_ITEM`) in both the overworld
+  and battle; using an item emits `HEALED` + `ITEM_REMOVED`.  In battle, using
+  an item consumes the turn.
+* Scenario action `{ "type": "use_item" }` presses SELECT then A (uses the
+  cursor/first inventory item).
+
 ---
 
 # 11. Scenario Format

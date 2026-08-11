@@ -79,6 +79,12 @@ void screen_update(Game *g)
         case SCREEN_THANKS:
             thanks_screen_update(g);
             break;
+        case SCREEN_SHOP:
+            shop_screen_update(g);
+            break;
+        case SCREEN_ITEM:
+            item_screen_update(g);
+            break;
     }
 }
 
@@ -100,6 +106,12 @@ void screen_render(Game *g)
             break;
         case SCREEN_THANKS:
             thanks_screen_render(g);
+            break;
+        case SCREEN_SHOP:
+            shop_screen_render(g);
+            break;
+        case SCREEN_ITEM:
+            item_screen_render(g);
             break;
     }
 }

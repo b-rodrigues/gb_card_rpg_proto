@@ -1,0 +1,57 @@
+{
+  "name": "item_use_overworld",
+  "test": true,
+  "description": "Using a POTION from the overworld item menu heals the hero and consumes it",
+  "scenario_id": "NEW_GAME",
+  "actions": [
+    {
+      "type": "use_item"
+    },
+    {
+      "type": "press",
+      "button": "B"
+    },
+    {
+      "type": "wait",
+      "frames": 5
+    }
+  ],
+  "assertions": [
+    {
+      "type": "screen",
+      "expected": "OVERWORLD"
+    },
+    {
+      "type": "party_hp",
+      "member": 0,
+      "expected": 10
+    },
+    {
+      "type": "inventory",
+      "item": "POTION",
+      "expected": 0
+    },
+    {
+      "type": "event_occurred",
+      "event": "HEALED"
+    }
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 4,
+      "y": 4,
+      "facing": "DOWN"
+    },
+    "seed": 8103,
+    "party": {
+      "HERO": {
+        "hp": 5,
+        "max_hp": 10
+      }
+    },
+    "inventory": {
+      "POTION": 1
+    }
+  }
+}

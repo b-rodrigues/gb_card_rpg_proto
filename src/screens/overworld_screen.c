@@ -35,6 +35,12 @@ void overworld_screen_update(Game *g)
     if (input_pressed(INPUT_LEFT))  dx = -1;
     if (input_pressed(INPUT_RIGHT)) dx = 1;
 
+    if (input_pressed(INPUT_SELECT)) {
+        g->item_menu_index = 0;
+        screen_change(g, SCREEN_ITEM);
+        return;
+    }
+
     if (dx != 0 || dy != 0) {
         move_res = world_move_player(&g->world, dx, dy, &g->state);
 
@@ -57,6 +63,10 @@ void overworld_screen_update(Game *g)
         return;
     } else if (engage == ENGAGE_BATTLE) {
         start_battle_from_world(g);
+        return;
+    } else if (engage == ENGAGE_SHOP) {
+        g->item_menu_index = 0;
+        screen_change(g, SCREEN_SHOP);
         return;
     }
 

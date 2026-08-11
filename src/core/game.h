@@ -36,6 +36,8 @@ typedef struct Game {
     DialogueState dialogue;
     uint32_t frame;
     uint8_t game_over_choice;  /* 0 = YES, 1 = NO on the continue prompt */
+    uint8_t item_menu_index;   /* cursor into inventory on the item screen */
+    uint8_t shop_message;      /* 0 = none, 1 = bought, 2 = not enough gold */
     RenderCache render_cache;
 } Game;
 

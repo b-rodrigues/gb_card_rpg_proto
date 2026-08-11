@@ -148,6 +148,13 @@ def run_scenario(scenario):
                 # and facing the target (set via initial_state); press A.
                 session.press("A")
                 session.wait(act.get("frames", 5))
+            elif act_type == "use_item":
+                # Open the item menu (SELECT) and use the cursor item (A).
+                # Works for the first/only inventory item; cursor starts at 0.
+                session.press("SELECT")
+                session.wait(4)
+                session.press("A")
+                session.wait(act.get("frames", 4))
 
         # Read final snapshot, canonical state buffer and telemetry
         snap = session.snapshot()

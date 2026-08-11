@@ -16,7 +16,9 @@ typedef enum {
     SCREEN_DIALOGUE  = 1,
     SCREEN_BATTLE    = 2,
     SCREEN_GAME_OVER = 3,
-    SCREEN_THANKS    = 4
+    SCREEN_THANKS    = 4,
+    SCREEN_SHOP      = 5,
+    SCREEN_ITEM      = 6
 } ScreenId;
 
 /*
@@ -54,5 +56,9 @@ void game_over_screen_update(Game *g);
 void game_over_screen_render(Game *g);
 void thanks_screen_update(Game *g);
 void thanks_screen_render(Game *g);
+void shop_screen_update(Game *g);
+void shop_screen_render(Game *g);
+void item_screen_update(Game *g);
+void item_screen_render(Game *g);
 
 #endif /* SCREEN_H */

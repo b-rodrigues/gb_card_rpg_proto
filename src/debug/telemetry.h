@@ -100,7 +100,8 @@ typedef enum {
     EVENT_ITEM_ADDED,
     EVENT_ITEM_REMOVED,
     EVENT_ACTOR_STATE_CHANGE,
-    EVENT_SCRIPT_TRIGGERED
+    EVENT_SCRIPT_TRIGGERED,
+    EVENT_HEALED
 } GameEventType;
 
 typedef struct {

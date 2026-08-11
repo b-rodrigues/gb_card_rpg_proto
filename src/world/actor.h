@@ -23,7 +23,8 @@
 typedef enum {
     INTERACTION_NONE = 0,
     INTERACTION_DIALOGUE = 1,
-    INTERACTION_COMBAT = 2
+    INTERACTION_COMBAT = 2,
+    INTERACTION_SHOP = 3
 } InteractionId;
 
 /* Which battle configuration a hostile actor starts.  The battle system
@@ -50,13 +51,15 @@ typedef struct {
     BattleId battle_id;
     uint8_t hp;                  /* hostile actors only */
     uint8_t max_hp;              /* hostile actors only */
+    uint8_t gold_reward;         /* gold granted on defeat (hostile only) */
 } WorldActorDefinition;
 
 /* Result of engaging an actor. */
 typedef enum {
     ENGAGE_NONE = 0,
     ENGAGE_DIALOGUE = 1,
-    ENGAGE_BATTLE = 2
+    ENGAGE_BATTLE = 2,
+    ENGAGE_SHOP = 3
 } ActorEngageResult;
 
 /* Find the actor definition at a world position on the current map.

@@ -1,0 +1,54 @@
+{
+  "name": "item_use_battle",
+  "test": true,
+  "description": "Using a POTION from the battle item menu heals the battle player and consumes the turn",
+  "scenario_id": "BATTLE_BOOT",
+  "actions": [
+    {
+      "type": "use_item"
+    }
+  ],
+  "assertions": [
+    {
+      "type": "screen",
+      "expected": "ITEM"
+    },
+    {
+      "type": "battle_player_hp",
+      "expected": 10
+    },
+    {
+      "type": "party_hp",
+      "member": 0,
+      "expected": 10
+    },
+    {
+      "type": "inventory",
+      "item": "POTION",
+      "expected": 0
+    },
+    {
+      "type": "event_occurred",
+      "event": "HEALED"
+    }
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 13,
+      "y": 8,
+      "facing": "DOWN"
+    },
+    "seed": 8104,
+    "party": {
+      "HERO": {
+        "hp": 5,
+        "max_hp": 10
+      }
+    },
+    "inventory": {
+      "POTION": 1
+    },
+    "start_battle": true
+  }
+}

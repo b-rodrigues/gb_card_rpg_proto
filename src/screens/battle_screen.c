@@ -28,7 +28,10 @@ void battle_screen_update(Game *g)
     }
 
     if (g->battle.turn == BATTLE_TURN_PLAYER) {
-        if (input_pressed(INPUT_A)) {
+        if (input_pressed(INPUT_SELECT)) {
+            g->item_menu_index = 0;
+            screen_change(g, SCREEN_ITEM);
+        } else if (input_pressed(INPUT_A)) {
             battle_execute_action(&g->battle, BATTLE_ACTION_ATTACK);
         } else if (input_pressed(INPUT_B)) {
             battle_execute_action(&g->battle, BATTLE_ACTION_RUN);

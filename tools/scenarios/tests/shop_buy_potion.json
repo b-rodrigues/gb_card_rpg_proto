@@ -1,0 +1,67 @@
+{
+  "name": "shop_buy_potion",
+  "test": true,
+  "description": "Buy a POTION from the shop: gold is deducted and the item is added to inventory",
+  "scenario_id": "ACTOR_SHOPKEEPER",
+  "actions": [
+    {
+      "type": "interact",
+      "actor": "SHOPKEEPER"
+    },
+    {
+      "type": "press",
+      "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 5
+    },
+    {
+      "type": "press",
+      "button": "B"
+    },
+    {
+      "type": "wait",
+      "frames": 5
+    }
+  ],
+  "assertions": [
+    {
+      "type": "screen",
+      "expected": "OVERWORLD"
+    },
+    {
+      "type": "variable",
+      "variable": "GOLD",
+      "expected": 30
+    },
+    {
+      "type": "inventory",
+      "item": "POTION",
+      "expected": 1
+    },
+    {
+      "type": "event_occurred",
+      "event": "ITEM_ADDED"
+    },
+    {
+      "type": "event_occurred",
+      "event": "VARIABLE_SET"
+    }
+  ],
+  "initial_state": {
+    "scene": "TOWN",
+    "player": {
+      "x": 9,
+      "y": 4,
+      "facing": "UP"
+    },
+    "seed": 8101,
+    "flags": {
+      "ARRIVED_TOWN": true
+    },
+    "variables": {
+      "GOLD": 50
+    }
+  }
+}

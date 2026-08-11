@@ -19,6 +19,10 @@ void ui_draw_world_full(const World *world);
 void ui_update_player_position(const World *world, uint8_t old_x, uint8_t old_y, uint8_t new_x, uint8_t new_y);
 void ui_draw_text_line(uint8_t x, uint8_t y, const char *text, uint8_t max_chars);
 
+/* Write value as a decimal string into out (at least 7 bytes).  Avoids the
+ * stdio/console chain so _HOME stays under 0x8000. */
+void ui_format_int(int16_t value, char *out);
+
 void ui_draw_battle_full(const Battle *battle);
 void ui_update_battle(const Battle *battle);
 

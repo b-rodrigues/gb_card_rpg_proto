@@ -51,6 +51,7 @@ typedef struct {
     uint8_t hp;
     uint8_t max_hp;
     uint8_t flags;               /* runtime state flags (future) */
+    uint8_t gold_reward;         /* copied from the definition */
 } WorldActorRuntime;
 
 typedef struct {

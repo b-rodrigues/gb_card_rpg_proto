@@ -1,0 +1,68 @@
+{
+  "name": "battle_gold_drop",
+  "test": true,
+  "description": "Defeating a slime grants its gold reward (earn money)",
+  "scenario_id": "FIRST_ENCOUNTER",
+  "actions": [
+    {
+      "type": "press",
+      "button": "RIGHT"
+    },
+    {
+      "type": "wait",
+      "frames": 3
+    },
+    {
+      "type": "press",
+      "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 26
+    },
+    {
+      "type": "press",
+      "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 4
+    },
+    {
+      "type": "press",
+      "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 4
+    }
+  ],
+  "assertions": [
+    {
+      "type": "game_state",
+      "expected": "OVERWORLD"
+    },
+    {
+      "type": "variable",
+      "variable": "GOLD",
+      "expected": 5
+    },
+    {
+      "type": "event_occurred",
+      "event": "VARIABLE_SET"
+    },
+    {
+      "type": "event_occurred",
+      "event": "ENTITY_DEFEATED"
+    }
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 13,
+      "y": 8,
+      "facing": "DOWN"
+    },
+    "seed": 8105
+  }
+}

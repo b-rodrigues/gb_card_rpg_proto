@@ -65,5 +65,19 @@
       "row": 11,
       "contains": "> YES"
     }
-  ]
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 13,
+      "y": 8,
+      "facing": "DOWN"
+    },
+    "seed": 4000,
+    "party": {
+      "HERO": {
+        "hp": 2
+      }
+    }
+  }
 }

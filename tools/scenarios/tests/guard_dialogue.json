@@ -68,5 +68,17 @@
       "type": "dialogue_active",
       "expected": false
     }
-  ]
+  ],
+  "initial_state": {
+    "scene": "TOWN",
+    "player": {
+      "x": 9,
+      "y": 8,
+      "facing": "RIGHT"
+    },
+    "seed": 1005,
+    "flags": {
+      "ARRIVED_TOWN": true
+    }
+  }
 }

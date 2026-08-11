@@ -42,5 +42,17 @@
       "type": "dialogue_id",
       "expected": "MAYOR_GREETING"
     }
-  ]
+  ],
+  "initial_state": {
+    "scene": "TOWN",
+    "player": {
+      "x": 9,
+      "y": 5,
+      "facing": "RIGHT"
+    },
+    "seed": 1002,
+    "flags": {
+      "ARRIVED_TOWN": true
+    }
+  }
 }

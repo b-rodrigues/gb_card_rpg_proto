@@ -32,5 +32,14 @@
       "x": 14,
       "y": 8
     }
-  ]
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 13,
+      "y": 8,
+      "facing": "DOWN"
+    },
+    "seed": 12345
+  }
 }

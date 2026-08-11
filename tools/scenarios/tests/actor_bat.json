@@ -36,5 +36,17 @@
       "x": 12,
       "y": 7
     }
-  ]
+  ],
+  "initial_state": {
+    "scene": "CASTLE",
+    "player": {
+      "x": 11,
+      "y": 7,
+      "facing": "RIGHT"
+    },
+    "seed": 6002,
+    "flags": {
+      "ARRIVED_TOWN": true
+    }
+  }
 }

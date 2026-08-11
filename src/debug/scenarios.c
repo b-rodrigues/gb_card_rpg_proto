@@ -3,13 +3,22 @@
 #include "telemetry.h"
 #include "game.h"
 #include "screen.h"
+#include "scene.h"
 #include "story.h"
 #include "dialogue.h"
 #include "world.h"
 #include "entity.h"
+#include "battle.h"
+#include "ui.h"
+#include "input.h"
 
 extern Game g_game;
+
+/* Legacy scenario-id slot, kept reserved.  All scenarios now load through
+ * the declarative initial-state descriptor (g_scen_state_buf). */
 volatile uint8_t g_scen_load = 0;
+volatile uint8_t g_scen_load_state = 0;
+uint8_t g_scen_state_buf[STATE_LOAD_DESC_SIZE];
 
 /* Shared post-setup: reset frame/flags/input/telemetry/audio. */
 static void scenario_begin(uint32_t seed)
@@ -27,246 +36,140 @@ static void scenario_begin(uint32_t seed)
     audio_play_music(MUSIC_OVERWORLD);
 }
 
-/* Standard overworld setup on a given scene with a given player spawn. */
-static void overworld_setup(SceneId scene, MapId map, uint8_t x, uint8_t y,
-                            uint8_t facing, uint32_t seed, uint32_t flags)
+/* General declarative scenario loader.  Reads the initial-state descriptor
+ * written by the host STATE_LOAD command (g_scen_state_buf), constructs the
+ * canonical GameState and world, then starts the game in the requested
+ * screen.  Setup must never emit gameplay telemetry (AGENTS.md): all state
+ * is written directly into GameState, never through game_flag_set & co. */
+static void scenario_load_state(void)
 {
-    g_game.screen = SCREEN_OVERWORLD;
-    g_game.prev_screen = SCREEN_OVERWORLD;
+    const uint8_t *b = g_scen_state_buf;
+    SceneId scene;
+    MapId map;
+    uint8_t x, y, facing;
+    uint32_t seed;
+    uint8_t screen;
+    uint8_t dialogue_id;
+    uint8_t start_battle;
+    uint8_t i;
+    uint8_t n;
+
+    if (b[0] != STATE_LOAD_DESC_VERSION) return;
+
+    screen = b[STATE_LOAD_DESC_SCREEN_OFF];
+    scene = (SceneId)b[STATE_LOAD_DESC_SCENE_OFF];
+    x = b[STATE_LOAD_DESC_PLAYER_X_OFF];
+    y = b[STATE_LOAD_DESC_PLAYER_Y_OFF];
+    facing = b[STATE_LOAD_DESC_PLAYER_FACING_OFF];
+    seed = (uint32_t)b[STATE_LOAD_DESC_SEED_OFF]
+         | ((uint32_t)b[STATE_LOAD_DESC_SEED_OFF + 1] << 8)
+         | ((uint32_t)b[STATE_LOAD_DESC_SEED_OFF + 2] << 16)
+         | ((uint32_t)b[STATE_LOAD_DESC_SEED_OFF + 3] << 24);
+    dialogue_id = b[STATE_LOAD_DESC_DIALOGUE_ID_OFF];
+    start_battle = b[STATE_LOAD_DESC_START_BATTLE_OFF];
+    map = scene_id_to_map(scene);
+
+    /* Canonical persistent state: default, then descriptor overrides. */
+    game_state_init(&g_game.state);
+    for (i = 0; i < STATE_LOAD_DESC_FLAGS_SIZE; i++) {
+        g_game.state.flags.bytes[i] = b[STATE_LOAD_DESC_FLAGS_OFF + i];
+    }
+    for (i = 0; i < b[STATE_LOAD_DESC_VARIABLES_COUNT_OFF]; i++) {
+        uint8_t vid;
+        int16_t val;
+        n = STATE_LOAD_DESC_VARIABLES_ENTRY_OFF + i * STATE_LOAD_DESC_VARIABLES_ENTRY_SIZE;
+        vid = b[n];
+        val = (int16_t)((int16_t)b[n + 1] | ((int16_t)b[n + 2] << 8));
+        if (vid >= 1 && vid <= MAX_STATE_VARIABLES) {
+            g_game.state.variables.values[vid - 1] = val;
+        }
+    }
+    for (i = 0; i < b[STATE_LOAD_DESC_PARTY_COUNT_OFF]; i++) {
+        n = STATE_LOAD_DESC_PARTY_ENTRY_OFF + i * STATE_LOAD_DESC_PARTY_ENTRY_SIZE;
+        g_game.state.party.members[i].id = (CharacterId)b[n];
+        g_game.state.party.members[i].level = b[n + 1];
+        g_game.state.party.members[i].experience = (uint16_t)(b[n + 2] | (b[n + 3] << 8));
+        g_game.state.party.members[i].hp = b[n + 4];
+        g_game.state.party.members[i].max_hp = b[n + 5];
+        g_game.state.party.count = (uint8_t)(i + 1);
+    }
+    for (i = 0; i < b[STATE_LOAD_DESC_INVENTORY_COUNT_OFF]; i++) {
+        n = STATE_LOAD_DESC_INVENTORY_ENTRY_OFF + i * STATE_LOAD_DESC_INVENTORY_ENTRY_SIZE;
+        g_game.state.inventory.entries[i].item_id = (ItemId)b[n];
+        g_game.state.inventory.entries[i].quantity = b[n + 1];
+        g_game.state.inventory.count = (uint8_t)(i + 1);
+    }
+    for (i = 0; i < b[STATE_LOAD_DESC_WORLD_COUNT_OFF]; i++) {
+        n = STATE_LOAD_DESC_WORLD_ENTRY_OFF + i * STATE_LOAD_DESC_WORLD_ENTRY_SIZE;
+        g_game.state.world.actors[i].actor_id = (ActorId)(b[n] | (b[n + 1] << 8));
+        g_game.state.world.actors[i].state = b[n + 2];
+        g_game.state.world.count = (uint8_t)(i + 1);
+    }
+
+    /* Scene + world.  Persistent defeats are in state before the world is
+     * (re)loaded, so actor_load_scene() skips defeated actors. */
     g_game.state.scene.scene_id = scene;
+    g_game.state.scene.player_x = x;
+    g_game.state.scene.player_y = y;
+    g_game.state.scene.player_facing = facing;
     world_init(&g_game.world, &g_game.state);
     world_load_map(&g_game.world, map, &g_game.state);
     g_game.world.player.position.x = x;
     g_game.world.player.position.y = y;
-    g_game.world.player.facing = facing;
+    g_game.world.player.facing = (Direction)facing;
     g_game.world.encounter_actor_index = NO_ACTOR_INDEX;
-    g_game.state.scene.player_x = x;
-    g_game.state.scene.player_y = y;
-    g_game.state.scene.player_facing = facing;
     dialogue_init(&g_game.dialogue);
+
     scenario_begin(seed);
-    /* Scenario setup establishes state without emitting gameplay telemetry
-     * (AGENTS.md: a debug setup must not emit story-flag events).  StoryFlagId
-     * and FlagId share the same bit layout, so the mask maps directly. */
-    g_game.state.flags.bytes[0] |= (uint8_t)(flags & 0xFF);
-}
 
-static void load_new_game(void)
-{
-    overworld_setup(SCENE_FIELD, MAP_FIELD, 4, 4, DIRECTION_DOWN, 42, 0);
-    debug_snapshot();
-}
+    /* scenario_begin() cleared the flags; re-apply directly (no telemetry). */
+    for (i = 0; i < STATE_LOAD_DESC_FLAGS_SIZE; i++) {
+        g_game.state.flags.bytes[i] = b[STATE_LOAD_DESC_FLAGS_OFF + i];
+    }
+    g_game.game_over_choice = b[STATE_LOAD_DESC_GAME_OVER_CHOICE_OFF];
+    g_game.prev_screen = SCREEN_OVERWORLD;
+    g_game.screen = SCREEN_OVERWORLD;
 
-static void load_first_encounter(void)
-{
-    overworld_setup(SCENE_FIELD, MAP_FIELD, 13, 8, DIRECTION_DOWN, 12345, 0);
-    world_set_actor_pos(&g_game.world, ENTITY_ID_SLIME, 14, 8);
-    debug_snapshot();
-}
+    if (b[STATE_LOAD_DESC_FONT_TEST_OFF]) {
+        ui_draw_font_test();
+    }
+    if (dialogue_id != DIALOGUE_ID_NONE) {
+        dialogue_start_def(&g_game.dialogue, (DialogueId)dialogue_id);
+        g_game.screen = SCREEN_DIALOGUE;
+    }
+    if (start_battle) {
+        uint8_t idx = 0;
+        for (i = 0; i < MAX_WORLD_ACTORS; i++) {
+            if (g_game.world.actors[i].active) {
+                idx = i;
+                break;
+            }
+        }
+        battle_start(&g_game.battle,
+                     g_game.state.party.members[0].hp,
+                     g_game.state.party.members[0].max_hp,
+                     g_game.world.actors[idx].hp,
+                     g_game.world.actors[idx].max_hp);
+        g_game.screen = SCREEN_BATTLE;
+        audio_play_music(MUSIC_BATTLE);
+    }
+    if (screen == SCREEN_GAME_OVER) {
+        g_game.screen = SCREEN_GAME_OVER;
+    }
+    if (screen == SCREEN_THANKS) {
+        g_game.screen = SCREEN_THANKS;
+    }
 
-static void load_town_arrival(void)
-{
-    overworld_setup(SCENE_FIELD, MAP_FIELD, 17, 7, DIRECTION_DOWN, 999, 0);
-    debug_snapshot();
-}
-
-static void load_town_departure(void)
-{
-    overworld_setup(SCENE_TOWN, MAP_TOWN, 2, 7, DIRECTION_DOWN, 1000, STORY_FLAG_ARRIVED_TOWN);
-    debug_snapshot();
-}
-
-static void load_town_reentry(void)
-{
-    overworld_setup(SCENE_FIELD, MAP_FIELD, 17, 7, DIRECTION_DOWN, 1001, STORY_FLAG_ARRIVED_TOWN);
-    debug_snapshot();
-}
-
-static void load_mayor_encounter(void)
-{
-    overworld_setup(SCENE_TOWN, MAP_TOWN, 9, 5, DIRECTION_RIGHT, 1002, STORY_FLAG_ARRIVED_TOWN);
-    debug_snapshot();
-}
-
-static void load_mayor_dialogue(void)
-{
-    overworld_setup(SCENE_TOWN, MAP_TOWN, 9, 5, DIRECTION_RIGHT, 1003, STORY_FLAG_ARRIVED_TOWN);
-    debug_snapshot();
-}
-
-static void load_mayor_dialogue_movement_blocked(void)
-{
-    overworld_setup(SCENE_TOWN, MAP_TOWN, 9, 5, DIRECTION_RIGHT, 1004, STORY_FLAG_ARRIVED_TOWN);
-    dialogue_start_def(&g_game.dialogue, DIALOGUE_ID_MAYOR_GREETING);
-    g_game.screen = SCREEN_DIALOGUE;
-    debug_snapshot();
-}
-
-static void load_guard_dialogue(void)
-{
-    overworld_setup(SCENE_TOWN, MAP_TOWN, 9, 8, DIRECTION_RIGHT, 1005, STORY_FLAG_ARRIVED_TOWN);
-    debug_snapshot();
-}
-
-static void load_font_test(void)
-{
-    overworld_setup(SCENE_FIELD, MAP_FIELD, 4, 4, DIRECTION_DOWN, 1999, 0);
-    ui_draw_font_test();
-    debug_snapshot();
-}
-
-static void load_dialogue_render_test(void)
-{
-    overworld_setup(SCENE_TOWN, MAP_TOWN, 9, 5, DIRECTION_RIGHT, 2000, STORY_FLAG_ARRIVED_TOWN);
-    dialogue_start_def(&g_game.dialogue, DIALOGUE_ID_MAYOR_GREETING);
-    g_game.screen = SCREEN_DIALOGUE;
-    debug_snapshot();
-}
-
-static void load_battle_attack(void)
-{
-    overworld_setup(SCENE_FIELD, MAP_FIELD, 13, 8, DIRECTION_DOWN, 3000, 0);
-    world_set_actor_pos(&g_game.world, ENTITY_ID_SLIME, 14, 8);
-    debug_snapshot();
-}
-
-static void load_guard_interaction_distance(void)
-{
-    overworld_setup(SCENE_TOWN, MAP_TOWN, 8, 8, DIRECTION_RIGHT, 3001, STORY_FLAG_ARRIVED_TOWN);
-    debug_snapshot();
-}
-
-static void load_game_over(void)
-{
-    overworld_setup(SCENE_FIELD, MAP_FIELD, 13, 8, DIRECTION_DOWN, 4000, 0);
-    g_game.world.player.hp = 2;
-    g_game.state.party.members[0].hp = 2;
-    world_set_actor_pos(&g_game.world, ENTITY_ID_SLIME, 14, 8);
-    debug_snapshot();
-}
-
-/* ── Screen / scene boot scenarios ──────────────────────────────── */
-
-static void load_overworld_boot(void)
-{
-    overworld_setup(SCENE_TOWN, MAP_TOWN, 8, 6, DIRECTION_DOWN, 5000, STORY_FLAG_ARRIVED_TOWN);
-    debug_snapshot();
-}
-
-static void load_dialogue_boot(void)
-{
-    overworld_setup(SCENE_TOWN, MAP_TOWN, 9, 5, DIRECTION_RIGHT, 5001, STORY_FLAG_ARRIVED_TOWN);
-    dialogue_start_def(&g_game.dialogue, DIALOGUE_ID_MAYOR_GREETING);
-    g_game.screen = SCREEN_DIALOGUE;
-    g_game.dialogue.current_line = 0;
-    debug_snapshot();
-}
-
-static void load_battle_boot(void)
-{
-    overworld_setup(SCENE_FIELD, MAP_FIELD, 13, 8, DIRECTION_DOWN, 5002, 0);
-    world_set_actor_pos(&g_game.world, ENTITY_ID_SLIME, 14, 8);
-    battle_start(&g_game.battle, g_game.state.party.members[0].hp,
-                 g_game.state.party.members[0].max_hp,
-                 g_game.world.actors[0].hp, g_game.world.actors[0].max_hp);
-    g_game.screen = SCREEN_BATTLE;
-    audio_play_music(MUSIC_BATTLE);
-    debug_snapshot();
-}
-
-static void load_game_over_boot(void)
-{
-    overworld_setup(SCENE_FIELD, MAP_FIELD, 4, 4, DIRECTION_DOWN, 5003, 0);
-    g_game.game_over_choice = 0;
-    g_game.screen = SCREEN_GAME_OVER;
-    debug_snapshot();
-}
-
-static void load_thanks_boot(void)
-{
-    overworld_setup(SCENE_FIELD, MAP_FIELD, 4, 4, DIRECTION_DOWN, 5004, 0);
-    g_game.screen = SCREEN_THANKS;
-    debug_snapshot();
-}
-
-static void load_forest_boot(void)
-{
-    overworld_setup(SCENE_FOREST, MAP_FOREST, 8, 6, DIRECTION_DOWN, 5005, 0);
-    debug_snapshot();
-}
-
-static void load_mountain_pass_boot(void)
-{
-    overworld_setup(SCENE_MOUNTAIN_PASS, MAP_MOUNTAIN_PASS, 8, 6, DIRECTION_DOWN, 5006, 0);
-    debug_snapshot();
-}
-
-static void load_castle_boot(void)
-{
-    overworld_setup(SCENE_CASTLE, MAP_CASTLE, 8, 6, DIRECTION_DOWN, 5007, STORY_FLAG_ARRIVED_TOWN);
-    debug_snapshot();
-}
-
-static void load_town_boot(void)
-{
-    overworld_setup(SCENE_TOWN, MAP_TOWN, 8, 6, DIRECTION_DOWN, 5008, STORY_FLAG_ARRIVED_TOWN);
-    debug_snapshot();
-}
-
-/* ── World Actor scenarios ──────────────────────────────────────── */
-
-static void load_actor_collision_blocking(void)
-{
-    overworld_setup(SCENE_TOWN, MAP_TOWN, 9, 5, DIRECTION_RIGHT, 6000, STORY_FLAG_ARRIVED_TOWN);
-    debug_snapshot();
-}
-
-static void load_actor_shopkeeper(void)
-{
-    overworld_setup(SCENE_TOWN, MAP_TOWN, 9, 4, DIRECTION_UP, 6001, STORY_FLAG_ARRIVED_TOWN);
-    debug_snapshot();
-}
-
-static void load_actor_bat(void)
-{
-    overworld_setup(SCENE_CASTLE, MAP_CASTLE, 11, 7, DIRECTION_RIGHT, 6002, STORY_FLAG_ARRIVED_TOWN);
+    game_render_reset(&g_game);
     debug_snapshot();
 }
 
 void scenario_check_and_load(void)
 {
-    uint8_t sc = g_scen_load;
-    if (sc == 0) return;
-
-    g_scen_load = 0;
-    switch (sc) {
-        case 1:  load_new_game(); break;
-        case 2:  load_first_encounter(); break;
-        case 3:  load_town_arrival(); break;
-        case 4:  load_town_departure(); break;
-        case 5:  load_town_reentry(); break;
-        case 6:  load_mayor_encounter(); break;
-        case 7:  load_mayor_dialogue(); break;
-        case 8:  load_mayor_dialogue_movement_blocked(); break;
-        case 9:  load_guard_dialogue(); break;
-        case 10: load_font_test(); break;
-        case 11: load_dialogue_render_test(); break;
-        case 12: load_battle_attack(); break;
-        case 13: load_guard_interaction_distance(); break;
-        case 14: load_game_over(); break;
-        case 15: load_overworld_boot(); break;
-        case 16: load_dialogue_boot(); break;
-        case 17: load_battle_boot(); break;
-        case 18: load_game_over_boot(); break;
-        case 19: load_thanks_boot(); break;
-        case 20: load_forest_boot(); break;
-        case 21: load_mountain_pass_boot(); break;
-        case 22: load_castle_boot(); break;
-        case 23: load_town_boot(); break;
-        case 24: load_actor_collision_blocking(); break;
-        case 25: load_actor_shopkeeper(); break;
-        case 26: load_actor_bat(); break;
+    if (g_scen_load_state) {
+        g_scen_load_state = 0;
+        scenario_load_state();
+        return;
     }
-    game_render_reset(&g_game);
-    debug_snapshot();
+    g_scen_load = 0;
 }

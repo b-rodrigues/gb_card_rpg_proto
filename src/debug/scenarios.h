@@ -5,6 +5,7 @@
 #include "game.h"
 
 extern volatile uint8_t g_scen_load;
+extern volatile uint8_t g_scen_load_state;
 
 void scenario_check_and_load(void);
 

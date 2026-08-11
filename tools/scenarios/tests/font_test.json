@@ -14,5 +14,15 @@
       "type": "game_state",
       "expected": "OVERWORLD"
     }
-  ]
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 4,
+      "y": 4,
+      "facing": "DOWN"
+    },
+    "seed": 1999,
+    "font_test": true
+  }
 }

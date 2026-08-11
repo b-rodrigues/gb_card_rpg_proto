@@ -30,5 +30,17 @@
       "type": "music_track",
       "expected": "OVERWORLD"
     }
-  ]
+  ],
+  "initial_state": {
+    "scene": "TOWN",
+    "player": {
+      "x": 8,
+      "y": 6,
+      "facing": "DOWN"
+    },
+    "seed": 5000,
+    "flags": {
+      "ARRIVED_TOWN": true
+    }
+  }
 }

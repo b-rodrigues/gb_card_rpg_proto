@@ -38,6 +38,37 @@
 #define STATE_SNAP_WORLD_ENTRY_SIZE  3
 #define STATE_SNAP_TOTAL_SIZE        92
 
+/* Scenario initial-state descriptor (g_scen_state_buf) layout.  Written
+ * by the host STATE_LOAD command and applied by scenario_load_state().
+ * Fixed offsets; variable-length sections carry a count and only the
+ * listed entries are applied (unspecified sections keep their defaults). */
+#define STATE_LOAD_DESC_VERSION           0x01
+#define STATE_LOAD_DESC_SIZE              178
+#define STATE_LOAD_DESC_SCREEN_OFF        1
+#define STATE_LOAD_DESC_SCENE_OFF         2
+#define STATE_LOAD_DESC_PLAYER_X_OFF      3
+#define STATE_LOAD_DESC_PLAYER_Y_OFF      4
+#define STATE_LOAD_DESC_PLAYER_FACING_OFF 5
+#define STATE_LOAD_DESC_SEED_OFF          6
+#define STATE_LOAD_DESC_FLAGS_OFF         10
+#define STATE_LOAD_DESC_FLAGS_SIZE        8
+#define STATE_LOAD_DESC_VARIABLES_COUNT_OFF 18
+#define STATE_LOAD_DESC_VARIABLES_ENTRY_OFF 19
+#define STATE_LOAD_DESC_VARIABLES_ENTRY_SIZE 3
+#define STATE_LOAD_DESC_PARTY_COUNT_OFF   67
+#define STATE_LOAD_DESC_PARTY_ENTRY_OFF   68
+#define STATE_LOAD_DESC_PARTY_ENTRY_SIZE  6
+#define STATE_LOAD_DESC_INVENTORY_COUNT_OFF 92
+#define STATE_LOAD_DESC_INVENTORY_ENTRY_OFF 93
+#define STATE_LOAD_DESC_INVENTORY_ENTRY_SIZE 2
+#define STATE_LOAD_DESC_WORLD_COUNT_OFF   125
+#define STATE_LOAD_DESC_WORLD_ENTRY_OFF   126
+#define STATE_LOAD_DESC_WORLD_ENTRY_SIZE  3
+#define STATE_LOAD_DESC_DIALOGUE_ID_OFF   174
+#define STATE_LOAD_DESC_START_BATTLE_OFF  175
+#define STATE_LOAD_DESC_GAME_OVER_CHOICE_OFF 176
+#define STATE_LOAD_DESC_FONT_TEST_OFF     177
+
 typedef enum {
     EVENT_PLAYER_MOVED,
     EVENT_COLLISION,
@@ -80,6 +111,7 @@ typedef struct {
 
 extern uint8_t g_snap_buf[SNAPSHOT_TOTAL_SIZE];
 extern uint8_t g_state_snap_buf[STATE_SNAP_TOTAL_SIZE];
+extern uint8_t g_scen_state_buf[STATE_LOAD_DESC_SIZE];
 extern GameEvent g_telemetry_buffer[MAX_TELEMETRY_EVENTS];
 extern uint8_t g_telemetry_count;
 extern uint8_t g_telemetry_head;

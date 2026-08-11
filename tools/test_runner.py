@@ -10,20 +10,29 @@ import json
 import glob
 import os
 import sys
-from emulator import EmulatorSession, STORY_FLAG_ID_MAP, DIALOGUE_ID_MAP, SCENARIO_IDS, ENTITY_ID_MAP
+from emulator import (EmulatorSession, STORY_FLAG_ID_MAP, DIALOGUE_ID_MAP,
+                      SCENARIO_IDS, ENTITY_ID_MAP, STATE_FLAG_ID_MAP,
+                      VARIABLE_ID_MAP, ITEM_ID_MAP, ACTOR_ID_MAP,
+                      ACTOR_STATE_NAME_MAP, CHARACTER_ID_MAP, SCENE_MAP)
 
 VALID_ASSERTION_TYPES = {
     "game_state", "player_position", "player_facing", "player_hp", "music_track",
     "enemy_hp", "battle_turn", "battle_result", "battle_player_hp", "battle_enemy_hp",
     "game_over_choice", "story_flag", "screen", "scene",
     "event_occurred", "event_not_occurred", "dialogue_active", "dialogue_line", "dialogue_id",
-    "screen_row", "actor_at"
+    "screen_row", "actor_at",
+    "flag", "variable", "inventory", "party_hp", "party_level", "actor_state"
 }
 
 VALID_ENTITY_IDS = set(ENTITY_ID_MAP.values())
 
 VALID_STORY_FLAGS = set(STORY_FLAG_ID_MAP.values())
 VALID_DIALOGUE_IDS = set(DIALOGUE_ID_MAP.values())
+VALID_FLAG_NAMES = set(STATE_FLAG_ID_MAP)
+VALID_VARIABLE_NAMES = set(VARIABLE_ID_MAP)
+VALID_ITEM_NAMES = set(ITEM_ID_MAP)
+VALID_ACTOR_NAMES = set(ACTOR_ID_MAP)
+VALID_ACTOR_STATES = set(ACTOR_STATE_NAME_MAP)
 
 def validate_scenario(data, filepath):
     scen_id = data.get("scenario_id")
@@ -42,6 +51,48 @@ def validate_scenario(data, filepath):
         dlg = a.get("dialogue_id")
         if dlg and dlg not in VALID_DIALOGUE_IDS:
             raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown dialogue_id '{dlg}'. Valid IDs: {sorted(list(VALID_DIALOGUE_IDS))}")
+
+        flag = a.get("flag")
+        if flag and flag not in VALID_FLAG_NAMES:
+            raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown flag '{flag}'. Valid flags: {sorted(list(VALID_FLAG_NAMES))}")
+
+        var = a.get("variable")
+        if var and var not in VALID_VARIABLE_NAMES:
+            raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown variable '{var}'. Valid variables: {sorted(list(VALID_VARIABLE_NAMES))}")
+
+        item = a.get("item")
+        if item and item not in VALID_ITEM_NAMES:
+            raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown item '{item}'. Valid items: {sorted(list(VALID_ITEM_NAMES))}")
+
+        actor = a.get("actor")
+        if actor and actor not in VALID_ACTOR_NAMES:
+            raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown actor '{actor}'. Valid actors: {sorted(list(VALID_ACTOR_NAMES))}")
+
+        astate = a.get("expected_state")
+        if astate and astate not in VALID_ACTOR_STATES:
+            raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown actor state '{astate}'. Valid states: {sorted(list(VALID_ACTOR_STATES))}")
+
+        init = data.get("initial_state") or {}
+        for fname, fval in (init.get("flags") or {}).items():
+            if fname not in VALID_FLAG_NAMES:
+                raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown flag '{fname}' in initial_state. Valid flags: {sorted(list(VALID_FLAG_NAMES))}")
+        for vname, vval in (init.get("variables") or {}).items():
+            if vname not in VALID_VARIABLE_NAMES:
+                raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown variable '{vname}' in initial_state. Valid variables: {sorted(list(VALID_VARIABLE_NAMES))}")
+        for iname, iqty in (init.get("inventory") or {}).items():
+            if iname not in VALID_ITEM_NAMES:
+                raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown item '{iname}' in initial_state. Valid items: {sorted(list(VALID_ITEM_NAMES))}")
+        for aname, aval in (init.get("world") or {}).items():
+            if aname not in VALID_ACTOR_NAMES:
+                raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown actor '{aname}' in initial_state. Valid actors: {sorted(list(VALID_ACTOR_NAMES))}")
+            if aval not in VALID_ACTOR_STATES:
+                raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown actor state '{aval}' for '{aname}'. Valid states: {sorted(list(VALID_ACTOR_STATES))}")
+        for pname, pstats in (init.get("party") or {}).items():
+            if pname not in set(CHARACTER_ID_MAP):
+                raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown party member '{pname}'. Valid members: {sorted(list(CHARACTER_ID_MAP))}")
+        scene = init.get("scene")
+        if scene and scene not in set(SCENE_MAP.values()):
+            raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown scene '{scene}'. Valid scenes: {sorted(set(SCENE_MAP.values()))}")
 
 def load_scenarios(scenarios_dir="tools/scenarios"):
     """Load all JSON scenario files from directory and subdirectories with strict validation."""
@@ -75,8 +126,8 @@ def run_scenario(scenario):
     try:
         session.connect()
 
-        # Load requested scenario
-        session.load_scenario(scenario_id)
+        # Load requested scenario from its declarative initial_state
+        session.load_scenario(scenario)
 
         # Execute action sequence
         for act in actions:
@@ -86,8 +137,9 @@ def run_scenario(scenario):
             elif act_type == "wait":
                 session.wait(act.get("frames", 1))
 
-        # Read final snapshot and telemetry buffer from ROM memory
+        # Read final snapshot, canonical state buffer and telemetry
         snap = session.snapshot()
+        state_snap = session.state_snapshot()
         telemetry = session.get_telemetry()
 
         # Check if any assertion needs logical screen buffer
@@ -239,6 +291,53 @@ def run_scenario(scenario):
 
             passed = len(matching_events) == 0
             actual = "NOT_EMITTED" if passed else f"EMITTED ({len(matching_events)} time(s))"
+
+        elif a_type == "flag":
+            exp_flag = a.get("flag")
+            expected = f"flag {exp_flag} == {expected}"
+            active_flags = (state_snap or {}).get("flags", [])
+            has_flag = exp_flag in active_flags
+            actual = f"flag {exp_flag} == {has_flag}"
+            passed = (has_flag == a.get("expected", True))
+
+        elif a_type == "variable":
+            exp_var = a.get("variable")
+            expected = f"variable {exp_var} == {expected}"
+            actual = (state_snap or {}).get("variables", {}).get(exp_var)
+            passed = (actual == int(a.get("expected")))
+
+        elif a_type == "inventory":
+            exp_item = a.get("item")
+            expected = f"item {exp_item} == {expected}"
+            items = (state_snap or {}).get("inventory", [])
+            qty = sum(it["quantity"] for it in items
+                      if it["item_id"] == ITEM_ID_MAP[exp_item])
+            actual = f"item {exp_item} == {qty}"
+            passed = (qty == int(a.get("expected")))
+
+        elif a_type == "party_hp":
+            expected = f"party member {a.get('member', 0)} hp == {expected}"
+            party = (state_snap or {}).get("party", [])
+            member = int(a.get("member", 0))
+            actual = party[member]["hp"] if member < len(party) else None
+            passed = (actual == int(a.get("expected")))
+
+        elif a_type == "party_level":
+            expected = f"party member {a.get('member', 0)} level == {expected}"
+            party = (state_snap or {}).get("party", [])
+            member = int(a.get("member", 0))
+            actual = party[member]["level"] if member < len(party) else None
+            passed = (actual == int(a.get("expected")))
+
+        elif a_type == "actor_state":
+            exp_actor = a.get("actor")
+            exp_state = a.get("expected_state", "ALIVE")
+            expected = f"actor {exp_actor} == {exp_state}"
+            world = (state_snap or {}).get("world", [])
+            actor_id = ACTOR_ID_MAP[exp_actor]
+            entry = next((w for w in world if w["actor_id"] == actor_id), None)
+            actual = entry["state"] if entry else "ALIVE"
+            passed = (actual == exp_state)
 
         status_str = "PASS" if passed else "FAIL"
         assertion_results.append({

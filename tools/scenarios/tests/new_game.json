@@ -21,6 +21,40 @@
     {
       "type": "music_track",
       "expected": "OVERWORLD"
+    },
+    {
+      "type": "flag",
+      "flag": "ARRIVED_TOWN",
+      "expected": false
+    },
+    {
+      "type": "variable",
+      "variable": "GOLD",
+      "expected": 0
+    },
+    {
+      "type": "variable",
+      "variable": "CHAPTER",
+      "expected": 1
+    },
+    {
+      "type": "party_hp",
+      "member": 0,
+      "expected": 10
+    },
+    {
+      "type": "party_level",
+      "member": 0,
+      "expected": 1
     }
-  ]
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 4,
+      "y": 4,
+      "facing": "DOWN"
+    },
+    "seed": 42
+  }
 }

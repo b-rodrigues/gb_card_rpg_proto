@@ -66,6 +66,20 @@
     {
       "type": "event_occurred",
       "event": "SCREEN_CHANGED"
+    },
+    {
+      "type": "actor_state",
+      "actor": "SLIME_FIELD",
+      "expected_state": "DEFEATED"
     }
-  ]
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 13,
+      "y": 8,
+      "facing": "DOWN"
+    },
+    "seed": 12345
+  }
 }

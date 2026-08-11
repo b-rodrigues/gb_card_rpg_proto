@@ -3,10 +3,11 @@
 #include "story.h"
 #include <stddef.h>
 
-ActorEngageResult interaction_try_at(const World *world, uint8_t target_x, uint8_t target_y, DialogueState *dialogue)
+ActorEngageResult interaction_try_at(World *world, uint8_t target_x, uint8_t target_y, DialogueState *dialogue)
 {
     const WorldActorDefinition *actor;
     ActorEngageResult result;
+    uint8_t slot;
 
     if (!world || !dialogue) return ENGAGE_NONE;
 
@@ -17,10 +18,15 @@ ActorEngageResult interaction_try_at(const World *world, uint8_t target_x, uint8
                    (uint8_t)actor->id, (uint8_t)actor->interaction);
 
     result = actor_engage(actor, dialogue);
+    if (result == ENGAGE_BATTLE) {
+        /* Record the hostile runtime slot so battle can read its HP. */
+        slot = actor_find_hostile_slot(world, target_x, target_y);
+        world->encounter_actor_index = slot;
+    }
     return result;
 }
 
-ActorEngageResult interaction_try_facing(const World *world, DialogueState *dialogue)
+ActorEngageResult interaction_try_facing(World *world, DialogueState *dialogue)
 {
     int8_t dx = 0;
     int8_t dy = 0;
@@ -50,7 +56,7 @@ ActorEngageResult interaction_try_facing(const World *world, DialogueState *dial
     return interaction_try_at(world, target_x, target_y, dialogue);
 }
 
-ActorEngageResult interaction_try_bump(const World *world, int8_t dx, int8_t dy, DialogueState *dialogue)
+ActorEngageResult interaction_try_bump(World *world, int8_t dx, int8_t dy, DialogueState *dialogue)
 {
     uint8_t px, py, target_x, target_y;
 

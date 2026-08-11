@@ -1,5 +1,6 @@
 #include "game.h"
 #include "screen.h"
+#include "scene.h"
 #include "interaction.h"
 #include "story.h"
 #include "telemetry.h"
@@ -7,13 +8,16 @@
 
 static void start_battle_from_world(Game *g)
 {
-    g->world.encounter_triggered = false;
+    uint8_t idx = g->world.encounter_actor_index;
+    if (idx == NO_ACTOR_INDEX) return;
+
     battle_start(&g->battle, g->world.player.hp, g->world.player.max_hp,
-                 g->world.enemy.hp, g->world.enemy.max_hp);
+                 g->world.actors[idx].hp, g->world.actors[idx].max_hp);
     audio_play_music(MUSIC_BATTLE);
     telemetry_emit(EVENT_MUSIC_CHANGED, MUSIC_BATTLE, 0, 0, 0);
-    telemetry_emit(EVENT_ACTOR_COMBAT_START, (uint8_t)g->world.enemy.id, 0, 0, 0);
+    telemetry_emit(EVENT_ACTOR_COMBAT_START, (uint8_t)g->world.actors[idx].id, 0, 0, 0);
     screen_change(g, SCREEN_BATTLE);
+    /* encounter_actor_index stays set until world_on_battle_end() */
 }
 
 void overworld_screen_update(Game *g)
@@ -53,7 +57,7 @@ void overworld_screen_update(Game *g)
         return;
     }
 
-    if (g->world.encounter_triggered) {
+    if (g->world.encounter_actor_index != NO_ACTOR_INDEX) {
         start_battle_from_world(g);
     }
 }

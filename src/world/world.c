@@ -1,85 +1,22 @@
 #include "world.h"
 #include "telemetry.h"
 #include "actor.h"
+#include "scene.h"
 
 void world_load_map(World *w, MapId map_id)
 {
-    uint8_t x, y;
     if (!w) return;
 
     w->width = WORLD_WIDTH;
     w->height = WORLD_HEIGHT;
     w->map_id = map_id;
-    w->encounter_triggered = false;
+    w->encounter_actor_index = NO_ACTOR_INDEX;
     w->map_changed = false;
 
-    for (y = 0; y < WORLD_HEIGHT; y++) {
-        for (x = 0; x < WORLD_WIDTH; x++) {
-            if (y == 0 || y == WORLD_HEIGHT - 1 || x == 0 || x == WORLD_WIDTH - 1) {
-                w->map[y][x] = TILE_WALL;
-            } else {
-                w->map[y][x] = TILE_FLOOR;
-            }
-        }
-    }
+    /* Scene data determines the terrain and the exits. */
+    scene_load_tiles(w, map_id);
 
-    if (map_id == MAP_FIELD) {
-        /* Exit gate to Town on East wall (18, 7) */
-        w->map[7][18] = TILE_FIELD_EXIT;
-        /* Exit gate to Forest on North wall (12, 0) */
-        w->map[0][12] = TILE_EXIT_FIELD_FOREST;
-    } else if (map_id == MAP_TOWN) {
-        /* Exit gate to Field on West wall (1, 7) */
-        w->map[7][1] = TILE_TOWN_EXIT;
-        /* Town buildings */
-        for (y = 3; y <= 6; y++) {
-            for (x = 4; x <= 8; x++) {
-                w->map[y][x] = TILE_BUILDING;
-            }
-            for (x = 12; x <= 16; x++) {
-                w->map[y][x] = TILE_BUILDING;
-            }
-        }
-    } else if (map_id == MAP_FOREST) {
-        /* Forest: open floor with scattered tree clusters. */
-        static const uint8_t trees[][2] = {{4,2},{5,2},{4,3},{10,6},{11,6},{9,7},
-                                           {14,2},{15,2},{3,8},{8,9},{13,9}};
-        uint8_t i;
-        for (i = 0; i < sizeof(trees)/sizeof(trees[0]); i++) {
-            w->map[trees[i][1]][trees[i][0]] = TILE_WALL;
-        }
-        /* Gates: South wall to Field, North wall to Mountain Pass */
-        w->map[11][12] = TILE_EXIT_FOREST_FIELD;
-        w->map[0][12]  = TILE_EXIT_FOREST_MOUNTAIN;
-    } else if (map_id == MAP_MOUNTAIN_PASS) {
-        /* Narrow winding pass with rock walls on both sides. */
-        for (y = 0; y < WORLD_HEIGHT; y++) {
-            for (x = 0; x < WORLD_WIDTH; x++) {
-                if (x <= 3 || x >= 16) {
-                    w->map[y][x] = TILE_WALL;
-                } else if (y % 4 == 2 && (x == 9 || x == 10)) {
-                    w->map[y][x] = TILE_WALL;  /* pinch point */
-                }
-            }
-        }
-        /* Gates: South wall to Forest, North wall to Castle */
-        w->map[11][12] = TILE_EXIT_MOUNTAIN_FOREST;
-        w->map[0][12]  = TILE_EXIT_MOUNTAIN_CASTLE;
-    } else if (map_id == MAP_CASTLE) {
-        /* Castle interior: buildings flanking a central hall. */
-        for (y = 3; y <= 8; y++) {
-            for (x = 3; x <= 6; x++) {
-                w->map[y][x] = TILE_BUILDING;
-            }
-            for (x = 13; x <= 16; x++) {
-                w->map[y][x] = TILE_BUILDING;
-            }
-        }
-        /* Gate: South wall back to Mountain Pass */
-        w->map[11][12] = TILE_EXIT_CASTLE_MOUNTAIN;
-    }
-
-    /* Scene data determines what actors exist here. */
+    /* Scene data determines which hostile actors are spawned. */
     actor_load_scene(w, map_id);
 }
 
@@ -119,6 +56,7 @@ WorldMoveResult world_move_player(World *w, int8_t dx, int8_t dy)
     uint8_t old_x, old_y;
     uint8_t target_x, target_y;
     uint8_t target_tile;
+    uint8_t hostile_slot;
     const WorldActorDefinition *actor;
 
     if (!w) return MOVE_RESULT_NONE;
@@ -137,42 +75,34 @@ WorldMoveResult world_move_player(World *w, int8_t dx, int8_t dy)
 
     target_tile = w->map[target_y][target_x];
 
-    if (target_tile == TILE_FIELD_EXIT) {
-        world_change_map(w, MAP_TOWN, 2, 7);
-        return MOVE_RESULT_MAP_CHANGED;
-    } else if (target_tile == TILE_TOWN_EXIT) {
-        world_change_map(w, MAP_FIELD, 17, 7);
-        return MOVE_RESULT_MAP_CHANGED;
-    } else if (target_tile == TILE_EXIT_FIELD_FOREST) {
-        world_change_map(w, MAP_FOREST, 12, 10);
-        return MOVE_RESULT_MAP_CHANGED;
-    } else if (target_tile == TILE_EXIT_FOREST_FIELD) {
-        world_change_map(w, MAP_FIELD, 12, 1);
-        return MOVE_RESULT_MAP_CHANGED;
-    } else if (target_tile == TILE_EXIT_FOREST_MOUNTAIN) {
-        world_change_map(w, MAP_MOUNTAIN_PASS, 12, 10);
-        return MOVE_RESULT_MAP_CHANGED;
-    } else if (target_tile == TILE_EXIT_MOUNTAIN_FOREST) {
-        world_change_map(w, MAP_FOREST, 12, 1);
-        return MOVE_RESULT_MAP_CHANGED;
-    } else if (target_tile == TILE_EXIT_MOUNTAIN_CASTLE) {
-        world_change_map(w, MAP_CASTLE, 10, 10);
-        return MOVE_RESULT_MAP_CHANGED;
-    } else if (target_tile == TILE_EXIT_CASTLE_MOUNTAIN) {
-        world_change_map(w, MAP_MOUNTAIN_PASS, 12, 1);
-        return MOVE_RESULT_MAP_CHANGED;
+    /* Generic scene exit: the scene definition owns destination + spawn. */
+    if (target_tile == TILE_EXIT) {
+        const SceneDefinition *def = scene_definition_for_map(w->map_id);
+        const SceneExit *ex = scene_exit_at(def, target_x, target_y);
+        if (ex) {
+            world_change_map(w, scene_id_to_map(ex->target_scene),
+                             ex->spawn_x, ex->spawn_y);
+            return MOVE_RESULT_MAP_CHANGED;
+        }
     }
 
-    /* Generic World Actor collision: the movement code does not care
-     * whether this is a Mayor, a Guard, a Slime or a Bat. */
+    /* Generic hostile World Actor collision: record which slot was hit so
+     * the battle system can read the right HP. */
+    hostile_slot = actor_find_hostile_slot(w, target_x, target_y);
+    if (hostile_slot != NO_ACTOR_INDEX) {
+        telemetry_emit(EVENT_ACTOR_COLLISION, target_x, target_y,
+                       (uint8_t)w->actors[hostile_slot].id, 0);
+        telemetry_emit(EVENT_ENCOUNTER_STARTED,
+                       (uint8_t)w->actors[hostile_slot].id, 0, 0, 0);
+        w->encounter_actor_index = hostile_slot;
+        return MOVE_RESULT_ENCOUNTER;
+    }
+
+    /* Generic friendly World Actor collision (static definitions). */
     actor = actor_find_at(w, target_x, target_y);
     if (actor) {
-        telemetry_emit(EVENT_ACTOR_COLLISION, target_x, target_y, (uint8_t)actor->id, 0);
-        if (actor->flags & ACTOR_FLAG_HOSTILE) {
-            telemetry_emit(EVENT_ENCOUNTER_STARTED, (uint8_t)actor->id, 0, 0, 0);
-            w->encounter_triggered = true;
-            return MOVE_RESULT_ENCOUNTER;
-        }
+        telemetry_emit(EVENT_ACTOR_COLLISION, target_x, target_y,
+                       (uint8_t)actor->id, 0);
         return MOVE_RESULT_BLOCKED;
     }
 
@@ -186,12 +116,18 @@ WorldMoveResult world_move_player(World *w, int8_t dx, int8_t dy)
 
 void world_on_battle_end(World *w, bool victory)
 {
+    uint8_t idx;
     if (!w) return;
-    w->encounter_triggered = false;
+
+    idx = w->encounter_actor_index;
+    w->encounter_actor_index = NO_ACTOR_INDEX;
+    if (idx == NO_ACTOR_INDEX) return;
+
     if (victory) {
-        w->enemy.active = false;
-        w->enemy.hp = 0;
-        telemetry_emit(EVENT_ENTITY_DEFEATED, (uint8_t)w->enemy.id, 0, 0, 0);
+        w->actors[idx].active = 0;
+        w->actors[idx].hp = 0;
+        w->actors[idx].flags = ACTOR_STATE_NONE;
+        telemetry_emit(EVENT_ENTITY_DEFEATED, (uint8_t)w->actors[idx].id, 0, 0, 0);
     }
 }
 
@@ -202,11 +138,17 @@ void world_set_player_pos(World *w, uint8_t x, uint8_t y)
     w->player.position.y = y;
 }
 
-void world_set_enemy_pos(World *w, uint8_t x, uint8_t y)
+void world_set_actor_pos(World *w, EntityId id, uint8_t x, uint8_t y)
 {
+    uint8_t i;
     if (!w) return;
-    w->enemy.position.x = x;
-    w->enemy.position.y = y;
+    for (i = 0; i < MAX_WORLD_ACTORS; i++) {
+        if (w->actors[i].active && w->actors[i].id == id) {
+            w->actors[i].x = x;
+            w->actors[i].y = y;
+            return;
+        }
+    }
 }
 
 void world_set_player_facing(World *w, Direction facing)

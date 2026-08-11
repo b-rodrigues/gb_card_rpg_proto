@@ -36,7 +36,7 @@ static void overworld_setup(SceneId scene, MapId map, uint8_t x, uint8_t y,
     g_game.world.player.position.x = x;
     g_game.world.player.position.y = y;
     g_game.world.player.facing = facing;
-    g_game.world.encounter_triggered = false;
+    g_game.world.encounter_actor_index = NO_ACTOR_INDEX;
     dialogue_init(&g_game.dialogue);
     scenario_begin(seed);
     g_game.story_flags = flags;
@@ -51,8 +51,7 @@ static void load_new_game(void)
 static void load_first_encounter(void)
 {
     overworld_setup(SCENE_FIELD, MAP_FIELD, 13, 8, DIRECTION_DOWN, 12345, 0);
-    g_game.world.enemy.position.x = 14;
-    g_game.world.enemy.position.y = 8;
+    world_set_actor_pos(&g_game.world, ENTITY_ID_SLIME, 14, 8);
     debug_snapshot();
 }
 
@@ -118,8 +117,7 @@ static void load_dialogue_render_test(void)
 static void load_battle_attack(void)
 {
     overworld_setup(SCENE_FIELD, MAP_FIELD, 13, 8, DIRECTION_DOWN, 3000, 0);
-    g_game.world.enemy.position.x = 14;
-    g_game.world.enemy.position.y = 8;
+    world_set_actor_pos(&g_game.world, ENTITY_ID_SLIME, 14, 8);
     debug_snapshot();
 }
 
@@ -133,8 +131,7 @@ static void load_game_over(void)
 {
     overworld_setup(SCENE_FIELD, MAP_FIELD, 13, 8, DIRECTION_DOWN, 4000, 0);
     g_game.world.player.hp = 2;
-    g_game.world.enemy.position.x = 14;
-    g_game.world.enemy.position.y = 8;
+    world_set_actor_pos(&g_game.world, ENTITY_ID_SLIME, 14, 8);
     debug_snapshot();
 }
 
@@ -158,10 +155,9 @@ static void load_dialogue_boot(void)
 static void load_battle_boot(void)
 {
     overworld_setup(SCENE_FIELD, MAP_FIELD, 13, 8, DIRECTION_DOWN, 5002, 0);
-    g_game.world.enemy.position.x = 14;
-    g_game.world.enemy.position.y = 8;
+    world_set_actor_pos(&g_game.world, ENTITY_ID_SLIME, 14, 8);
     battle_start(&g_game.battle, g_game.world.player.hp, g_game.world.player.max_hp,
-                 g_game.world.enemy.hp, g_game.world.enemy.max_hp);
+                 g_game.world.actors[0].hp, g_game.world.actors[0].max_hp);
     g_game.screen = SCREEN_BATTLE;
     audio_play_music(MUSIC_BATTLE);
     debug_snapshot();

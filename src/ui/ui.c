@@ -1,5 +1,6 @@
 #include "ui.h"
 #include "actor.h"
+#include "scene.h"
 #include <gb/gb.h>
 #include <gb/cgb.h>
 #include <gbdk/font.h>
@@ -99,6 +100,7 @@ void ui_draw_world_map(const World *world)
     uint8_t t;
     char tile_ch;
     const WorldActorDefinition *actor;
+    const SceneExit *ex;
 
     if (!world) return;
 
@@ -114,15 +116,10 @@ void ui_draw_world_map(const World *world)
                     t = world->map[y][x];
                     if (t == TILE_WALL) tile_ch = '#';
                     else if (t == TILE_BUILDING) tile_ch = 'B';
-                    else if (t == TILE_FIELD_EXIT ||
-                             t == TILE_EXIT_FIELD_FOREST ||
-                             t == TILE_EXIT_FOREST_MOUNTAIN ||
-                             t == TILE_EXIT_MOUNTAIN_CASTLE) tile_ch = '>';
-                    else if (t == TILE_TOWN_EXIT ||
-                             t == TILE_EXIT_FOREST_FIELD ||
-                             t == TILE_EXIT_MOUNTAIN_FOREST ||
-                             t == TILE_EXIT_CASTLE_MOUNTAIN) tile_ch = '<';
-                    else tile_ch = '.';
+                    else if (t == TILE_EXIT) {
+                        ex = scene_exit_at(scene_definition_for_map(world->map_id), x, y);
+                        tile_ch = ex ? ex->tile_char : '.';
+                    } else tile_ch = '.';
                 }
             }
             gotoxy(x, y);
@@ -170,6 +167,7 @@ void ui_update_player_position(const World *world, uint8_t old_x, uint8_t old_y,
     char old_ch;
     uint8_t t;
     const WorldActorDefinition *actor;
+    const SceneExit *ex;
 
     if (!world || (old_x == new_x && old_y == new_y)) return;
 
@@ -180,15 +178,10 @@ void ui_update_player_position(const World *world, uint8_t old_x, uint8_t old_y,
         t = world->map[old_y][old_x];
         if (t == TILE_WALL) old_ch = '#';
         else if (t == TILE_BUILDING) old_ch = 'B';
-        else if (t == TILE_FIELD_EXIT ||
-                 t == TILE_EXIT_FIELD_FOREST ||
-                 t == TILE_EXIT_FOREST_MOUNTAIN ||
-                 t == TILE_EXIT_MOUNTAIN_CASTLE) old_ch = '>';
-        else if (t == TILE_TOWN_EXIT ||
-                 t == TILE_EXIT_FOREST_FIELD ||
-                 t == TILE_EXIT_MOUNTAIN_FOREST ||
-                 t == TILE_EXIT_CASTLE_MOUNTAIN) old_ch = '<';
-        else old_ch = '.';
+        else if (t == TILE_EXIT) {
+            ex = scene_exit_at(scene_definition_for_map(world->map_id), old_x, old_y);
+            old_ch = ex ? ex->tile_char : '.';
+        } else old_ch = '.';
     }
 
     gotoxy(old_x, old_y);

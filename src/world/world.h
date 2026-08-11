@@ -7,6 +7,10 @@
 #define WORLD_WIDTH  20
 #define WORLD_HEIGHT 12
 
+/* Maximum concurrent hostile actors in a scene (compile-time constant). */
+#define MAX_WORLD_ACTORS 4
+#define NO_ACTOR_INDEX   0xFF
+
 typedef enum {
     MOVE_RESULT_NONE        = 0,
     MOVE_RESULT_BLOCKED     = 1,
@@ -23,28 +27,37 @@ typedef enum {
     MAP_CASTLE        = 4
 } MapId;
 
+/* A single generic exit tile type; the scene definition owns the
+ * destination/spawn/visual of each exit. */
 typedef enum {
-    TILE_FLOOR              = 0,
-    TILE_WALL               = 1,
-    TILE_FIELD_EXIT         = 2,
-    TILE_TOWN_EXIT          = 3,
-    TILE_BUILDING           = 4,
-    TILE_EXIT_FIELD_FOREST  = 5,
-    TILE_EXIT_FOREST_FIELD  = 6,
-    TILE_EXIT_FOREST_MOUNTAIN = 7,
-    TILE_EXIT_MOUNTAIN_FOREST = 8,
-    TILE_EXIT_MOUNTAIN_CASTLE = 9,
-    TILE_EXIT_CASTLE_MOUNTAIN = 10
+    TILE_FLOOR    = 0,
+    TILE_WALL     = 1,
+    TILE_EXIT     = 2,
+    TILE_BUILDING = 3
 } TileType;
+
+/* Mutable runtime state for a spawned World Actor.  Static actor
+ * configuration lives in WorldActorDefinition; hostile actors are spawned
+ * into World.actors by actor_load_scene(). */
+typedef struct {
+    EntityId id;
+    uint8_t active;
+    uint8_t x;
+    uint8_t y;
+    uint8_t facing;
+    uint8_t hp;
+    uint8_t max_hp;
+    uint8_t flags;               /* runtime state flags (future) */
+} WorldActorRuntime;
 
 typedef struct {
     uint8_t width;
     uint8_t height;
     MapId map_id;
-    bool encounter_triggered;
+    uint8_t encounter_actor_index;   /* slot in actors[], or NO_ACTOR_INDEX */
     bool map_changed;
     Entity player;
-    Entity enemy;
+    WorldActorRuntime actors[MAX_WORLD_ACTORS];
     uint8_t map[WORLD_HEIGHT][WORLD_WIDTH];
 } World;
 
@@ -55,7 +68,7 @@ bool world_is_walkable(const World *w, uint8_t x, uint8_t y);
 WorldMoveResult world_move_player(World *w, int8_t dx, int8_t dy);
 void world_on_battle_end(World *w, bool victory);
 void world_set_player_pos(World *w, uint8_t x, uint8_t y);
-void world_set_enemy_pos(World *w, uint8_t x, uint8_t y);
+void world_set_actor_pos(World *w, EntityId id, uint8_t x, uint8_t y);
 void world_set_player_facing(World *w, Direction facing);
 
 #endif /* WORLD_H */

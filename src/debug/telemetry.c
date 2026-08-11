@@ -91,14 +91,24 @@ void debug_snapshot(void)
     const Game *g = &g_game;
     uint8_t actor_buf[MAX_SNAPSHOT_ACTORS * ACTOR_SNAPSHOT_ENTRY_SIZE];
     uint8_t actor_count;
+    uint8_t first_hp = 0;
+    uint8_t first_active = 0;
     uint8_t i;
+
+    for (i = 0; i < MAX_WORLD_ACTORS; i++) {
+        if (g->world.actors[i].active) {
+            first_hp = g->world.actors[i].hp;
+            first_active = 1;
+            break;
+        }
+    }
 
     g_snap_buf[0] = screen_broad(g->screen);
     g_snap_buf[1] = g->world.player.position.x;
     g_snap_buf[2] = g->world.player.position.y;
     g_snap_buf[3] = g->world.player.hp;
-    g_snap_buf[4] = g->world.enemy.hp;
-    g_snap_buf[5] = g->world.enemy.active ? 1 : 0;
+    g_snap_buf[4] = first_hp;
+    g_snap_buf[5] = first_active;
     g_snap_buf[6] = (uint8_t)audio_get_current_track();
     g_snap_buf[7] = (uint8_t)g->battle.turn;
     g_snap_buf[8] = (uint8_t)g->battle.result;

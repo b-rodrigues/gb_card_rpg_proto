@@ -1,0 +1,25 @@
+{
+  "name": "actor_multi_hostile",
+  "test": true,
+  "description": "A scene can hold multiple hostile World Actors simultaneously (Slime and Bat in Forest)",
+  "scenario_id": "FOREST_BOOT",
+  "actions": [],
+  "assertions": [
+    {
+      "type": "scene",
+      "expected": "FOREST"
+    },
+    {
+      "type": "actor_at",
+      "entity": "SLIME",
+      "x": 10,
+      "y": 8
+    },
+    {
+      "type": "actor_at",
+      "entity": "BAT",
+      "x": 7,
+      "y": 4
+    }
+  ]
+}

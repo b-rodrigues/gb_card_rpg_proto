@@ -3,9 +3,9 @@
 
 /* ── Scene-owned actor definitions ─────────────────────────────────
  *
- * Actors belong to scenes.  A scene is identified by its MapId (which
- * mirrors SceneId 1:1).  Friendly actors are pure static definitions;
- * hostile actors are spawned into World.enemy by actor_load_scene().
+ * Friendly actors are pure static definitions.  Hostile actors are
+ * spawned into World.actors runtime slots by actor_load_scene(), so a
+ * scene can hold several hostile actors at once.
  */
 
 static const WorldActorDefinition g_town_actors[] = {
@@ -39,6 +39,11 @@ static const WorldActorDefinition g_forest_actors[] = {
         ENTITY_ID_SLIME, 10, 8, DIRECTION_DOWN,
         ACTOR_FLAG_HOSTILE | ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
         'E', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_SLIME, 6, 6
+    },
+    {
+        ENTITY_ID_BAT, 7, 4, DIRECTION_DOWN,
+        ACTOR_FLAG_HOSTILE | ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
+        'V', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_BAT, 4, 4
     }
 };
 
@@ -82,23 +87,62 @@ static const WorldActorDefinition *actor_defs_for_map(MapId map_id, uint8_t *cou
     }
 }
 
-const WorldActorDefinition *actor_find_at(const World *world, uint8_t x, uint8_t y)
+static const WorldActorDefinition *actor_find_def_by_id(MapId map_id, EntityId id)
 {
     const WorldActorDefinition *defs;
     uint8_t count, i;
 
-    if (!world) return NULL;
-    defs = actor_defs_for_map(world->map_id, &count);
-
+    defs = actor_defs_for_map(map_id, &count);
     for (i = 0; i < count; i++) {
-        if (defs[i].flags & ACTOR_FLAG_HOSTILE) {
-            if (world->enemy.active &&
-                world->enemy.id == defs[i].id &&
-                world->enemy.position.x == x &&
-                world->enemy.position.y == y) {
-                return &defs[i];
-            }
-        } else if (defs[i].x == x && defs[i].y == y) {
+        if (defs[i].id == id) {
+            return &defs[i];
+        }
+    }
+    return NULL;
+}
+
+static void actor_spawn(WorldActorRuntime *r, const WorldActorDefinition *def)
+{
+    r->id = def->id;
+    r->active = 1;
+    r->x = def->x;
+    r->y = def->y;
+    r->facing = def->facing;
+    r->hp = def->hp;
+    r->max_hp = def->max_hp;
+    r->flags = ACTOR_STATE_NONE;
+}
+
+uint8_t actor_find_hostile_slot(const World *world, uint8_t x, uint8_t y)
+{
+    uint8_t i;
+    if (!world) return NO_ACTOR_INDEX;
+    for (i = 0; i < MAX_WORLD_ACTORS; i++) {
+        if (world->actors[i].active &&
+            world->actors[i].x == x &&
+            world->actors[i].y == y) {
+            return i;
+        }
+    }
+    return NO_ACTOR_INDEX;
+}
+
+const WorldActorDefinition *actor_find_at(const World *world, uint8_t x, uint8_t y)
+{
+    const WorldActorDefinition *defs;
+    uint8_t count, i, slot;
+
+    if (!world) return NULL;
+
+    slot = actor_find_hostile_slot(world, x, y);
+    if (slot != NO_ACTOR_INDEX) {
+        return actor_find_def_by_id(world->map_id, world->actors[slot].id);
+    }
+
+    defs = actor_defs_for_map(world->map_id, &count);
+    for (i = 0; i < count; i++) {
+        if (!(defs[i].flags & ACTOR_FLAG_HOSTILE) &&
+            defs[i].x == x && defs[i].y == y) {
             return &defs[i];
         }
     }
@@ -124,17 +168,20 @@ ActorEngageResult actor_engage(const WorldActorDefinition *actor, DialogueState 
 void actor_load_scene(World *world, MapId map_id)
 {
     const WorldActorDefinition *defs;
-    uint8_t count, i;
+    uint8_t count, i, slot;
 
     if (!world) return;
     defs = actor_defs_for_map(map_id, &count);
 
-    world->enemy.active = false;
-    for (i = 0; i < count; i++) {
+    for (slot = 0; slot < MAX_WORLD_ACTORS; slot++) {
+        world->actors[slot].active = 0;
+    }
+
+    slot = 0;
+    for (i = 0; i < count && slot < MAX_WORLD_ACTORS; i++) {
         if (defs[i].flags & ACTOR_FLAG_HOSTILE) {
-            entity_init(&world->enemy, defs[i].id,
-                        defs[i].x, defs[i].y, defs[i].hp, defs[i].max_hp);
-            break;
+            actor_spawn(&world->actors[slot], &defs[i]);
+            slot++;
         }
     }
 }
@@ -143,25 +190,29 @@ uint8_t actor_write_snapshot(const World *world, uint8_t *out, uint8_t max_actor
 {
     const WorldActorDefinition *defs;
     uint8_t count, i, n = 0;
+    uint8_t slot;
 
     if (!world || !out || max_actors == 0) return 0;
     defs = actor_defs_for_map(world->map_id, &count);
 
-    for (i = 0; i < count && n < max_actors; i++) {
-        if (defs[i].flags & ACTOR_FLAG_HOSTILE) {
-            if (!world->enemy.active || world->enemy.id != defs[i].id) {
-                continue;   /* defeated / not spawned */
-            }
-            out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 0] = (uint8_t)defs[i].id;
-            out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 1] = world->enemy.position.x;
-            out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 2] = world->enemy.position.y;
-            out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 3] = (uint8_t)world->enemy.facing;
-        } else {
-            out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 0] = (uint8_t)defs[i].id;
-            out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 1] = defs[i].x;
-            out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 2] = defs[i].y;
-            out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 3] = defs[i].facing;
+    /* hostile runtime actors */
+    for (slot = 0; slot < MAX_WORLD_ACTORS && n < max_actors; slot++) {
+        if (world->actors[slot].active) {
+            out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 0] = (uint8_t)world->actors[slot].id;
+            out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 1] = world->actors[slot].x;
+            out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 2] = world->actors[slot].y;
+            out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 3] = world->actors[slot].facing;
+            n++;
         }
+    }
+
+    /* friendly static definitions */
+    for (i = 0; i < count && n < max_actors; i++) {
+        if (defs[i].flags & ACTOR_FLAG_HOSTILE) continue;
+        out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 0] = (uint8_t)defs[i].id;
+        out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 1] = defs[i].x;
+        out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 2] = defs[i].y;
+        out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 3] = defs[i].facing;
         n++;
     }
     return n;

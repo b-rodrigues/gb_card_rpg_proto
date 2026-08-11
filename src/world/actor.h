@@ -14,6 +14,10 @@
 #define ACTOR_FLAG_BLOCKING     0x02
 #define ACTOR_FLAG_INTERACTABLE 0x04
 
+/* Runtime actor state flags (placeholder for future persistence). */
+#define ACTOR_STATE_NONE        0x00
+/* future: ACTOR_STATE_DEFEATED, ACTOR_STATE_TALKED_TO, ACTOR_STATE_MOVED ... */
+
 /* What happens when the player engages this actor. */
 typedef enum {
     INTERACTION_NONE = 0,
@@ -53,14 +57,19 @@ typedef enum {
 
 /* Find the actor definition at a world position on the current map.
  * Friendly actors use their static position; hostile actors resolve
- * against the spawned runtime enemy entity (which scenarios may move). */
+ * against the spawned runtime actor slots. */
 const WorldActorDefinition *actor_find_at(const World *world, uint8_t x, uint8_t y);
+
+/* Return the runtime slot index of the active hostile actor at (x, y),
+ * or NO_ACTOR_INDEX if none. */
+uint8_t actor_find_hostile_slot(const World *world, uint8_t x, uint8_t y);
 
 /* Single generic engagement entry point: hostile actors request combat,
  * everything else runs its interaction (dialogue for v1). */
 ActorEngageResult actor_engage(const WorldActorDefinition *actor, DialogueState *dialogue);
 
-/* Spawn runtime entities for the given map's hostile actor definitions. */
+/* Spawn all hostile actor definitions for the given map into
+ * World.actors runtime slots. */
 void actor_load_scene(World *world, MapId map_id);
 
 /* Write the active scene's actors as compact (id, x, y, facing) 4-byte

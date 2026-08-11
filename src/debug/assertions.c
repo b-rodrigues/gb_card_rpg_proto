@@ -1,8 +1,13 @@
 #include "assertions.h"
 
-AssertResult assert_game_state(const Game *g, GameState expected)
+AssertResult assert_screen(const Game *g, ScreenId expected)
 {
-    return g && g->state_machine.current == expected ? ASSERT_PASS : ASSERT_FAIL;
+    return g && g->screen == expected ? ASSERT_PASS : ASSERT_FAIL;
+}
+
+AssertResult assert_scene(const Game *g, SceneId expected)
+{
+    return g && g->scene == expected ? ASSERT_PASS : ASSERT_FAIL;
 }
 
 AssertResult assert_player_hp(const Game *g, uint8_t expected_hp)

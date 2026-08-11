@@ -1,0 +1,29 @@
+{
+  "name": "dialogue_boot",
+  "test": true,
+  "description": "Boot directly into the dialogue screen with an active Mayor dialogue",
+  "scenario_id": "DIALOGUE_BOOT",
+  "actions": [],
+  "assertions": [
+    {
+      "type": "screen",
+      "expected": "DIALOGUE"
+    },
+    {
+      "type": "scene",
+      "expected": "TOWN"
+    },
+    {
+      "type": "dialogue_active",
+      "expected": true
+    },
+    {
+      "type": "dialogue_line",
+      "expected": 0
+    },
+    {
+      "type": "dialogue_id",
+      "expected": "MAYOR_GREETING"
+    }
+  ]
+}

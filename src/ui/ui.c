@@ -310,6 +310,7 @@ void ui_draw_thanks(void)
     ui_draw_text_line(0, 8, " THANKS FOR PLAYING!", 20);
 }
 
+#ifdef DEBUG_BUILD
 void ui_draw_font_test(void)
 {
     ui_clear_screen();
@@ -321,3 +322,4 @@ void ui_draw_font_test(void)
     ui_draw_text_line(0, 10, "0123456789", 20);
     ui_draw_text_line(0, 12, "!?.,:-'[]+=", 20);
 }
+#endif

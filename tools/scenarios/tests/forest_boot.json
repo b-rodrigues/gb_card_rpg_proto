@@ -1,0 +1,26 @@
+{
+  "name": "forest_boot",
+  "test": true,
+  "description": "Boot directly into the overworld on the Forest scene",
+  "scenario_id": "FOREST_BOOT",
+  "actions": [],
+  "assertions": [
+    {
+      "type": "screen",
+      "expected": "OVERWORLD"
+    },
+    {
+      "type": "scene",
+      "expected": "FOREST"
+    },
+    {
+      "type": "game_state",
+      "expected": "OVERWORLD"
+    },
+    {
+      "type": "player_position",
+      "expected_x": 8,
+      "expected_y": 6
+    }
+  ]
+}

@@ -9,7 +9,7 @@ SRC_DIR = src
 TARGET = $(BUILD_DIR)/rpg_card_proto.gb
 TARGET_DEBUG = $(BUILD_DIR)/rpg_card_proto_debug.gb
 
-INCLUDES = -I$(SRC_DIR) -I$(SRC_DIR)/core -I$(SRC_DIR)/world -I$(SRC_DIR)/battle -I$(SRC_DIR)/input -I$(SRC_DIR)/audio -I$(SRC_DIR)/ui -I$(SRC_DIR)/debug
+INCLUDES = -I$(SRC_DIR) -I$(SRC_DIR)/core -I$(SRC_DIR)/world -I$(SRC_DIR)/battle -I$(SRC_DIR)/input -I$(SRC_DIR)/audio -I$(SRC_DIR)/ui -I$(SRC_DIR)/debug -I$(SRC_DIR)/screens
 
 SRCS = $(wildcard $(SRC_DIR)/*.c) $(wildcard $(SRC_DIR)/*/*.c)
 
@@ -43,12 +43,15 @@ $(BUILD_DIR)/debug/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	@mkdir -p $(dir $@)
 	$(CC) -c -DDEBUG_BUILD $(INCLUDES) -o $@ $<
 
-$(TARGET): $(OBJS) | $(BUILD_DIR)
-	$(CC) -no-crt -Wm-yc -o $@ $(GBDKDIR)lib/gb/crt0.o $(OBJS) $(GBDKDIR)lib/gb/gb.lib $(GBDKDIR)lib/sm83/sm83.lib
+$(TARGET): $(OBJS) build/crt0.o | $(BUILD_DIR)
+	$(CC) -no-crt -Wm-yc -Wl-yt0x19 -Wl-yo8 -o $@ build/crt0.o $(OBJS) $(GBDKDIR)lib/gb/gb.lib $(GBDKDIR)lib/sm83/sm83.lib
 
-$(TARGET_DEBUG): $(OBJS_DEBUG) | $(BUILD_DIR)
-	$(CC) -no-crt -Wm-yc -Wl-yt0x19 -Wl-yo4 -Wl-m -Wl-j -Wl-y -o $@ $(GBDKDIR)lib/gb/crt0.o $(OBJS_DEBUG) $(GBDKDIR)lib/gb/gb.lib $(GBDKDIR)lib/sm83/sm83.lib
+$(TARGET_DEBUG): $(OBJS_DEBUG) build/crt0.o | $(BUILD_DIR)
+	$(CC) -no-crt -Wm-yc -Wl-yt0x19 -Wl-yo8 -Wl-m -Wl-j -Wl-y -o $@ build/crt0.o $(OBJS_DEBUG) $(GBDKDIR)lib/gb/gb.lib $(GBDKDIR)lib/sm83/sm83.lib
 	@python3 tools/make_sym.py $(BUILD_DIR)/rpg_card_proto_debug.noi $(BUILD_DIR)/rpg_card_proto_debug.sym
+
+build/crt0.o: src/crt0.s | $(BUILD_DIR)
+	sdasgb -o $@ $<
 
 run: $(TARGET)
 	@if [ -z "$(EMULATOR)" ]; then \

@@ -1,7 +1,8 @@
 #include "telemetry.h"
 #include "audio.h"
+#include "screen.h"
 
-uint8_t g_snap_buf[18] = {0};
+uint8_t g_snap_buf[20] = {0};
 GameEvent g_telemetry_buffer[MAX_TELEMETRY_EVENTS] = {{0}};
 uint8_t g_telemetry_count = 0;
 uint8_t g_telemetry_head = 0;
@@ -72,11 +73,23 @@ void telemetry_set_frame_ptr(const uint32_t *frame_ptr)
 #include "game.h"
 extern Game g_game;
 
+/* Broad screen value for backward-compatible snapshot byte 0.
+ * Dialogue is a sub-screen of overworld in the legacy game_state encoding. */
+static uint8_t screen_broad(ScreenId s)
+{
+    switch (s) {
+        case SCREEN_BATTLE:    return 1;
+        case SCREEN_GAME_OVER: return 2;
+        case SCREEN_THANKS:    return 3;
+        default:               return 0; /* OVERWORLD or DIALOGUE */
+    }
+}
+
 void debug_snapshot(void)
 {
     const Game *g = &g_game;
 
-    g_snap_buf[0] = (uint8_t)g->state_machine.current;
+    g_snap_buf[0] = screen_broad(g->screen);
     g_snap_buf[1] = g->world.player.position.x;
     g_snap_buf[2] = g->world.player.position.y;
     g_snap_buf[3] = g->world.player.hp;
@@ -94,4 +107,6 @@ void debug_snapshot(void)
     g_snap_buf[15] = (uint8_t)g->dialogue.id;
     g_snap_buf[16] = (uint8_t)g->world.player.facing;
     g_snap_buf[17] = g->game_over_choice;
+    g_snap_buf[18] = (uint8_t)g->screen;
+    g_snap_buf[19] = (uint8_t)g->scene;
 }

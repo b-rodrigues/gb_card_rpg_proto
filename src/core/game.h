@@ -1,7 +1,7 @@
 #ifndef GAME_H
 #define GAME_H
 
-#include "state.h"
+#include "screen.h"
 #include "world.h"
 #include "battle.h"
 #include "audio.h"
@@ -12,7 +12,7 @@
 
 typedef struct {
     bool valid;
-    GameState prev_state;
+    ScreenId prev_screen;
     MapId prev_map_id;
     uint8_t prev_player_x;
     uint8_t prev_player_y;
@@ -26,8 +26,10 @@ typedef struct {
     uint8_t prev_game_over_choice;
 } RenderCache;
 
-typedef struct {
-    GameStateMachine state_machine;
+typedef struct Game {
+    ScreenId screen;      /* currently active screen */
+    ScreenId prev_screen; /* previous screen (for transitions) */
+    SceneId scene;        /* currently loaded overworld scene */
     World world;
     Battle battle;
     DialogueState dialogue;

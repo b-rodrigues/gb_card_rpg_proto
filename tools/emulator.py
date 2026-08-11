@@ -4,7 +4,7 @@ mgba CLI debugger transport for Game Boy RPG development harness.
 Uses mgba's command-line debugger (-d) via PTY with raw TTY mode.
 Authoritative bridge for Game Boy snapshot, telemetry, and screen inspection.
 """
-import subprocess, pty, os, select, time, tty, termios, fcntl, re
+import subprocess, pty, os, select, time, tty, termios, fcntl, re, signal
 
 DEBUG_PROTOCOL_VERSION = 1
 
@@ -12,10 +12,12 @@ TELEMETRY_CAPACITY = 32
 TELEMETRY_EVENT_SIZE = 13
 
 GAME_STATE_MAP = {0: "OVERWORLD", 1: "BATTLE", 2: "GAME_OVER", 3: "THANKS"}
+SCREEN_MAP = {0: "OVERWORLD", 1: "DIALOGUE", 2: "BATTLE", 3: "GAME_OVER", 4: "THANKS"}
+SCENE_MAP = {0: "FIELD", 1: "TOWN", 2: "FOREST", 3: "MOUNTAIN_PASS", 4: "CASTLE"}
 MUSIC_TRACK_MAP = {0: "NONE", 1: "OVERWORLD", 2: "BATTLE"}
 BATTLE_TURN_MAP = {0: "PLAYER", 1: "ENEMY_DELAY", 2: "ENEMY", 3: "RESULT"}
 BATTLE_RESULT_MAP = {0: "NONE", 1: "VICTORY", 2: "DEFEAT"}
-MAP_NAME_MAP = {0: "FIELD", 1: "TOWN"}
+MAP_NAME_MAP = {0: "FIELD", 1: "TOWN", 2: "FOREST", 3: "MOUNTAIN_PASS", 4: "CASTLE"}
 STORY_FLAG_ID_MAP = {1: "ARRIVED_TOWN", 2: "MET_MAYOR"}
 ENTITY_ID_MAP = {0: "NONE", 1: "PLAYER", 2: "ENEMY", 3: "MAYOR", 4: "GUARD"}
 DIALOGUE_ID_MAP = {0: "NONE", 1: "MAYOR_GREETING", 2: "GUARD_GREETING"}
@@ -26,7 +28,8 @@ EVENT_TYPE_MAP = {
     9: "BATTLE_LOST", 10: "GAME_STATE_CHANGED", 11: "MUSIC_CHANGED",
     12: "MAP_CHANGED", 13: "STORY_FLAG_SET", 14: "STORY_FLAG_CLEARED",
     15: "DIALOGUE_STARTED", 16: "DIALOGUE_NEXT", 17: "DIALOGUE_ENDED",
-    18: "INTERACTION_ATTEMPT", 19: "RENDER_SCREEN", 20: "RENDER_DIALOGUE"
+    18: "INTERACTION_ATTEMPT", 19: "RENDER_SCREEN", 20: "RENDER_DIALOGUE",
+    21: "SCREEN_CHANGED", 22: "SCENE_CHANGED"
 }
 DIRECTION_MAP = {0: "UP", 1: "DOWN", 2: "LEFT", 3: "RIGHT"}
 
@@ -40,7 +43,10 @@ SCENARIO_IDS = {
     "TOWN_DEPARTURE": 4, "TOWN_REENTRY": 5, "MAYOR_ENCOUNTER": 6,
     "MAYOR_DIALOGUE": 7, "MAYOR_DIALOGUE_MOVEMENT_BLOCKED": 8,
     "GUARD_DIALOGUE": 9, "FONT_TEST": 10, "DIALOGUE_RENDER_TEST": 11,
-    "BATTLE_ATTACK": 12, "GUARD_INTERACTION_DISTANCE": 13, "GAME_OVER": 14
+    "BATTLE_ATTACK": 12, "GUARD_INTERACTION_DISTANCE": 13, "GAME_OVER": 14,
+    "OVERWORLD_BOOT": 15, "DIALOGUE_BOOT": 16, "BATTLE_BOOT": 17,
+    "GAME_OVER_BOOT": 18, "THANKS_BOOT": 19, "FOREST_BOOT": 20,
+    "MOUNTAIN_PASS_BOOT": 21, "CASTLE_BOOT": 22, "TOWN_BOOT": 23
 }
 
 def decode_story_flags(flags_mask):
@@ -161,7 +167,8 @@ class EmulatorSession:
         fcntl.fcntl(self.master, fcntl.F_SETFL, flags | os.O_NONBLOCK)
 
         cmd = ['xvfb-run', '--auto-servernum', 'mgba', '-d', self.rom_path]
-        self.proc = subprocess.Popen(cmd, stdin=slave, stdout=slave, stderr=slave, close_fds=True)
+        self.proc = subprocess.Popen(cmd, stdin=slave, stdout=slave, stderr=slave,
+                                     close_fds=True, start_new_session=True)
         os.close(slave)
 
         time.sleep(2.0)
@@ -211,7 +218,7 @@ class EmulatorSession:
 
         # Advance to next game_render (from main loop, after game_init returns)
         self._send('next')
-        time.sleep(0.05)
+        time.sleep(0.005)
         self._drain()
         self._send('c')
         out = self._read_until(timeout=10.0)
@@ -226,7 +233,19 @@ class EmulatorSession:
     def disconnect(self):
         if self.proc:
             try:
-                self.proc.kill()
+                os.killpg(self.proc.pid, signal.SIGTERM)
+            except Exception:
+                pass
+            try:
+                self.proc.wait(timeout=1)
+            except Exception:
+                pass
+            if self.proc.poll() is None:
+                try:
+                    os.killpg(self.proc.pid, signal.SIGKILL)
+                except Exception:
+                    pass
+            try:
                 self.proc.wait(timeout=1)
             except Exception:
                 pass
@@ -244,7 +263,7 @@ class EmulatorSession:
         """Advance N frames using breakpoint at _game_render."""
         for _ in range(frames):
             self._send('next')
-            time.sleep(0.05)
+            time.sleep(0.005)
             self._drain()
             self._send('c')
             out = self._read_until(timeout=10.0)
@@ -263,7 +282,7 @@ class EmulatorSession:
         mask = BUTTON_MASKS[btn_upper]
         addr = self.get_symbol("g_inp_mask")
         self._memwrite(addr, mask)
-        time.sleep(0.05)
+        time.sleep(0.005)
         self.step(1)
 
     # ── Scenario loading ────────────────────────────────────────────
@@ -274,16 +293,16 @@ class EmulatorSession:
         sid = SCENARIO_IDS[scenario_id_str]
         addr = self.get_symbol("g_scen_load")
         self._memwrite(addr, sid)
-        time.sleep(0.05)
+        time.sleep(0.005)
         self.step(2)
 
     # ── State inspection ────────────────────────────────────────────
 
     def snapshot(self):
-        """Read 18-byte snapshot from g_snap_buf."""
+        """Read 20-byte snapshot from g_snap_buf."""
         addr = self.get_symbol("g_snap_buf")
         snap_bytes = []
-        for i in range(18):
+        for i in range(20):
             b = self._memread(addr + i)
             if b is not None:
                 snap_bytes.append(b)
@@ -291,6 +310,10 @@ class EmulatorSession:
         if len(snap_bytes) >= 13:
             parsed = {
                 "game_state": GAME_STATE_MAP.get(snap_bytes[0], f"UNKNOWN_{snap_bytes[0]}"),
+                "screen": SCREEN_MAP.get(snap_bytes[18], f"UNKNOWN_{snap_bytes[18]}") if len(snap_bytes) >= 19 else "UNKNOWN",
+                "screen_id": snap_bytes[18] if len(snap_bytes) >= 19 else None,
+                "scene": SCENE_MAP.get(snap_bytes[19], f"UNKNOWN_{snap_bytes[19]}") if len(snap_bytes) >= 20 else "UNKNOWN",
+                "scene_id": snap_bytes[19] if len(snap_bytes) >= 20 else None,
                 "player_x": snap_bytes[1],
                 "player_y": snap_bytes[2],
                 "player_hp": snap_bytes[3],
@@ -356,17 +379,20 @@ class EmulatorSession:
         head_addr = self.get_symbol("g_telemetry_head")
         buf_addr = self.get_symbol("g_telemetry_buffer")
 
-        count_lo = self._memread(count_addr) or 0
-        count_hi = self._memread(count_addr + 1) or 0
-        count = count_lo | (count_hi << 8)
+        count_lo = self._memread(count_addr)
+        if count_lo is None:
+            count_lo = 0
+        count = count_lo
 
-        head = self._memread(head_addr) or 0
+        head = self._memread(head_addr)
+        if head is None:
+            head = 0
 
         num_slots = TELEMETRY_CAPACITY if count >= TELEMETRY_CAPACITY else count
         oldest_slot = head if count >= TELEMETRY_CAPACITY else 0
 
         all_events = []
-        for i in range(count):
+        for i in range(num_slots):
             slot = (oldest_slot + i) % TELEMETRY_CAPACITY
             off = slot * TELEMETRY_EVENT_SIZE
             b = []

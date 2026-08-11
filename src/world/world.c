@@ -42,6 +42,40 @@ void world_load_map(World *w, MapId map_id)
         }
         /* Deactivate wild enemy in Town */
         w->enemy.active = false;
+    } else if (map_id == MAP_FOREST) {
+        /* Forest: open floor with scattered tree clusters. */
+        static const uint8_t trees[][2] = {{4,2},{5,2},{4,3},{10,6},{11,6},{9,7},
+                                           {14,2},{15,2},{3,8},{8,9},{13,9}};
+        uint8_t i;
+        for (i = 0; i < sizeof(trees)/sizeof(trees[0]); i++) {
+            w->map[trees[i][1]][trees[i][0]] = TILE_WALL;
+        }
+        entity_init(&w->enemy, ENTITY_ENEMY, "forest_slime", 12, 5, 6, 6);
+        w->enemy.active = true;
+    } else if (map_id == MAP_MOUNTAIN_PASS) {
+        /* Narrow winding pass with rock walls on both sides. */
+        for (y = 0; y < WORLD_HEIGHT; y++) {
+            for (x = 0; x < WORLD_WIDTH; x++) {
+                if (x <= 3 || x >= 16) {
+                    w->map[y][x] = TILE_WALL;
+                } else if (y % 4 == 2 && (x == 9 || x == 10)) {
+                    w->map[y][x] = TILE_WALL;  /* pinch point */
+                }
+            }
+        }
+        entity_init(&w->enemy, ENTITY_ENEMY, "rock_golem", 14, 7, 8, 8);
+        w->enemy.active = true;
+    } else if (map_id == MAP_CASTLE) {
+        /* Castle interior: buildings flanking a central hall. */
+        for (y = 3; y <= 8; y++) {
+            for (x = 3; x <= 6; x++) {
+                w->map[y][x] = TILE_BUILDING;
+            }
+            for (x = 13; x <= 16; x++) {
+                w->map[y][x] = TILE_BUILDING;
+            }
+        }
+        w->enemy.active = false;
     }
 }
 

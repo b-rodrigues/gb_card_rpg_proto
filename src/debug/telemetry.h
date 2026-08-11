@@ -27,7 +27,9 @@ typedef enum {
     EVENT_DIALOGUE_ENDED,
     EVENT_INTERACTION_ATTEMPT,
     EVENT_RENDER_SCREEN,
-    EVENT_RENDER_DIALOGUE
+    EVENT_RENDER_DIALOGUE,
+    EVENT_SCREEN_CHANGED,
+    EVENT_SCENE_CHANGED
 } GameEventType;
 
 typedef struct {
@@ -37,7 +39,7 @@ typedef struct {
     uint8_t data[4];
 } GameEvent;
 
-extern uint8_t g_snap_buf[18];
+extern uint8_t g_snap_buf[20];
 extern GameEvent g_telemetry_buffer[MAX_TELEMETRY_EVENTS];
 extern uint8_t g_telemetry_count;
 extern uint8_t g_telemetry_head;

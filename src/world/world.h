@@ -16,8 +16,11 @@ typedef enum {
 } WorldMoveResult;
 
 typedef enum {
-    MAP_FIELD = 0,
-    MAP_TOWN  = 1
+    MAP_FIELD         = 0,
+    MAP_TOWN          = 1,
+    MAP_FOREST        = 2,
+    MAP_MOUNTAIN_PASS = 3,
+    MAP_CASTLE        = 4
 } MapId;
 
 typedef enum {

@@ -1,0 +1,57 @@
+{
+  "name": "potion_hud_refresh",
+  "test": true,
+  "description": "Using a POTION updates the overworld HUD immediately: closing the menu shows the healed hero HP without a battle round-trip",
+  "scenario_id": "NEW_GAME",
+  "actions": [
+    {
+      "type": "use_item"
+    },
+    {
+      "type": "press",
+      "button": "B"
+    },
+    {
+      "type": "wait",
+      "frames": 5
+    }
+  ],
+  "assertions": [
+    {
+      "type": "screen",
+      "expected": "OVERWORLD"
+    },
+    {
+      "type": "player_hp",
+      "expected": 10
+    },
+    {
+      "type": "party_hp",
+      "member": 0,
+      "expected": 10
+    },
+    {
+      "type": "inventory",
+      "item": "POTION",
+      "expected": 0
+    }
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 4,
+      "y": 4,
+      "facing": "DOWN"
+    },
+    "seed": 8602,
+    "party": {
+      "HERO": {
+        "hp": 5,
+        "max_hp": 10
+      }
+    },
+    "inventory": {
+      "POTION": 1
+    }
+  }
+}

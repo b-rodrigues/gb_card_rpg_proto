@@ -114,6 +114,10 @@ void game_update(Game *g)
 
     screen_update(g);
     scene_sync_from_world(g);
+    /* The world player entity mirrors the canonical party HP so the
+     * overworld HUD and the core snapshot reflect healing immediately. */
+    g->world.player.hp = g->state.party.members[0].hp;
+    g->world.player.max_hp = g->state.party.members[0].max_hp;
 
 #ifdef DEBUG_BUILD
     debug_snapshot();

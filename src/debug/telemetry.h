@@ -128,7 +128,8 @@ typedef enum {
     EVENT_CURRENCY_SPENT,
     EVENT_PROGRESSION_GAINED,
     EVENT_LEVEL_UP,
-    EVENT_ITEM_EQUIPPED
+    EVENT_ITEM_EQUIPPED,
+    EVENT_BATTLE_FLED
 } GameEventType;
 
 typedef struct {

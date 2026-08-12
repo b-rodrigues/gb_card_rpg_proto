@@ -10,8 +10,7 @@ void battle_screen_update(Game *g)
 
     if (g->battle.battle_over) {
         if (input_pressed(INPUT_A) || input_pressed(INPUT_START)) {
-            bool victory = (g->battle.result == BATTLE_RESULT_VICTORY);
-            if (victory) {
+            if (g->battle.result == BATTLE_RESULT_VICTORY) {
                 g->world.player.hp = g->battle.player.hp;
                 g->state.party.members[0].hp = g->battle.player.hp;
                 world_on_battle_end(g, true);
@@ -22,6 +21,14 @@ void battle_screen_update(Game *g)
                 } else {
                     screen_change(g, SCREEN_OVERWORLD);
                 }
+            } else if (g->battle.result == BATTLE_RESULT_FLED) {
+                /* Ran away: keep the damage taken, enemy stays on the map. */
+                g->world.player.hp = g->battle.player.hp;
+                g->state.party.members[0].hp = g->battle.player.hp;
+                world_on_battle_fled(g);
+                audio_play_music(MUSIC_OVERWORLD);
+                telemetry_emit(EVENT_MUSIC_CHANGED, MUSIC_OVERWORLD, 0, 0, 0);
+                screen_change(g, SCREEN_OVERWORLD);
             } else {
                 world_on_battle_end(g, false);
                 g->game_over_choice = 0;

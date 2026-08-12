@@ -19,7 +19,8 @@ typedef enum {
 typedef enum {
     BATTLE_RESULT_NONE,
     BATTLE_RESULT_VICTORY,
-    BATTLE_RESULT_DEFEAT
+    BATTLE_RESULT_DEFEAT,
+    BATTLE_RESULT_FLED
 } BattleResult;
 
 typedef struct {

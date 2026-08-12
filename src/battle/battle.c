@@ -40,10 +40,10 @@ void battle_execute_action(Battle *b, BattleAction action)
         }
     } else if (action == BATTLE_ACTION_RUN) {
         telemetry_emit(EVENT_BATTLE_ACTION, BATTLE_ACTION_RUN, 0, 0, 0);
-        b->result = BATTLE_RESULT_VICTORY;
+        b->result = BATTLE_RESULT_FLED;
         b->turn = BATTLE_TURN_RESULT;
         b->battle_over = true;
-        telemetry_emit(EVENT_BATTLE_WON, 0, 0, 0, 0);
+        telemetry_emit(EVENT_BATTLE_FLED, 0, 0, 0, 0);
     }
 }
 

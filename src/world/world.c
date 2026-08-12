@@ -149,6 +149,23 @@ void world_on_battle_end(Game *g, bool victory)
     }
 }
 
+void world_on_battle_fled(Game *g)
+{
+    World *w;
+    uint8_t idx;
+    if (!g) return;
+    w = &g->world;
+
+    idx = w->encounter_actor_index;
+    w->encounter_actor_index = NO_ACTOR_INDEX;
+    if (idx == NO_ACTOR_INDEX) return;
+
+    /* The enemy stays on the map with the HP it had when the hero fled. */
+    if (w->actors[idx].active) {
+        w->actors[idx].hp = g->battle.enemy.hp;
+    }
+}
+
 void world_set_player_pos(World *w, uint8_t x, uint8_t y)
 {
     if (!w) return;

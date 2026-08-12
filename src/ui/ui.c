@@ -286,6 +286,8 @@ void ui_update_battle(const Battle *battle)
         ui_draw_text_line(0, 15, " VICTORY! PRESS [A]", 20);
     } else if (battle->result == BATTLE_RESULT_DEFEAT) {
         ui_draw_text_line(0, 15, " DEFEATED! PRESS [A]", 20);
+    } else if (battle->result == BATTLE_RESULT_FLED) {
+        ui_draw_text_line(0, 15, " FLED! PRESS [A]", 20);
     } else if (battle->turn == BATTLE_TURN_PLAYER) {
         ui_draw_text_line(0, 15, " [A] ATTACK  [B] RUN", 20);
     } else {

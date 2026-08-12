@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Real scenario test runner and assertion evaluator for Game Boy RPG development harness.
-Connects to SameBoy emulator via EmulatorSession, executes input sequences,
+Connects to the mGBA debugger via EmulatorSession, executes input sequences,
 captures full 16-byte snapshots and telemetry event streams, evaluates assertions,
 and prints structured PASS/FAIL diagnostic reports per dev-harness.md specification.
 """
@@ -142,7 +142,7 @@ def load_scenarios(scenarios_dir="tools/scenarios"):
 
 def run_scenario(scenario):
     """
-    Execute a single scenario definition against SameBoy emulator.
+    Execute a single scenario definition against the mGBA debugger.
     Returns dict formatted per dev-harness.md specification.
     Guarantees emulator session disconnect on exception.
     """
@@ -740,7 +740,7 @@ def run_all(scenarios_dir="tools/scenarios", show_state=False):
         print("No test scenarios found in", scenarios_dir)
         return 0
 
-    print(f"Running {len(scenarios)} test scenario(s) in SameBoy...\n")
+    print(f"Running {len(scenarios)} test scenario(s) in mGBA...\n")
     passed = 0
     failed = 0
 

@@ -394,6 +394,28 @@ class EmulatorSession:
 
     # ── Connection management ───────────────────────────────────────
 
+    def _wait_for_prompt(self, timeout=30.0):
+        """Wait until the mGBA debugger prompt is ready.
+
+        Returns True once the prompt marker (``> ``) is observed, False on
+        timeout.  CI runners can be slow to start xvfb + mGBA; sending
+        debugger commands before the prompt is up silently drops them (the
+        harness-mode write, set_pc, and break are all lost), which makes
+        connect() fail unrecoverably.
+        """
+        deadline = time.time() + timeout
+        buf = b''
+        while time.time() < deadline:
+            try:
+                data = os.read(self.master, 4096)
+                if data:
+                    buf += data
+                    if b'> ' in buf:
+                        return True
+            except (BlockingIOError, OSError):
+                time.sleep(0.05)
+        return False
+
     def connect(self):
         if not os.path.exists(self.rom_path):
             raise FileNotFoundError(f"ROM not found: {self.rom_path}")
@@ -410,9 +432,11 @@ class EmulatorSession:
                                      close_fds=True, start_new_session=True)
         os.close(slave)
 
-        time.sleep(2.0)
+        # Readiness handshake: never send debugger commands until the prompt
+        # is observed (see _wait_for_prompt).  A fixed sleep races CI boot.
+        if not self._wait_for_prompt(timeout=30.0):
+            raise RuntimeError("connect: mGBA debugger prompt not seen")
         self._drain()
-        self._read_until(timeout=2.0)
 
         game_render_addr = self.get_symbol("game_render")
         main_addr = self.get_symbol("main")
@@ -427,14 +451,17 @@ class EmulatorSession:
         boot_phase_addr = self.get_symbol("g_boot_phase")
         boot_phase = self._memread(boot_phase_addr)
 
-        # Set frame-sync breakpoint and run to first frame.
-        # Retry: if the breakpoint fired but its output raced with a drain,
-        # re-sync PC to main and try again.
-        self._cmd(f'break 0x{game_render_addr:04X}')
+        # Set frame-sync breakpoint and run to first frame.  The breakpoint
+        # is re-issued on every attempt: if the first `break` raced anything
+        # it may have been dropped, and `c` without a registered breakpoint
+        # can never hit it.
         hit = False
+        last_out = b''
         for _ in range(8):
+            self._cmd(f'break 0x{game_render_addr:04X}')
             self._send('c')
             out = self._read_until(timeout=10.0)
+            last_out = out
             if b'Hit breakpoint' in out:
                 hit = True
                 break
@@ -443,7 +470,10 @@ class EmulatorSession:
             self._set_pc(main_addr)
             time.sleep(0.1)
         if not hit:
-            raise RuntimeError("connect: game_render breakpoint not hit")
+            tail = last_out.decode(errors='replace')[-200:] if last_out else "(no output)"
+            raise RuntimeError(
+                f"connect: game_render breakpoint not hit (debugger output tail: {tail!r})"
+            )
 
         # First breakpoint may fire inside game_init() inner game_render().
         # Advance one frame to reach the main-loop game_render().

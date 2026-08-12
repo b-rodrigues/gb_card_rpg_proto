@@ -219,19 +219,46 @@ Do not accidentally introduce desktop-only assumptions into gameplay code.
 
 # 4. Project Structure
 
-The project is organized by gameplay responsibility.
+The project is organized by gameplay responsibility.  The engine
+(`core/`, `rpg/`, `world/`, `battle/`, `ui/`, `screens/`, `input/`, `audio/`,
+`debug/`) is generic and owns no game content; the game layer (`game/`) owns
+everything that makes THIS RPG (content tables, named ids, initial state,
+stat hooks, per-shop stock).
 
 ```text
 src/
 ├── main.c
+├── crt0.s
+│
+├── game/                        ← game layer: content, registered with the engine
+│   ├── game_ids.h               ← named story-flag/variable/currency semantics
+│   ├── content.c                ← game_new_game, victory hook, stat hooks
+│   ├── events.c                 ← scripted-event table (quests)
+│   ├── dialogue.c               ← dialogue table
+│   ├── actors.c                 ← per-map actor definitions
+│   ├── items.c                  ← item catalog
+│   └── shops.c                  ← per-shop stock lists
 │
 ├── core/
-│   ├── game.c
-│   └── state.c
+│   ├── game.c                   ← Game struct + boot/update glue
+│   ├── event.c                  ← generic event engine (registered table)
+│   ├── dialogue.c               ← generic dialogue player (registered table)
+│   └── story.c                  ← generic flag helpers
+│
+├── rpg/
+│   ├── state.c                  ← generic GameState storage
+│   ├── items.c                  ← generic item mechanics
+│   ├── inventory.c
+│   ├── currency.c
+│   ├── party.c
+│   └── progression.c            ← generic progression engine
 │
 ├── world/
 │   ├── world.c
-│   └── entity.c
+│   ├── scene.c
+│   ├── entity.c
+│   ├── actor.c                  ← generic actor engine (registered tables)
+│   └── interaction.c
 │
 ├── battle/
 │   ├── battle.c
@@ -244,7 +271,19 @@ src/
 │   └── audio.c
 │
 ├── ui/
-│   └── ui.c
+│   ├── ui.c
+│   └── menu.c                   ← shared MenuFrame menu layout
+│
+├── screens/
+│   ├── screen.c
+│   ├── overworld_screen.c
+│   ├── battle_screen.c
+│   ├── dialogue_screen.c
+│   ├── item_screen.c
+│   ├── shop_screen.c
+│   ├── game_over_screen.c
+│   ├── ending_screen.c
+│   └── thanks_screen.c
 │
 └── debug/
     ├── telemetry.c
@@ -263,7 +302,8 @@ build/
 └── generated artifacts
 ```
 
-The exact file structure may evolve, but responsibilities must remain separated.
+The exact file structure may evolve, but responsibilities must remain separated
+and game content must stay in the game layer, never embedded in engine files.
 
 ---
 

@@ -1,8 +1,8 @@
-# Graphics (deferred milestone — spec)
+# Graphics (pipeline, first slice implemented)
 
-The current prototype renders with the console font (ASCII).  This document
-specifies the planned graphics pipeline so the work is pre-scoped.  It is a
-design spec, not yet implemented.
+The current prototype renders with the console font (ASCII); the player is a
+real OAM sprite (see the `sprites` branch work).  This document specifies the
+planned graphics pipeline.
 
 ## Goal
 
@@ -25,6 +25,22 @@ ROM (banked const tables)
 
 `tools/png2gb.py` must produce actionable errors (which asset, which rule
 violated) rather than silently emitting broken graphics.
+
+## Status
+
+Implemented:
+
+* `tools/png2gb.py` — PNG → GB 2bpp tileset (tile-alignment, palette-limit,
+  unsupported-color validation; exact canonical-shade matching, no lossy
+  snapping).  Single-image → tileset only; tilemap/OAM/dedup are TODO.
+* `make gfx` — regenerates `src/gfx/*.h` from `assets/*.png`
+  (deterministic output; a CI step fails if the committed headers drift from
+  the source assets).
+* `assets/player_demo.png` → `src/gfx/player_sprite_tile.h`, included by
+  `src/ui/ui.c` (byte-identical to the previously hand-authored tile).
+
+TODO: tilemaps, OAM sprite definitions, duplicate-tile dedup, and the
+renderer rewiring below.
 
 ## Renderer requirements (DMG + CGB)
 

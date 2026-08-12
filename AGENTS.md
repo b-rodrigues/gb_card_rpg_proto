@@ -2111,9 +2111,10 @@ reset on exit.  A screen must never become the home of gameplay state
 (quest progress, HP, etc.).
 
 The quick screen (`SCREEN_ITEM`) is a tabbed menu: ITEM (use consumables),
-EQUIP (equip weapons), STATUS (display).  START opens it in the overworld;
-SELECT in the overworld does nothing; SELECT in battle opens it on the ITEM
-tab.  SELECT inside focuses the tab row, LEFT/RIGHT moves tabs, A confirms.
+EQUIP (equip weapons), QUEST (ongoing quests), STATUS (hero HP/gold/level).
+START is the universal open key (overworld and battle player-turn); SELECT
+in the overworld does nothing.  Inside, SELECT focuses the tab row,
+LEFT/RIGHT moves tabs, A confirms, B closes.
 
 ## 54.3 Actor lifecycle
 

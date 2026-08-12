@@ -8,7 +8,7 @@
     {
       "type": "variable",
       "expected": 3,
-      "variable": "SLIMES_DEFEATED"
+      "variable": "MONSTERS_DEFEATED"
     },
     {
       "type": "variable",
@@ -25,7 +25,7 @@
     },
     "seed": 7002,
     "variables": {
-      "SLIMES_DEFEATED": 3
+      "MONSTERS_DEFEATED": 3
     }
   }
 }

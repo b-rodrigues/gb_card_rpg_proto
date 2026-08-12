@@ -8,77 +8,116 @@
 
 #define MENU_TAB_ITEM   0
 #define MENU_TAB_EQUIP  1
-#define MENU_TAB_STATUS 2
-#define MENU_TAB_COUNT  3
+#define MENU_TAB_QUEST  2
+#define MENU_TAB_STATUS 3
+#define MENU_TAB_COUNT  4
+
+static const char *g_tab_labels[MENU_TAB_COUNT] = {"ITEM", "EQUIP", "QUEST", "STAT"};
+static const uint8_t g_tab_x[MENU_TAB_COUNT] = {0, 5, 10, 16};
+
+static void menu_draw_status(Game *g, char *buf)
+{
+    const CharacterState *hero = &g->state.party.members[0];
+    ProgressionTarget t;
+    ProgressionState *ps;
+    int16_t gold = currency_get(&g->state, CURRENCY_ID_GOLD);
+
+    t.type = PROG_TYPE_HERO;
+    t.id = 1;
+    ps = progression_get(&g->state, t);
+
+    ui_draw_text_line(0, 4, "HERO", 20);
+    ui_draw_text_line(0, 5, "HP:", 3);
+    ui_format_int((int16_t)hero->hp, buf);
+    ui_draw_text_line(4, 5, buf, 4);
+    ui_draw_text_line(8, 5, "/", 1);
+    ui_format_int((int16_t)hero->max_hp, buf);
+    ui_draw_text_line(9, 5, buf, 4);
+
+    ui_draw_text_line(0, 6, "GOLD:", 6);
+    ui_format_int(gold, buf);
+    ui_draw_text_line(6, 6, buf, 12);
+
+    ui_draw_text_line(0, 8, "LEVEL:", 6);
+    ui_format_int((int16_t)(ps ? ps->level : 1), buf);
+    ui_draw_text_line(6, 8, buf, 4);
+
+    ui_draw_text_line(0, 9, "PROGRESS:", 9);
+    ui_format_int((int16_t)(ps ? ps->progress : 0), buf);
+    ui_draw_text_line(10, 9, buf, 6);
+
+    ui_draw_text_line(0, 10, "WEAPON:", 7);
+    if (g->state.equipment.weapon != ITEM_NONE) {
+        const ItemDefinition *wd = item_get_def(g->state.equipment.weapon);
+        ui_draw_text_line(8, 10, wd ? wd->name : "?", 8);
+    } else {
+        ui_draw_text_line(8, 10, "NONE", 8);
+    }
+}
+
+static void menu_draw_quest(Game *g, char *buf)
+{
+    int16_t quest = game_variable_get(&g->state, VARIABLE_ID_QUEST_MONSTER_HUNT);
+    int16_t slain = game_variable_get(&g->state, VARIABLE_ID_MONSTERS_DEFEATED);
+
+    ui_draw_text_line(0, 4, "QUESTS", 20);
+    ui_draw_text_line(0, 6, "MONSTER HUNT", 20);
+    if (quest == 1) {
+        ui_draw_text_line(0, 7, "monsters: ", 10);
+        ui_format_int(slain, buf);
+        ui_draw_text_line(10, 7, buf, 1);
+        ui_draw_text_line(11, 7, "/3", 2);
+    } else if (quest == 2) {
+        ui_draw_text_line(0, 7, "complete - SWORD", 20);
+    } else {
+        ui_draw_text_line(0, 7, "not started", 20);
+    }
+}
 
 static void menu_draw(Game *g)
 {
-    const CharacterState *hero = &g->state.party.members[0];
     const InventoryState *inv = &g->state.inventory;
-    int16_t gold = currency_get(&g->state, CURRENCY_ID_GOLD);
     char buf[7];
     uint8_t i;
+    uint8_t t;
 
     ui_clear_screen();
 
-    /* Header: always-visible hero state. */
-    ui_draw_text_line(0, 1, "HP:", 3);
-    ui_format_int((int16_t)hero->hp, buf);
-    ui_draw_text_line(4, 1, buf, 4);
-    ui_draw_text_line(8, 1, "/", 1);
-    ui_format_int((int16_t)hero->max_hp, buf);
-    ui_draw_text_line(9, 1, buf, 4);
-    ui_draw_text_line(15, 1, "G:", 2);
-    ui_format_int(gold, buf);
-    ui_draw_text_line(17, 1, buf, 3);
-
-    /* Tab row. */
-    ui_draw_text_line(0, 3, (g->item_menu_tab == MENU_TAB_ITEM) ? ">ITEM" : " ITEM", 6);
-    ui_draw_text_line(7, 3, (g->item_menu_tab == MENU_TAB_EQUIP) ? ">EQUIP" : " EQUIP", 7);
-    ui_draw_text_line(16, 3, (g->item_menu_tab == MENU_TAB_STATUS) ? ">STATUS" : " STATUS", 8);
-    ui_draw_text_line(0, 4, "--------------------", 20);
+    /* Tab row (top).  HP/gold live in the STATUS tab only. */
+    for (t = 0; t < MENU_TAB_COUNT; t++) {
+        ui_draw_text_line(g_tab_x[t], 1, (g->item_menu_tab == t) ? ">" : " ", 1);
+        ui_draw_text_line((uint8_t)(g_tab_x[t] + 1), 1, g_tab_labels[t], 5);
+    }
+    ui_draw_text_line(0, 2, "--------------------", 20);
 
     if (g->item_menu_tab == MENU_TAB_STATUS) {
-        ProgressionTarget t;
-        ProgressionState *ps;
-        t.type = PROG_TYPE_HERO;
-        t.id = 1;
-        ps = progression_get(&g->state, t);
-        ui_draw_text_line(0, 6, "HERO", 20);
-        ui_draw_text_line(0, 8, "LEVEL:", 6);
-        ui_format_int((int16_t)(ps ? ps->level : 1), buf);
-        ui_draw_text_line(6, 8, buf, 4);
-        ui_draw_text_line(0, 9, "PROGRESS:", 9);
-        ui_format_int((int16_t)(ps ? ps->progress : 0), buf);
-        ui_draw_text_line(10, 9, buf, 6);
-        ui_draw_text_line(0, 10, "WEAPON:", 7);
-        if (g->state.equipment.weapon != ITEM_NONE) {
-            const ItemDefinition *wd = item_get_def(g->state.equipment.weapon);
-            ui_draw_text_line(8, 10, wd ? wd->name : "?", 8);
-        } else {
-            ui_draw_text_line(8, 10, "NONE", 8);
-        }
-        ui_draw_text_line(0, 16, "[SELECT] TABS  [B] CLOSE", 20);
+        menu_draw_status(g, buf);
+        ui_draw_text_line(0, 16, "[B] CLOSE", 20);
+        return;
+    }
+    if (g->item_menu_tab == MENU_TAB_QUEST) {
+        menu_draw_quest(g, buf);
+        ui_draw_text_line(0, 16, "[B] CLOSE", 20);
         return;
     }
 
     if (inv->count == 0) {
-        ui_draw_text_line(0, 6, "(no items)", 20);
+        ui_draw_text_line(0, 4, "(no items)", 20);
     }
     for (i = 0; i < inv->count && i < MAX_INVENTORY_ITEMS; i++) {
         const ItemDefinition *def = item_get_def(inv->entries[i].item_id);
         const char *name = def ? def->name : "???";
         bool equipped = (g->state.equipment.weapon == inv->entries[i].item_id);
-        ui_draw_text_line(0, (uint8_t)(6 + i), (g->item_menu_index == i) ? ">" : " ", 1);
-        ui_draw_text_line(1, (uint8_t)(6 + i), name, 8);
+        ui_draw_text_line(0, (uint8_t)(4 + i), (g->item_menu_index == i) ? ">" : " ", 1);
+        ui_draw_text_line(1, (uint8_t)(4 + i), name, 8);
         if (def && def->kind == ITEM_KIND_CONSUMABLE) {
             ui_format_int((int16_t)inv->entries[i].quantity, buf);
-            ui_draw_text_line(10, (uint8_t)(6 + i), "x", 1);
-            ui_draw_text_line(11, (uint8_t)(6 + i), buf, 4);
+            ui_draw_text_line(10, (uint8_t)(4 + i), "x", 1);
+            ui_draw_text_line(11, (uint8_t)(4 + i), buf, 4);
         } else if (equipped) {
-            ui_draw_text_line(10, (uint8_t)(6 + i), "EQUIPPED", 8);
+            ui_draw_text_line(10, (uint8_t)(4 + i), "EQUIPPED", 8);
         } else {
-            ui_draw_text_line(10, (uint8_t)(6 + i), "EQUIP", 5);
+            ui_draw_text_line(10, (uint8_t)(4 + i), "EQUIP", 5);
         }
     }
 
@@ -105,7 +144,7 @@ void item_screen_update(Game *g)
             if ((uint8_t)(g->item_menu_tab + 1) < MENU_TAB_COUNT) g->item_menu_tab++;
             g->render_cache.valid = false;
         }
-        if (input_pressed(INPUT_A) || input_pressed(INPUT_START)) {
+        if (input_pressed(INPUT_A)) {
             g->item_menu_tab_focus = 0;
             g->item_menu_index = 0;
             g->render_cache.valid = false;
@@ -123,8 +162,8 @@ void item_screen_update(Game *g)
         return;
     }
 
-    if (g->item_menu_tab == MENU_TAB_STATUS) {
-        if (input_pressed(INPUT_B) || input_pressed(INPUT_START)) {
+    if (g->item_menu_tab == MENU_TAB_STATUS || g->item_menu_tab == MENU_TAB_QUEST) {
+        if (input_pressed(INPUT_B)) {
             g->item_menu_index = 0;
             g->item_menu_tab = MENU_TAB_ITEM;
             screen_change(g, g->prev_screen);
@@ -165,7 +204,7 @@ void item_screen_update(Game *g)
         }
     }
 
-    if (input_pressed(INPUT_B) || input_pressed(INPUT_START)) {
+    if (input_pressed(INPUT_B)) {
         g->item_menu_index = 0;
         g->item_menu_tab = MENU_TAB_ITEM;
         screen_change(g, g->prev_screen);

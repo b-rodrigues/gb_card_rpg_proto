@@ -14,14 +14,14 @@
  *
  * Mayor quest (MONSTER HUNT), expressed as data, not game code:
  *   QUEST_START    : first meeting (quest NOT_STARTED) starts the quest:
- *                    MAYOR_INTRO dialogue, MET_MAYOR, quest=ACTIVE,
- *                    MONSTERS_REMAINING=3.
- *   QUEST_ACTIVE   : quest ACTIVE and monsters remain -> "still working".
- *   QUEST_COMPLETE : quest ACTIVE and MONSTERS_REMAINING==0 -> reward
+ *                    MAYOR_INTRO dialogue, MET_MAYOR, quest=ACTIVE.
+ *   QUEST_COMPLETE : quest ACTIVE and >= 3 monsters defeated -> reward
  *                    dialogue, give SWORD, quest=COMPLETE (given once).
+ *   QUEST_ACTIVE   : quest ACTIVE (fewer than 3 defeated) -> "still working".
  *   QUEST_DONE     : quest COMPLETE -> already-rewarded dialogue.
- *   MONSTER_DEFEATED : any hostile defeat while quest ACTIVE decrements
- *                    MONSTERS_REMAINING.
+ *   MONSTER_DEFEATED : every hostile defeat increments the global
+ *                    MONSTERS_DEFEATED counter (no quest gating), so kills
+ *                    before the quest starts still count.
  */
 static const EventDefinition g_event_defs[] = {
     {
@@ -35,30 +35,19 @@ static const EventDefinition g_event_defs[] = {
         EVENT_ID_QUEST_START, EVENT_TRIGGER_INTERACT, ENTITY_ID_MAYOR, EVENT_MAP_ANY,
         1,
         {{ EVENT_COND_VARIABLE, VARIABLE_ID_QUEST_MONSTER_HUNT, 0, false, false }},
-        4,
+        3,
         {
             { EVENT_ACTION_DIALOGUE, DIALOGUE_ID_MAYOR_INTRO, 0, 0 },
             { EVENT_ACTION_SET_FLAG, STORY_FLAG_ID_MET_MAYOR, 0, 0 },
-            { EVENT_ACTION_SET_VARIABLE, VARIABLE_ID_QUEST_MONSTER_HUNT, 1, 0 },
-            { EVENT_ACTION_SET_VARIABLE, VARIABLE_ID_MONSTERS_REMAINING, 3, 0 }
+            { EVENT_ACTION_SET_VARIABLE, VARIABLE_ID_QUEST_MONSTER_HUNT, 1, 0 }
         }
-    },
-    {
-        EVENT_ID_QUEST_ACTIVE, EVENT_TRIGGER_INTERACT, ENTITY_ID_MAYOR, EVENT_MAP_ANY,
-        2,
-        {
-            { EVENT_COND_VARIABLE, VARIABLE_ID_QUEST_MONSTER_HUNT, 1, false, false },
-            { EVENT_COND_VARIABLE, VARIABLE_ID_MONSTERS_REMAINING, 1, false, true }
-        },
-        1,
-        {{ EVENT_ACTION_DIALOGUE, DIALOGUE_ID_QUEST_ACTIVE, 0, 0 }}
     },
     {
         EVENT_ID_QUEST_COMPLETE, EVENT_TRIGGER_INTERACT, ENTITY_ID_MAYOR, EVENT_MAP_ANY,
         2,
         {
             { EVENT_COND_VARIABLE, VARIABLE_ID_QUEST_MONSTER_HUNT, 1, false, false },
-            { EVENT_COND_VARIABLE, VARIABLE_ID_MONSTERS_REMAINING, 0, false, false }
+            { EVENT_COND_VARIABLE, VARIABLE_ID_MONSTERS_DEFEATED, 3, false, true }
         },
         3,
         {
@@ -66,6 +55,13 @@ static const EventDefinition g_event_defs[] = {
             { EVENT_ACTION_ADD_ITEM, ITEM_SWORD, 1, 0 },
             { EVENT_ACTION_SET_VARIABLE, VARIABLE_ID_QUEST_MONSTER_HUNT, 2, 0 }
         }
+    },
+    {
+        EVENT_ID_QUEST_ACTIVE, EVENT_TRIGGER_INTERACT, ENTITY_ID_MAYOR, EVENT_MAP_ANY,
+        1,
+        {{ EVENT_COND_VARIABLE, VARIABLE_ID_QUEST_MONSTER_HUNT, 1, false, false }},
+        1,
+        {{ EVENT_ACTION_DIALOGUE, DIALOGUE_ID_QUEST_ACTIVE, 0, 0 }}
     },
     {
         EVENT_ID_QUEST_DONE, EVENT_TRIGGER_INTERACT, ENTITY_ID_MAYOR, EVENT_MAP_ANY,
@@ -76,10 +72,10 @@ static const EventDefinition g_event_defs[] = {
     },
     {
         EVENT_ID_MONSTER_DEFEATED, EVENT_TRIGGER_ACTOR_DEFEATED, ENTITY_ID_NONE, EVENT_MAP_ANY,
+        0,
+        {{ EVENT_COND_NONE, 0, 0, false, false }},
         1,
-        {{ EVENT_COND_VARIABLE, VARIABLE_ID_QUEST_MONSTER_HUNT, 1, false, false }},
-        1,
-        {{ EVENT_ACTION_ADD_VARIABLE, VARIABLE_ID_MONSTERS_REMAINING, -1, 0 }}
+        {{ EVENT_ACTION_ADD_VARIABLE, VARIABLE_ID_MONSTERS_DEFEATED, 1, 0 }}
     },
     {
         EVENT_ID_GUARD_AFTER_MAYOR, EVENT_TRIGGER_INTERACT, ENTITY_ID_GUARD, EVENT_MAP_ANY,
@@ -205,7 +201,10 @@ void event_resolve_actor_defeated(Game *g, ActorId actor_id)
     bool dialogue_started = false;
     const EventDefinition *def;
 
-    if (!g || actor_id == 0) return;
+    /* Runs for every hostile defeat, including non-persistent training
+     * actors (actor_id 0), so their kills count toward quest progress. */
+    if (!g) return;
+    (void)actor_id;
 
     for (i = 0; i < NUM_EVENT_DEFS; i++) {
         def = &g_event_defs[i];

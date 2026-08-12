@@ -172,12 +172,10 @@ def run_scenario(scenario):
                 session.press("A")
                 session.wait(act.get("frames", 5))
             elif act_type == "use_item":
-                # Open the quick screen (START in the overworld, SELECT in
-                # battle) and use the cursor item (A).  ITEM is the default
-                # tab; cursor starts at the first inventory item.
-                cur = session.snapshot()
-                button = "SELECT" if cur.get("screen") == "BATTLE" else "START"
-                session.press(button)
+                # Open the quick screen (START is the universal open key in
+                # both the overworld and battle) and use the cursor item (A).
+                # ITEM is the default tab; cursor starts at the first item.
+                session.press("START")
                 session.wait(4)
                 session.press("A")
                 session.wait(act.get("frames", 4))

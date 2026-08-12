@@ -42,7 +42,7 @@
     },
     "variables": {
       "QUEST_MONSTER_HUNT": 1,
-      "MONSTERS_REMAINING": 0
+      "MONSTERS_DEFEATED": 3
     }
   }
 }

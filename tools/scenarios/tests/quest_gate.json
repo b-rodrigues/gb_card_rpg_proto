@@ -1,7 +1,7 @@
 {
   "name": "quest_gate",
   "test": true,
-  "description": "Defeating monsters before the quest is ACTIVE does not decrement MONSTERS_REMAINING",
+  "description": "Monster kills count toward the quest objective even before the quest is started, so earlier kills are never wasted",
   "scenario_id": "FIRST_ENCOUNTER",
   "actions": [
     {
@@ -44,8 +44,8 @@
     },
     {
       "type": "variable",
-      "variable": "MONSTERS_REMAINING",
-      "expected": 3
+      "variable": "MONSTERS_DEFEATED",
+      "expected": 1
     },
     {
       "type": "variable",
@@ -62,7 +62,7 @@
     },
     "seed": 8405,
     "variables": {
-      "MONSTERS_REMAINING": 3
+      "MONSTERS_DEFEATED": 0
     }
   }
 }

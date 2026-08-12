@@ -1,7 +1,7 @@
 {
   "name": "quest_progress",
   "test": true,
-  "description": "Defeating a hostile actor while the quest is ACTIVE decrements MONSTERS_REMAINING",
+  "description": "Defeating a hostile actor increments the global MONSTERS_DEFEATED counter (the quest objective)",
   "scenario_id": "FIRST_ENCOUNTER",
   "actions": [
     {
@@ -44,8 +44,8 @@
     },
     {
       "type": "variable",
-      "variable": "MONSTERS_REMAINING",
-      "expected": 2
+      "variable": "MONSTERS_DEFEATED",
+      "expected": 1
     },
     {
       "type": "variable",
@@ -67,7 +67,7 @@
     "seed": 8402,
     "variables": {
       "QUEST_MONSTER_HUNT": 1,
-      "MONSTERS_REMAINING": 3
+      "MONSTERS_DEFEATED": 0
     }
   }
 }

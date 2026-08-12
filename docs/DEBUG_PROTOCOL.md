@@ -503,18 +503,19 @@ Quest state and objectives are generic variables owned by the event table in
 `src/core/event.c`:
 
 * `QUEST_MONSTER_HUNT` = 0 (NOT_STARTED), 1 (ACTIVE), 2 (COMPLETE).
-* `MONSTERS_REMAINING` — decremented by the `MONSTER_DEFEATED` event whenever
-  a hostile actor is defeated while the quest is ACTIVE.
+* `MONSTERS_DEFEATED` — a **global** counter incremented on every hostile
+  defeat (persistent and training actors alike, no quest gating), so kills
+  before the quest starts still count.
 
 The event engine supports generic conditions (flag is/not set, variable
 `>=`/`==`) and actions (dialogue, set/clear flag, set/add variable, give
 item, scene change).  The Mayor quest is expressed entirely as event data:
 
 * `QUEST_START` (interact MAYOR, quest NOT_STARTED) → MAYOR_INTRO dialogue,
-  set MET_MAYOR, quest=ACTIVE, MONSTERS_REMAINING=3.
-* `QUEST_ACTIVE` (ACTIVE && monsters>0) → "still working" dialogue.
-* `QUEST_COMPLETE` (ACTIVE && monsters==0) → reward dialogue + give SWORD +
-  quest=COMPLETE (given exactly once).
+  set MET_MAYOR, quest=ACTIVE.
+* `QUEST_COMPLETE` (ACTIVE && MONSTERS_DEFEATED >= 3) → reward dialogue +
+  give SWORD + quest=COMPLETE (given exactly once).
+* `QUEST_ACTIVE` (ACTIVE) → "still working" dialogue.
 * `QUEST_DONE` (COMPLETE) → already-rewarded dialogue.
 
 Scenario actions: `equip_item` (mechanic) and the quick-screen UI (START →
@@ -522,10 +523,11 @@ SELECT tab-focus → arrows → A) are both testable.
 
 ### Quick screen (tabbed)
 
-`SCREEN_ITEM` is the quick screen: header `HP:`/`G:`, tabs ITEM | EQUIP |
-STATUS.  START opens it in the overworld; SELECT in the overworld does
-nothing; SELECT in battle opens it on the ITEM tab.  SELECT inside focuses
-the tab row, LEFT/RIGHT move the tab, A confirms, B closes.
+`SCREEN_ITEM` is the quick screen: tabs ITEM | EQUIP | QUEST | STATUS.
+START opens it in both the overworld and battle (player turn); SELECT in the
+overworld does nothing.  SELECT inside focuses the tab row, LEFT/RIGHT move
+the tab, A confirms, B closes.  Hero HP/gold appear only on the STATUS tab;
+the QUEST tab lists ongoing quests and their progress.
 
 ---
 

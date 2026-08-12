@@ -40,9 +40,8 @@ typedef enum {
 /* Named variables.  VARIABLE_ID_x - 1 indexes VariableState.values[]. */
 typedef enum {
     VARIABLE_ID_CHAPTER            = 1,
-    VARIABLE_ID_SLIMES_DEFEATED    = 2,
-    VARIABLE_ID_QUEST_MONSTER_HUNT = 3,   /* 0 = NOT_STARTED, 1 = ACTIVE, 2 = COMPLETE */
-    VARIABLE_ID_MONSTERS_REMAINING = 4
+    VARIABLE_ID_MONSTERS_DEFEATED  = 2,   /* global total (all kills count) */
+    VARIABLE_ID_QUEST_MONSTER_HUNT = 3    /* 0 = NOT_STARTED, 1 = ACTIVE, 2 = COMPLETE */
 } VariableIdNamed;
 
 /* Named currencies.  CURRENCY_ID_x - 1 indexes CurrencyState.amount[]. */

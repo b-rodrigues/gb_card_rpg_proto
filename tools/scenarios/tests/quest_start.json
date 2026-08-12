@@ -21,8 +21,8 @@
     },
     {
       "type": "variable",
-      "variable": "MONSTERS_REMAINING",
-      "expected": 3
+      "variable": "MONSTERS_DEFEATED",
+      "expected": 0
     },
     {
       "type": "flag",

@@ -24,6 +24,27 @@ static const palette_color_t cgb_palette[4] = {
     RGB8(0, 0, 0)
 };
 
+/* ── Player sprite (stress-test slice) ─────────────────────────────
+ * No asset pipeline exists yet (tools/png2gb.py is spec'd, not built),
+ * so this is hand-encoded rather than converted from a PNG.  Each row is
+ * two bytes (low/high bitplane); lo==hi per row means every "on" pixel is
+ * color 3 (darkest / opaque) and every "off" pixel is color 0 (transparent
+ * for sprites).  A simple round blob standing in for the player, just to
+ * prove the sprite path end-to-end. */
+static const uint8_t player_sprite_tile[16] = {
+    0x3C, 0x3C,   /*  ..####..  */
+    0x7E, 0x7E,   /*  .######.  */
+    0x66, 0x66,   /*  .##..##.  */
+    0x7E, 0x7E,   /*  .######.  */
+    0x3C, 0x3C,   /*  ..####..  */
+    0x18, 0x18,   /*  ...##...  */
+    0x3C, 0x3C,   /*  ..####..  */
+    0x7E, 0x7E    /*  .######.  */
+};
+
+#define PLAYER_SPRITE_NUM 0
+#define PLAYER_SPRITE_TILE_ID 0
+
 void ui_init(void)
 {
     /* Turn the LCD off before loading the font so that display_off() inside
@@ -54,7 +75,39 @@ void ui_init(void)
     }
 
     SHOW_BKG;
+    ui_sprite_init();
     DISPLAY_ON;
+}
+
+/* Load the player sprite tile and enable the OAM sprite.  Called from
+ * ui_init() while the LCD is still off: set_sprite_data() writes VRAM
+ * through the same path as set_bkg_data() (both live in set_data.o) and
+ * returns immediately while the LCD is off, so this stays harness-safe
+ * (AGENTS.md 52.6).  The sprite starts hidden (OAM Y = 0); the overworld
+ * render positions it via ui_sprite_move(). */
+void ui_sprite_init(void)
+{
+    set_sprite_data(PLAYER_SPRITE_TILE_ID, 1, player_sprite_tile);
+    set_sprite_tile(PLAYER_SPRITE_NUM, PLAYER_SPRITE_TILE_ID);
+    SPRITES_8x8;
+    SHOW_SPRITES;
+    hide_sprite(PLAYER_SPRITE_NUM);
+}
+
+/* Position the player sprite over background tile (map_x, map_y).
+ * Hardware OAM coordinates are offset +8/+16 from the visible tile grid
+ * (GBDK's move_sprite takes raw OAM coordinates, not screen tiles); a
+ * valid position (y >= 16) also un-hides the sprite. */
+void ui_sprite_move(uint8_t map_x, uint8_t map_y)
+{
+    move_sprite(PLAYER_SPRITE_NUM, (uint8_t)(map_x * 8 + 8), (uint8_t)(map_y * 8 + 16));
+}
+
+/* Hide the player sprite (OAM Y = 0).  Called on transitions away from the
+ * overworld so the blob does not float over battle/menu screens. */
+void ui_sprite_hide(void)
+{
+    hide_sprite(PLAYER_SPRITE_NUM);
 }
 
 void ui_clear_screen(void)
@@ -132,29 +185,33 @@ void ui_draw_world_map(const World *world)
 
     if (!world) return;
 
+    /* The player is no longer painted into the background at all (see
+     * ui_sprite_move): background tiles are drawn for every cell, including
+     * the player's own cell, and the OAM sprite sits visually on top of it.
+     * This is the actual BG-tilemap / OAM-sprite split a real Game Boy
+     * renderer uses; it just happens that the "tilemap" here is still the
+     * ASCII console font. */
     for (y = 0; y < WORLD_VIEW_HEIGHT; y++) {
         for (x = 0; x < WORLD_WIDTH; x++) {
-            if (world->player.position.x == x && world->player.position.y == y) {
-                tile_ch = '@';
+            actor = actor_find_at(world, x, y);
+            if (actor) {
+                tile_ch = actor->visual;
             } else {
-                actor = actor_find_at(world, x, y);
-                if (actor) {
-                    tile_ch = actor->visual;
-                } else {
-                    t = world->map[y][x];
-                    if (t == TILE_WALL) tile_ch = '#';
-                    else if (t == TILE_BUILDING) tile_ch = 'B';
-                    else if (t == TILE_EXIT) {
-                        ex = scene_exit_at(scene_definition_for_map(world->map_id), x, y);
-                        tile_ch = ex ? ex->tile_char : '.';
-                    } else tile_ch = '.';
-                }
+                t = world->map[y][x];
+                if (t == TILE_WALL) tile_ch = '#';
+                else if (t == TILE_BUILDING) tile_ch = 'B';
+                else if (t == TILE_EXIT) {
+                    ex = scene_exit_at(scene_definition_for_map(world->map_id), x, y);
+                    tile_ch = ex ? ex->tile_char : '.';
+                } else tile_ch = '.';
             }
             gotoxy(x, y);
             putchar(tile_ch);
             g_ui_screen_buf[y][x] = tile_ch;
         }
     }
+
+    ui_sprite_move(world->player.position.x, world->player.position.y);
 }
 
 void ui_draw_overworld_hud(const World *world)
@@ -192,33 +249,15 @@ void ui_draw_world_full(const World *world)
 
 void ui_update_player_position(const World *world, uint8_t old_x, uint8_t old_y, uint8_t new_x, uint8_t new_y)
 {
-    char old_ch;
-    uint8_t t;
-    const WorldActorDefinition *actor;
-    const SceneExit *ex;
-
-    if (!world || (old_x == new_x && old_y == new_y)) return;
-
-    actor = actor_find_at(world, old_x, old_y);
-    if (actor) {
-        old_ch = actor->visual;
-    } else {
-        t = world->map[old_y][old_x];
-        if (t == TILE_WALL) old_ch = '#';
-        else if (t == TILE_BUILDING) old_ch = 'B';
-        else if (t == TILE_EXIT) {
-            ex = scene_exit_at(scene_definition_for_map(world->map_id), old_x, old_y);
-            old_ch = ex ? ex->tile_char : '.';
-        } else old_ch = '.';
-    }
-
-    gotoxy(old_x, old_y);
-    putchar(old_ch);
-    g_ui_screen_buf[old_y][old_x] = old_ch;
-
-    gotoxy(new_x, new_y);
-    putchar('@');
-    g_ui_screen_buf[new_y][new_x] = '@';
+    /* The background never encodes the player (see ui_draw_world_map), so
+     * there is nothing to erase/redraw at old_x/old_y any more -- moving
+     * the OAM sprite is the whole update.  old_x/old_y are kept in the
+     * signature so callers (RenderCache in overworld_screen.c) don't need
+     * to change. */
+    (void)old_x;
+    (void)old_y;
+    if (!world) return;
+    ui_sprite_move(new_x, new_y);
 }
 
 static void ui_put_char(uint8_t x, uint8_t y, char ch)

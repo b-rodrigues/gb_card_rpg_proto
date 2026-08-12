@@ -13,6 +13,14 @@ extern char g_ui_screen_buf[18][21];
 void ui_init(void);
 void ui_clear_screen(void);
 
+/* Player rendered as a real OAM sprite.  Background stays console-font
+ * ASCII; only the player is a hardware sprite.  Deliberately scoped to the
+ * ui layer: no other module needs to know the player is a sprite instead
+ * of a printed '@'. */
+void ui_sprite_init(void);
+void ui_sprite_move(uint8_t map_x, uint8_t map_y);
+void ui_sprite_hide(void);
+
 void ui_draw_world_map(const World *world);
 void ui_draw_overworld_hud(const World *world);
 void ui_draw_world_full(const World *world);

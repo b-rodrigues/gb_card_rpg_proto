@@ -3,6 +3,7 @@
 #include "scene.h"
 #include "telemetry.h"
 #include "world.h"
+#include "ui.h"
 
 /* Sync Game.scene with the world's current map after a runtime map
  * change (walking through a gate).  Emits SCENE_CHANGED when it differs. */
@@ -52,6 +53,13 @@ void screen_change(Game *g, ScreenId screen)
     ScreenId old_screen;
     if (!g) return;
     if (g->screen == screen) return;
+
+    /* The player sprite only belongs on the overworld (and behind the
+     * dialogue box, which redraws the world); hide it everywhere else so it
+     * does not float over battle/menu screens. */
+    if (screen != SCREEN_OVERWORLD && screen != SCREEN_DIALOGUE) {
+        ui_sprite_hide();
+    }
 
     old_screen = g->screen;
     g->prev_screen = old_screen;

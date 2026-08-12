@@ -1208,17 +1208,29 @@ Tests should assert audio state semantically rather than attempting to analyze r
 
 ---
 
-# 35. Hardware VBlank Sound Timing (`add_VBL`)
+# 35. Hardware VBlank Sound Timing
 
 Never update music step timers directly inside the main `while(1)` loop.
 
 Main-loop CPU variations can cause music to play at variable tempos between menus and gameplay.
 
-Always hook the sound update function to the hardware VBlank interrupt vector:
+Music must run on the **hardware VBlank interrupt**, driven by a dedicated
+RAM-resident ISR installed by the custom CRT0:
 
-```c
-add_VBL(audio_update);
-```
+* `src/crt0.s` rewrites the VBlank vector (`0x0040`) to `JP 0xC900` (WRAM,
+  always mapped regardless of ROM bank).
+* At boot `init` copies a small ISR (`vbl_isr`) from ROM to WRAM `0xC900`
+  and enables VBlank IE (`IE |= 0x01`).  The ISR calls `_audio_update`
+  directly (a baked-in `call`, so no function pointers / banked-call
+  helpers) and `reti`s.
+* `audio_update`/`play_note` and the note tables must stay in the **fixed
+  bank 0** (`< 0x4000`) so the ISR's `call` target and table reads are
+  always mapped.
+* `main.c` calls `audio_init()` then `enable_interrupts()` (enables IME);
+  the ISR and IE are already set up by CRT0.
+
+Do NOT use `add_VBL()`: the custom CRT0 stubs it (the GBDK interrupt
+manager is RAM-resident and the harness skips CRT0), so it is a no-op.
 
 Always call:
 
@@ -1226,7 +1238,7 @@ Always call:
 enable_interrupts();
 ```
 
-after initializing VBlank interrupt handlers.
+after boot init.
 
 Audio transitions must emit telemetry.
 
@@ -1912,6 +1924,11 @@ Sections such as `.jpad`, `.hiramcpy`, and the banked-call helpers are
 RAM-resident and copied by CRT0 at boot. The harness never runs that copy.
 Keep `_HOME` in ROM (52.5) and avoid harness-exercised paths that depend on
 RAM-resident library code.
+
+The one RAM-resident section the custom CRT0 itself copies is the VBlank
+ISR (see §35): `crt0.s` `init` copies `vbl_isr` from ROM to WRAM `0xC900`
+and enables VBlank IE.  The harness skips this (it never enables interrupts),
+so the ISR never runs under the harness.
 
 ## 52.12 Scenario state ordering
 

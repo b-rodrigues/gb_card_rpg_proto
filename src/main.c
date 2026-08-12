@@ -33,11 +33,8 @@ int main(void)
 
     if (!g_harness_mode) {
         audio_init();
-
-        CRITICAL {
-            add_VBL(audio_update);
-        }
-
+        /* The VBlank ISR is set up by CRT0 (vector -> WRAM ISR -> audio_update)
+         * and VBlank IE is enabled there; this enables IME. */
         enable_interrupts();
     }
 

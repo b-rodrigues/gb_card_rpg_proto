@@ -1,7 +1,7 @@
 {
   "name": "status_screen",
   "test": true,
-  "description": "START opens the quick screen; SELECT focuses tabs, arrows+A switch to the STATUS tab which shows hero HP, gold, level and weapon",
+  "description": "START opens the quick screen; SELECT cycles tabs to the STATUS tab which shows hero HP, gold, level and weapon",
   "scenario_id": "NEW_GAME",
   "actions": [
     {
@@ -22,7 +22,7 @@
     },
     {
       "type": "press",
-      "button": "RIGHT"
+      "button": "SELECT"
     },
     {
       "type": "wait",
@@ -30,23 +30,7 @@
     },
     {
       "type": "press",
-      "button": "RIGHT"
-    },
-    {
-      "type": "wait",
-      "frames": 3
-    },
-    {
-      "type": "press",
-      "button": "RIGHT"
-    },
-    {
-      "type": "wait",
-      "frames": 3
-    },
-    {
-      "type": "press",
-      "button": "A"
+      "button": "SELECT"
     },
     {
       "type": "wait",

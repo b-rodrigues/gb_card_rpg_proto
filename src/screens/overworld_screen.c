@@ -40,7 +40,6 @@ void overworld_screen_update(Game *g)
     if (input_pressed(INPUT_START)) {
         g->item_menu_index = 0;
         g->item_menu_tab = 0;
-        g->item_menu_tab_focus = 0;
         screen_change(g, SCREEN_ITEM);
         return;
     }

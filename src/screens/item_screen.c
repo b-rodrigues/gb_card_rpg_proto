@@ -122,42 +122,40 @@ static void menu_draw(Game *g)
     }
 
     if (g->item_menu_tab == MENU_TAB_ITEM) {
-        ui_draw_text_line(0, 16, "[A] USE  [SELECT] TABS  [B] CLOSE", 20);
+        ui_draw_text_line(0, 16, "[A] USE  [B] CLOSE", 20);
     } else {
-        ui_draw_text_line(0, 16, "[A] EQUIP  [SELECT] TABS  [B] CLOSE", 20);
+        ui_draw_text_line(0, 16, "[A] EQUIP [B] CLOSE", 20);
     }
 }
 
 void item_screen_update(Game *g)
 {
     ItemId id;
+    uint8_t tab_changed = 0;
 
     if (!g) return;
 
-    if (g->item_menu_tab_focus) {
-        /* Tab-focus mode: arrows move the tab, A confirms, B cancels. */
-        if (input_pressed(INPUT_LEFT)) {
-            if (g->item_menu_tab > MENU_TAB_ITEM) g->item_menu_tab--;
-            g->render_cache.valid = false;
+    /* Tab navigation: SELECT (and LEFT/RIGHT) directly cycle the active
+     * tab, with the ">" marker giving immediate visible feedback. */
+    if (input_pressed(INPUT_SELECT) || input_pressed(INPUT_RIGHT)) {
+        if ((uint8_t)(g->item_menu_tab + 1) < MENU_TAB_COUNT) {
+            g->item_menu_tab++;
+        } else {
+            g->item_menu_tab = MENU_TAB_ITEM;
         }
-        if (input_pressed(INPUT_RIGHT)) {
-            if ((uint8_t)(g->item_menu_tab + 1) < MENU_TAB_COUNT) g->item_menu_tab++;
-            g->render_cache.valid = false;
-        }
-        if (input_pressed(INPUT_A)) {
-            g->item_menu_tab_focus = 0;
-            g->item_menu_index = 0;
-            g->render_cache.valid = false;
-        }
-        if (input_pressed(INPUT_B) || input_pressed(INPUT_SELECT)) {
-            g->item_menu_tab_focus = 0;
-            g->render_cache.valid = false;
-        }
-        return;
+        g->item_menu_index = 0;
+        tab_changed = 1;
     }
-
-    if (input_pressed(INPUT_SELECT)) {
-        g->item_menu_tab_focus = 1;
+    if (input_pressed(INPUT_LEFT)) {
+        if (g->item_menu_tab > MENU_TAB_ITEM) {
+            g->item_menu_tab--;
+        } else {
+            g->item_menu_tab = MENU_TAB_STATUS;
+        }
+        g->item_menu_index = 0;
+        tab_changed = 1;
+    }
+    if (tab_changed) {
         g->render_cache.valid = false;
         return;
     }

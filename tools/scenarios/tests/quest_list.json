@@ -1,7 +1,7 @@
 {
   "name": "quest_list",
   "test": true,
-  "description": "The QUEST tab lists the ongoing MONSTER HUNT quest with its progress",
+  "description": "The QUEST tab (reached by cycling with SELECT) lists the ongoing MONSTER HUNT quest with its progress",
   "scenario_id": "NEW_GAME",
   "actions": [
     {
@@ -22,23 +22,7 @@
     },
     {
       "type": "press",
-      "button": "RIGHT"
-    },
-    {
-      "type": "wait",
-      "frames": 3
-    },
-    {
-      "type": "press",
-      "button": "RIGHT"
-    },
-    {
-      "type": "wait",
-      "frames": 3
-    },
-    {
-      "type": "press",
-      "button": "A"
+      "button": "SELECT"
     },
     {
       "type": "wait",

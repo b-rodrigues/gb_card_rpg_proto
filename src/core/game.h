@@ -38,8 +38,7 @@ typedef struct Game {
     uint32_t frame;
     uint8_t game_over_choice;  /* 0 = YES, 1 = NO on the continue prompt */
     uint8_t item_menu_index;   /* cursor into the active tab's list */
-    uint8_t item_menu_tab;     /* 0 = ITEM, 1 = EQUIP, 2 = STATUS */
-    uint8_t item_menu_tab_focus; /* SELECT has focus on the tab row */
+    uint8_t item_menu_tab;     /* 0 = ITEM, 1 = EQUIP, 2 = QUEST, 3 = STATUS */
     uint8_t shop_message;      /* 0 = none, 1 = bought, 2 = not enough gold */
     RenderCache render_cache;
 } Game;

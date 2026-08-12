@@ -2,76 +2,24 @@
 #include "telemetry.h"
 #include <stddef.h>
 
-static const DialogueDefinition g_dialogue_defs[] = {
-    {
-        DIALOGUE_ID_MAYOR_GREETING,
-        "MAYOR:",
-        2,
-        {"Hello! I am Mayor.", "Welcome to town!", "", ""},
-        0
-    },
-    {
-        DIALOGUE_ID_GUARD_GREETING,
-        "GUARD:",
-        2,
-        {"Halt! Keep peace.", "Watch for slimes.", "", ""},
-        0
-    },
-    {
-        DIALOGUE_ID_SHOPKEEPER_GREETING,
-        "SHOP:",
-        2,
-        {"Welcome to my shop.", "Rest a while, friend.", "", ""},
-        0
-    },
-    {
-        DIALOGUE_ID_MAYOR_INTRO,
-        "MAYOR:",
-        3,
-        {"I am the Mayor.", "Slimes menace the forest.", "Please help us!", ""},
-        0
-    },
-    {
-        DIALOGUE_ID_GUARD_AFTER_MAYOR,
-        "GUARD:",
-        2,
-        {"The Mayor trusts you.", "Welcome, hero!", "", ""},
-        0
-    },
-    {
-        DIALOGUE_ID_QUEST_ACTIVE,
-        "MAYOR:",
-        2,
-        {"Still monsters about.", "Defeat them all!", "", ""},
-        0
-    },
-    {
-        DIALOGUE_ID_QUEST_COMPLETE,
-        "MAYOR:",
-        8,
-        {"You did it!", "Take this Sword!",
-         "I have felt a", "disturbance in the",
-         "ether: I believe", "that something",
-         "dreadful waits for", "you at the Castle."},
-        0
-    },
-    {
-        DIALOGUE_ID_QUEST_DONE,
-        "MAYOR:",
-        2,
-        {"The Sword suits you.", "Go forth, hero!", "", ""},
-        0
-    }
-};
+/* The dialogue table is game content, registered at boot via
+ * dialogue_register().  The engine only matches and plays lines. */
+static const DialogueDefinition *g_dialogues = NULL;
+static uint8_t g_dialogue_count = 0;
 
-#define NUM_DIALOGUE_DEFS (sizeof(g_dialogue_defs) / sizeof(g_dialogue_defs[0]))
+void dialogue_register(const DialogueDefinition *table, uint8_t count)
+{
+    g_dialogues = table;
+    g_dialogue_count = count;
+}
 
 const DialogueDefinition *dialogue_get_def(DialogueId id)
 {
     uint8_t i;
-    for (i = 0; i < NUM_DIALOGUE_DEFS; i++) {
-        if (g_dialogue_defs[i].id == id) {
-            return &g_dialogue_defs[i];
+    if (!g_dialogues) return NULL;
+    for (i = 0; i < g_dialogue_count; i++) {
+        if (g_dialogues[i].id == id) {
+            return &g_dialogues[i];
         }
     }
     return NULL;

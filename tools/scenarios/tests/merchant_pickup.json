@@ -1,0 +1,48 @@
+{
+  "name": "merchant_pickup",
+  "test": true,
+  "description": "The hero finds and picks up the Lost Amulet in the Forest: item added, flag set, dialogue plays",
+  "scenario_id": "FOREST_BOOT",
+  "actions": [
+    {
+      "type": "interact",
+      "actor": "AMULET"
+    }
+  ],
+  "assertions": [
+    {
+      "type": "screen",
+      "expected": "DIALOGUE"
+    },
+    {
+      "type": "dialogue_id",
+      "expected": "AMULET_FOUND"
+    },
+    {
+      "type": "inventory",
+      "item": "AMULET",
+      "expected": 1
+    },
+    {
+      "type": "story_flag",
+      "flag": "AMULET_COLLECTED",
+      "expected": true
+    },
+    {
+      "type": "event_occurred",
+      "event": "ITEM_ADDED"
+    }
+  ],
+  "initial_state": {
+    "scene": "FOREST",
+    "player": {
+      "x": 15,
+      "y": 10,
+      "facing": "RIGHT"
+    },
+    "seed": 8502,
+    "variables": {
+      "MERCHANT_HELPED": 0
+    }
+  }
+}

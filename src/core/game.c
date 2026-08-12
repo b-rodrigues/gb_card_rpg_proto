@@ -5,46 +5,10 @@
 #include "interaction.h"
 #include "telemetry.h"
 #include "scenarios.h"
+#include "content.h"
 #include "rpg/progression.h"
 #include "rpg/party.h"
 #include "rpg/items.h"
-
-#define HERO_BASE_ATTACK 3
-
-uint8_t game_hero_attack(const GameState *state)
-{
-    const ItemDefinition *def;
-    if (!state) return HERO_BASE_ATTACK;
-    def = item_get_def(state->equipment.weapon);
-    if (def && def->kind == ITEM_KIND_WEAPON) {
-        return (uint8_t)(HERO_BASE_ATTACK + def->attack_bonus);
-    }
-    return HERO_BASE_ATTACK;
-}
-
-void game_on_level_up(GameState *state, ProgressionTarget target,
-                      const ProgressionAddResult *result)
-{
-    CharacterState *hero;
-    uint8_t gained;
-    uint8_t i;
-
-    if (!state || !result || !result->crossed) return;
-    gained = (uint8_t)(result->level_after - result->level_before);
-    if (gained == 0) return;
-
-    if (target.type == PROG_TYPE_HERO) {
-        hero = party_get_member(&state->party, CHARACTER_HERO);
-        if (!hero) return;
-        for (i = 0; i < gained; i++) {
-            if (hero->max_hp < 253) {
-                hero->max_hp = (uint8_t)(hero->max_hp + 2);
-            }
-        }
-        hero->hp = hero->max_hp;
-    }
-    /* Other target types have no game-specific consequence yet. */
-}
 
 void game_render_reset(Game *g)
 {
@@ -69,11 +33,13 @@ void game_init(Game *g)
     if (!g) return;
     g->frame = 0;
     g->game_over_choice = 0;
+    g->shop_id = 1;
     g->screen = SCREEN_OVERWORLD;
     g->prev_screen = SCREEN_OVERWORLD;
     telemetry_init();
     telemetry_set_frame_ptr(&g->frame);
-    game_state_init(&g->state);
+    game_content_init();
+    game_new_game(&g->state);
     world_init(&g->world, &g->state);
     dialogue_init(&g->dialogue);
     audio_play_music(MUSIC_OVERWORLD);
@@ -93,9 +59,11 @@ void game_restart(Game *g)
     if (!g) return;
     g->frame = 0;
     g->game_over_choice = 0;
+    g->shop_id = 1;
     g->screen = SCREEN_OVERWORLD;
     g->prev_screen = SCREEN_OVERWORLD;
-    game_state_init(&g->state);
+    game_content_init();
+    game_new_game(&g->state);
     world_init(&g->world, &g->state);
     dialogue_init(&g->dialogue);
     audio_play_music(MUSIC_OVERWORLD);

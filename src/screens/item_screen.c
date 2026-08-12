@@ -6,6 +6,7 @@
 #include "rpg/currency.h"
 #include "rpg/progression.h"
 #include "menu.h"
+#include "game_ids.h"
 
 #define MENU_TAB_ITEM   0
 #define MENU_TAB_EQUIP  1

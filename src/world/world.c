@@ -5,6 +5,7 @@
 #include "scene.h"
 #include "event.h"
 #include "rpg/currency.h"
+#include "game_ids.h"
 
 void world_load_map(World *w, MapId map_id, const GameState *state)
 {

@@ -3,23 +3,38 @@
 #include "rpg/currency.h"
 #include "rpg/party.h"
 #include "telemetry.h"
+#include "game_ids.h"
 #include <stddef.h>
 
-static const ItemDefinition g_item_defs[] = {
-    { ITEM_POTION, "POTION", 20, ITEM_KIND_CONSUMABLE, ITEM_EFFECT_HEAL_HP, 5, 0 },
-    { ITEM_BOMB,   "BOMB",   50, ITEM_KIND_CONSUMABLE, ITEM_EFFECT_NONE,    0, 0 },
-    { ITEM_ETHER,  "ETHER",  40, ITEM_KIND_CONSUMABLE, ITEM_EFFECT_NONE,    0, 0 },
-    { ITEM_SWORD,  "SWORD",   0, ITEM_KIND_WEAPON,     ITEM_EFFECT_NONE,    0, 3 }
-};
+/* The item catalog is game content, registered at boot via
+ * item_register_defs() (see src/game/items.c). */
+static const ItemDefinition *g_items = NULL;
+static uint8_t g_item_count = 0;
 
-#define NUM_ITEM_DEFS (sizeof(g_item_defs) / sizeof(g_item_defs[0]))
+void item_register_defs(const ItemDefinition *table, uint8_t count)
+{
+    g_items = table;
+    g_item_count = count;
+}
+
+uint8_t item_def_count(void)
+{
+    return g_item_count;
+}
+
+const ItemDefinition *item_get_def_at(uint8_t idx)
+{
+    if (!g_items || idx >= g_item_count) return NULL;
+    return &g_items[idx];
+}
 
 const ItemDefinition *item_get_def(ItemId id)
 {
     uint8_t i;
-    for (i = 0; i < NUM_ITEM_DEFS; i++) {
-        if (g_item_defs[i].id == id) {
-            return &g_item_defs[i];
+    if (!g_items) return NULL;
+    for (i = 0; i < g_item_count; i++) {
+        if (g_items[i].id == id) {
+            return &g_items[i];
         }
     }
     return NULL;

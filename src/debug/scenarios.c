@@ -12,6 +12,7 @@
 #include "battle.h"
 #include "ui.h"
 #include "input.h"
+#include "content.h"
 #include "rpg/inventory.h"
 #include "rpg/currency.h"
 #include "rpg/progression.h"
@@ -92,7 +93,7 @@ static void scenario_load_state(void)
     map = scene_id_to_map(scene);
 
     /* Canonical persistent state: default, then descriptor overrides. */
-    game_state_init(&g_game.state);
+    game_new_game(&g_game.state);
     for (i = 0; i < STATE_LOAD_DESC_FLAGS_SIZE; i++) {
         g_game.state.flags.bytes[i] = b[STATE_LOAD_DESC_FLAGS_OFF + i];
     }
@@ -166,6 +167,7 @@ static void scenario_load_state(void)
         g_game.state.flags.bytes[i] = b[STATE_LOAD_DESC_FLAGS_OFF + i];
     }
     g_game.game_over_choice = b[STATE_LOAD_DESC_GAME_OVER_CHOICE_OFF];
+    g_game.shop_id = 1;
     g_game.prev_screen = SCREEN_OVERWORLD;
     g_game.screen = SCREEN_OVERWORLD;
 
@@ -184,7 +186,9 @@ static void scenario_load_state(void)
                 break;
             }
         }
-        battle_start(&g_game.battle, actor_enemy_name(g_game.world.actors[idx].id),
+        battle_start(&g_game.battle,
+                     g_game.world.actors[idx].display_name ?
+                         g_game.world.actors[idx].display_name : "ENEMY",
                      g_game.state.party.members[0].hp,
                      g_game.state.party.members[0].max_hp,
                      game_hero_attack(&g_game.state),

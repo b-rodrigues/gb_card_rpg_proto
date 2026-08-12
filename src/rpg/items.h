@@ -15,10 +15,12 @@ typedef enum {
 } ItemEffectType;
 
 /* Broad item category.  Consumables are used (and consumed); weapons are
- * equipped (never consumed). */
+ * equipped (never consumed); keys/quest items are held but neither used nor
+ * equipped (e.g. a quest amulet to deliver). */
 typedef enum {
     ITEM_KIND_CONSUMABLE = 0,
-    ITEM_KIND_WEAPON = 1
+    ITEM_KIND_WEAPON = 1,
+    ITEM_KIND_KEY = 2
 } ItemKind;
 
 typedef struct {
@@ -39,6 +41,15 @@ typedef enum {
 } ItemPurchaseResult;
 
 const ItemDefinition *item_get_def(ItemId id);
+
+/* Register the game's item catalog (content, provided by the game layer).
+ * The mechanics below are generic over whatever catalog is registered. */
+void item_register_defs(const ItemDefinition *table, uint8_t count);
+
+/* Iterate the registered catalog.  item_def_count() returns the number of
+ * definitions; item_get_def_at(idx) returns the idx-th definition or NULL. */
+uint8_t item_def_count(void);
+const ItemDefinition *item_get_def_at(uint8_t idx);
 
 /* True if the item is owned and its effect can currently apply to the
  * target party member (consumables only). */

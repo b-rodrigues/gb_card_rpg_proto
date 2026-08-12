@@ -24,7 +24,9 @@ typedef enum {
     ENTITY_ID_GUARD = 4,
     ENTITY_ID_SHOPKEEPER = 5,
     ENTITY_ID_BAT = 6,
-    ENTITY_ID_SLIME_LORD = 7
+    ENTITY_ID_SLIME_LORD = 7,
+    ENTITY_ID_MERCHANT = 8,
+    ENTITY_ID_AMULET = 9
 } EntityId;
 
 typedef struct {

@@ -5,6 +5,7 @@
 #include "event.h"
 #include "telemetry.h"
 #include "audio.h"
+#include "content.h"
 
 static void start_battle_from_world(Game *g)
 {
@@ -13,7 +14,8 @@ static void start_battle_from_world(Game *g)
 
     /* Hero HP is authoritative in the party state; the world entity is the
      * runtime engine copy. */
-    battle_start(&g->battle, actor_enemy_name(g->world.actors[idx].id),
+    battle_start(&g->battle,
+                 g->world.actors[idx].display_name ? g->world.actors[idx].display_name : "ENEMY",
                  g->state.party.members[0].hp,
                  g->state.party.members[0].max_hp,
                  game_hero_attack(&g->state),

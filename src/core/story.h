@@ -3,21 +3,16 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "world.h"
 #include "rpg/state.h"
 
-typedef enum {
-    STORY_FLAG_ID_ARRIVED_TOWN = 1,
-    STORY_FLAG_ID_MET_MAYOR    = 2,
-    STORY_FLAG_ID_COUNT        = 3
-} StoryFlagId;
+/* Story flags are a named sub-set of GameState.flags (FlagId).  The engine
+ * is generic: the exclusive upper bound on valid flag ids is provided by the
+ * game layer via story_init() (e.g. STORY_FLAG_ID_COUNT in game_ids.h). */
 
-#define STORY_FLAG_ARRIVED_TOWN (1UL << (STORY_FLAG_ID_ARRIVED_TOWN - 1))
-#define STORY_FLAG_MET_MAYOR    (1UL << (STORY_FLAG_ID_MET_MAYOR - 1))
+void story_init(uint8_t flag_count);
 
-bool story_flag_id_valid(StoryFlagId flag_id);
-bool story_has_flag(const GameState *state, StoryFlagId flag_id);
-void story_set_flag(GameState *state, StoryFlagId flag_id);
-void story_clear_flag(GameState *state, StoryFlagId flag_id);
+bool story_has_flag(const GameState *state, FlagId flag_id);
+void story_set_flag(GameState *state, FlagId flag_id);
+void story_clear_flag(GameState *state, FlagId flag_id);
 
 #endif /* STORY_H */

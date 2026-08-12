@@ -1058,11 +1058,52 @@ Add character XP, leveling, stats, and other progression primitives without baki
 
 Build a lightweight event system using scenes, actors, flags, variables, dialogue, and transitions — enough to express RPG sequences without creating a general-purpose scripting language.
 
-## 5. Save / Load
+## 5. Foundation Reusability (content decoupling) — DONE
+
+The vertical slice (Mayor quest, sword, boss, ending) is a complete RPG, so the
+question became whether the architecture is reusable for a second game rather
+than a pile of special cases.  All game content now lives in `src/game/` and is
+registered with a generic engine:
+
+* `src/game/game_ids.h` — named story-flag/variable/currency semantics (the
+  engine stores generic slots; the game names them).
+* `src/game/events.c`, `dialogue.c`, `actors.c`, `items.c` — the content tables,
+  registered via `event_init` / `dialogue_register` / `actor_register_tables` /
+  `item_register_defs`.
+* `src/game/shops.{h,c}` — per-shop stock lists (`shop_id` on the actor def).
+* `src/game/content.c` — `game_new_game` (initial state), `game_screen_after_victory`
+  (the battle screen no longer knows about endings), and the moved
+  `game_hero_attack` / `game_on_level_up` hooks.
+* `state.c` is fully generic: `game_state_zero`; the starting state moved out.
+
+Removed hard-coded game bits: the `actor_enemy_name` switch (enemy names now live
+on the actor definitions as `display_name`), the shop's `ITEM_POTION` hardcode,
+and the `ENDING_SHOWN` check in `battle_screen.c`.  Verified behavior-neutral:
+82/82 scenarios, `make lint`, `make test`, and the save-boundary roundtrip.
+
+## 6. Second Quest — Proving the Abstraction — DONE
+
+The Lost Merchant quest (fetch/deliver/unlock) is structurally different from the
+kill-counter: find the Amulet in the Forest, deliver it to the Merchant in Town,
+receive a gold reward, and unlock his shop (which sells NUT).  Built entirely
+from game data — event entries, dialogue, item defs, actor defs, a shop stock
+list — with no game-specific branches in the engine.
+
+The second quest forced three generic engine primitives, each expressed as data
+and reusable by any game:
+
+* `EVENT_COND_ITEM_COUNT` — an event condition on inventory count;
+* `EVENT_ACTION_ADD_CURRENCY` / `EVENT_ACTION_REMOVE_ITEM` — reward/take actions;
+* `shop_id` on `WorldActorDefinition` — per-actor shops.
+
+New scenarios: `merchant_quest_start`, `merchant_pickup`, `merchant_deliver`,
+`merchant_shop_open`, `merchant_repeat` (87 scenarios total).
+
+## 7. Save / Load
 
 Serialize the persistent `GameState` into Game Boy-compatible save storage, with deterministic harness tests for save/load round trips.
 
-## 6. Battle Expansion — PARTIAL
+## 8. Battle Expansion — PARTIAL
 
 Strengthen the existing battle system now that it has a proper persistent RPG state to interact with.
 Missing:
@@ -1075,7 +1116,7 @@ Missing:
 * richer rewards (XP/leveling from battle, loot);
 * flee chance / consequences.
 
-## 7. Card System
+## 9. Card System
 
 Finally introduce the Baten Kaitos-inspired card mechanics on top of the stable RPG/battle foundation rather than allowing the card system to dictate the architecture.
 

@@ -28,7 +28,9 @@ typedef enum {
     ITEM_POTION = 1,
     ITEM_BOMB = 2,
     ITEM_ETHER = 3,
-    ITEM_SWORD = 4
+    ITEM_SWORD = 4,
+    ITEM_AMULET = 5,
+    ITEM_NUT = 6
 } ItemId;
 
 /* Party member identity. */
@@ -36,25 +38,6 @@ typedef enum {
     CHARACTER_NONE = 0,
     CHARACTER_HERO = 1
 } CharacterId;
-
-/* Named variables.  VARIABLE_ID_x - 1 indexes VariableState.values[]. */
-typedef enum {
-    VARIABLE_ID_CHAPTER            = 1,
-    VARIABLE_ID_MONSTERS_DEFEATED  = 2,   /* global total (all kills count) */
-    VARIABLE_ID_QUEST_MONSTER_HUNT = 3,   /* 0 = NOT_STARTED, 1 = ACTIVE, 2 = COMPLETE */
-    VARIABLE_ID_ENDING_SHOWN       = 4    /* set when the final boss is defeated */
-} VariableIdNamed;
-
-/* Named currencies.  CURRENCY_ID_x - 1 indexes CurrencyState.amount[]. */
-typedef enum {
-    CURRENCY_ID_GOLD = 1
-} CurrencyIdNamed;
-
-/* Named flags.  FLAG_ID_x maps to bit (x-1) of FlagState.bytes[]. */
-typedef enum {
-    FLAG_ID_ARRIVED_TOWN = 1,
-    FLAG_ID_MET_MAYOR    = 2
-} FlagIdNamed;
 
 /* Persistent actor lifecycle state. */
 typedef enum {
@@ -170,8 +153,7 @@ typedef struct {
     EquipmentState equipment;
 } GameState;
 
-void game_state_init(GameState *state);
-void game_state_reset(GameState *state);
+void game_state_zero(GameState *state);
 
 /* ── Flags ───────────────────────────────────────────────────────── */
 bool game_flag_is_set(const GameState *state, FlagId flag);

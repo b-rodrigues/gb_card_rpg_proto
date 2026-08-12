@@ -3,6 +3,7 @@
 #include "battle.h"
 #include "telemetry.h"
 #include "audio.h"
+#include "content.h"
 
 void battle_screen_update(Game *g)
 {
@@ -16,11 +17,7 @@ void battle_screen_update(Game *g)
                 world_on_battle_end(g, true);
                 audio_play_music(MUSIC_OVERWORLD);
                 telemetry_emit(EVENT_MUSIC_CHANGED, MUSIC_OVERWORLD, 0, 0, 0);
-                if (game_variable_get(&g->state, VARIABLE_ID_ENDING_SHOWN) != 0) {
-                    screen_change(g, SCREEN_ENDING);
-                } else {
-                    screen_change(g, SCREEN_OVERWORLD);
-                }
+                screen_change(g, game_screen_after_victory(g));
             } else if (g->battle.result == BATTLE_RESULT_FLED) {
                 /* Ran away: keep the damage taken, enemy stays on the map. */
                 g->world.player.hp = g->battle.player.hp;

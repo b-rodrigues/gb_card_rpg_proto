@@ -34,7 +34,11 @@ ActorEngageResult interaction_try_at(Game *g, uint8_t target_x, uint8_t target_y
     if (result != ENGAGE_NONE) {
         return result;
     }
-    return actor_engage(actor, &g->dialogue);
+    result = actor_engage(actor, &g->dialogue);
+    if (result == ENGAGE_SHOP) {
+        g->shop_id = actor->shop_id;
+    }
+    return result;
 }
 
 ActorEngageResult interaction_try_facing(Game *g)
@@ -86,6 +90,6 @@ void interaction_on_dialogue_end(DialogueState *dialogue, GameState *state)
 {
     if (!dialogue || !state) return;
     if (dialogue->completion_flag != 0) {
-        story_set_flag(state, dialogue->completion_flag);
+        story_set_flag(state, (FlagId)dialogue->completion_flag);
     }
 }

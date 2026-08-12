@@ -40,6 +40,7 @@ typedef struct Game {
     uint8_t item_menu_index;   /* cursor into the active tab's list */
     uint8_t item_menu_tab;     /* 0 = ITEM, 1 = EQUIP, 2 = QUEST, 3 = STATUS */
     uint8_t shop_message;      /* 0 = none, 1 = bought, 2 = not enough gold */
+    uint8_t shop_id;           /* active shop (set when a shop actor is engaged) */
     RenderCache render_cache;
 } Game;
 
@@ -50,14 +51,5 @@ void game_restart(Game *g);
 void game_update(Game *g);
 void game_render(Game *g);
 void game_render_reset(Game *g);
-
-/* Game-specific consequence of a generic progression level-up.  Called by
- * whoever granted the progress when ProgressionAddResult.crossed is true.
- * The generic progression engine never knows what a level-up means. */
-void game_on_level_up(GameState *state, ProgressionTarget target,
-                      const ProgressionAddResult *result);
-
-/* Derived hero attack: base 3 plus the equipped weapon's attack bonus. */
-uint8_t game_hero_attack(const GameState *state);
 
 #endif /* GAME_H */

@@ -19,14 +19,17 @@ MUSIC_TRACK_MAP = {0: "NONE", 1: "OVERWORLD", 2: "BATTLE"}
 BATTLE_TURN_MAP = {0: "PLAYER", 1: "ENEMY_DELAY", 2: "ENEMY", 3: "RESULT"}
 BATTLE_RESULT_MAP = {0: "NONE", 1: "VICTORY", 2: "DEFEAT", 3: "FLED"}
 MAP_NAME_MAP = {0: "FIELD", 1: "TOWN", 2: "FOREST", 3: "MOUNTAIN_PASS", 4: "CASTLE"}
-STORY_FLAG_ID_MAP = {1: "ARRIVED_TOWN", 2: "MET_MAYOR"}
+STORY_FLAG_ID_MAP = {1: "ARRIVED_TOWN", 2: "MET_MAYOR", 3: "AMULET_COLLECTED"}
 ENTITY_ID_MAP = {0: "NONE", 1: "PLAYER", 2: "SLIME", 3: "MAYOR", 4: "GUARD",
-                 5: "SHOPKEEPER", 6: "BAT", 7: "SLIME_LORD"}
+                 5: "SHOPKEEPER", 6: "BAT", 7: "SLIME_LORD",
+                 8: "MERCHANT", 9: "AMULET"}
 INTERACTION_ID_MAP = {0: "NONE", 1: "DIALOGUE", 2: "COMBAT"}
 DIALOGUE_ID_MAP = {0: "NONE", 1: "MAYOR_GREETING", 2: "GUARD_GREETING",
                    3: "SHOPKEEPER_GREETING", 4: "MAYOR_INTRO",
                    5: "GUARD_AFTER_MAYOR", 6: "QUEST_ACTIVE",
-                   7: "QUEST_COMPLETE", 8: "QUEST_DONE"}
+                   7: "QUEST_COMPLETE", 8: "QUEST_DONE",
+                   9: "MERCHANT_INTRO", 10: "MERCHANT_THANKS",
+                   11: "AMULET_FOUND", 12: "AMULET_NOTHING"}
 BATTLE_ID_MAP = {0: "NONE", 1: "SLIME", 2: "BAT"}
 EVENT_TYPE_MAP = {
     0: "PLAYER_MOVED", 1: "COLLISION", 2: "ENCOUNTER_STARTED",
@@ -48,7 +51,9 @@ EVENT_TYPE_MAP = {
 EVENT_ID_MAP = {1: "TOWN_ARRIVAL", 2: "QUEST_START", 3: "QUEST_ACTIVE",
                 4: "QUEST_COMPLETE", 5: "QUEST_DONE",
                 6: "GUARD_AFTER_MAYOR", 7: "GUARD_GREETING",
-                8: "MONSTER_DEFEATED", 9: "BOSS_DEFEATED"}
+                8: "MONSTER_DEFEATED", 9: "BOSS_DEFEATED",
+                10: "MERCHANT_INTRO", 11: "MERCHANT_DELIVER",
+                12: "AMULET_PICKUP"}
 
 # Weapon attack bonuses (host-side mirror of src/rpg/items.c).
 ITEM_ATTACK_BONUS = {"SWORD": 3}
@@ -64,6 +69,8 @@ ACTOR_INFO_MAP = {
     "SHOPKEEPER":  {"visual": "S", "hostile": False, "interaction": "DIALOGUE", "dialogue": "SHOPKEEPER_GREETING", "battle": "NONE"},
     "BAT":         {"visual": "V", "hostile": True,  "interaction": "COMBAT", "dialogue": "NONE", "battle": "BAT"},
     "SLIME_LORD":  {"visual": "L", "hostile": True,  "interaction": "COMBAT", "dialogue": "NONE", "battle": "NONE"},
+    "MERCHANT":    {"visual": "M", "hostile": False, "interaction": "SHOP", "dialogue": "NONE", "battle": "NONE"},
+    "AMULET":      {"visual": "?", "hostile": False, "interaction": "DIALOGUE", "dialogue": "AMULET_NOTHING", "battle": "NONE"},
 }
 
 # Fallback button masks.  At connect() these are overridden by the ROM's
@@ -128,11 +135,13 @@ STATE_LOAD_DESC_EQUIPMENT_OFF = 228
 SCENE_NAME_TO_ID = {v: k for k, v in SCENE_MAP.items()}
 SCREEN_NAME_TO_ID = {v: k for k, v in SCREEN_MAP.items()}
 DIRECTION_NAME_TO_ID = {v: k for k, v in DIRECTION_MAP.items()}
-STATE_FLAG_ID_MAP = {"ARRIVED_TOWN": 1, "MET_MAYOR": 2}
+STATE_FLAG_ID_MAP = {"ARRIVED_TOWN": 1, "MET_MAYOR": 2, "AMULET_COLLECTED": 3}
 VARIABLE_ID_MAP = {"CHAPTER": 1, "MONSTERS_DEFEATED": 2,
-                   "QUEST_MONSTER_HUNT": 3, "ENDING_SHOWN": 4}
+                   "QUEST_MONSTER_HUNT": 3, "ENDING_SHOWN": 4,
+                   "MERCHANT_HELPED": 5}
 CHARACTER_ID_MAP = {"HERO": 1}
-ITEM_ID_MAP = {"NONE": 0, "POTION": 1, "BOMB": 2, "ETHER": 3, "SWORD": 4}
+ITEM_ID_MAP = {"NONE": 0, "POTION": 1, "BOMB": 2, "ETHER": 3, "SWORD": 4,
+               "AMULET": 5, "NUT": 6}
 ACTOR_ID_MAP = {"SLIME_FIELD": 1, "SLIME_FOREST": 2, "BAT_FOREST": 3,
                 "SLIME_MOUNTAIN_PASS": 4, "BAT_CASTLE": 5}
 ACTOR_STATE_NAME_MAP = {"ALIVE": 0, "DEFEATED": 1}

@@ -11,66 +11,19 @@ static bool variable_id_valid(VariableId variable)
     return (variable >= 1 && variable <= MAX_STATE_VARIABLES);
 }
 
-void game_state_reset(GameState *state)
+/* Zero the canonical persistent state.  Generic: no game-specific defaults
+ * (starting scene, hero, gold, chapter) live in the foundation -- the game
+ * layer applies those in game_new_game(). */
+void game_state_zero(GameState *state)
 {
     uint8_t i;
+    uint8_t *bytes;
     if (!state) return;
 
-    state->scene.scene_id = SCENE_FIELD;
-    state->scene.player_x = 4;
-    state->scene.player_y = 4;
-    state->scene.player_facing = (uint8_t)DIRECTION_DOWN;
-
-    state->party.count = 1;
-    state->party.members[0].id = CHARACTER_HERO;
-    state->party.members[0].hp = 10;
-    state->party.members[0].max_hp = 10;
-    for (i = 1; i < MAX_PARTY_MEMBERS; i++) {
-        state->party.members[i].id = CHARACTER_NONE;
-        state->party.members[i].hp = 0;
-        state->party.members[i].max_hp = 0;
+    bytes = (uint8_t *)state;
+    for (i = 0; i < sizeof(GameState); i++) {
+        bytes[i] = 0;
     }
-
-    state->inventory.count = 0;
-    for (i = 0; i < MAX_INVENTORY_ITEMS; i++) {
-        state->inventory.entries[i].item_id = ITEM_NONE;
-        state->inventory.entries[i].quantity = 0;
-    }
-
-    for (i = 0; i < (MAX_STATE_FLAGS / 8); i++) {
-        state->flags.bytes[i] = 0;
-    }
-
-    for (i = 0; i < MAX_STATE_VARIABLES; i++) {
-        state->variables.values[i] = 0;
-    }
-    state->variables.values[VARIABLE_ID_CHAPTER - 1] = 1;
-
-    for (i = 0; i < MAX_CURRENCIES; i++) {
-        state->currency.amount[i] = 0;
-    }
-    state->currency.amount[CURRENCY_ID_GOLD - 1] = 20; /* the hero starts with 20 gold */
-
-    state->world.count = 0;
-    for (i = 0; i < MAX_PERSISTENT_ACTORS; i++) {
-        state->world.actors[i].actor_id = 0;
-        state->world.actors[i].state = (uint8_t)ACTOR_STATE_ALIVE;
-    }
-
-    state->progression.count = 0;
-    for (i = 0; i < MAX_PROGRESSION_TARGETS; i++) {
-        state->progression.entries[i].target.type = (uint8_t)PROG_TYPE_NONE;
-        state->progression.entries[i].target.id = 0;
-        state->progression.entries[i].state.level = 0;
-        state->progression.entries[i].state.progress = 0;
-    }
-
-    state->equipment.weapon = ITEM_NONE;
-}
-
-void game_state_init(GameState *state)
-{
-    game_state_reset(state);
 }
 
 bool game_flag_is_set(const GameState *state, FlagId flag)

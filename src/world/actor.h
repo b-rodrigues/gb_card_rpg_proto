@@ -46,7 +46,9 @@ typedef struct {
     uint8_t facing;
     uint8_t flags;
     uint8_t visual;              /* ASCII prototype character */
+    const char *display_name;    /* semantic name (battle enemy label, ...) */
     InteractionId interaction;
+    uint8_t shop_id;             /* which shop this actor runs (0 = none) */
     DialogueId dialogue_id;
     BattleId battle_id;
     uint8_t hp;                  /* hostile actors only */
@@ -55,6 +57,16 @@ typedef struct {
     VariableId spawn_variable;   /* spawn only when this variable == spawn_value (0 = always) */
     int16_t spawn_value;
 } WorldActorDefinition;
+
+/* A per-map block of actor definitions.  The engine owns no scene content:
+ * the game layer registers its tables via actor_register_tables(). */
+typedef struct {
+    MapId map_id;
+    const WorldActorDefinition *defs;
+    uint8_t count;
+} WorldActorTable;
+
+void actor_register_tables(const WorldActorTable *tables, uint8_t count);
 
 /* Result of engaging an actor. */
 typedef enum {
@@ -76,9 +88,6 @@ uint8_t actor_find_hostile_slot(const World *world, uint8_t x, uint8_t y);
 /* Single generic engagement entry point: hostile actors request combat,
  * everything else runs its interaction (dialogue for v1). */
 ActorEngageResult actor_engage(const WorldActorDefinition *actor, DialogueState *dialogue);
-
-/* Display name for a hostile EntityId (used as the battle enemy name). */
-const char *actor_enemy_name(EntityId id);
 
 /* Spawn all hostile actor definitions for the given map into
  * World.actors runtime slots.  Actors whose ActorId is marked DEFEATED in

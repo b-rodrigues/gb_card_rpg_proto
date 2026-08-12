@@ -26,7 +26,10 @@ typedef enum {
     EVENT_ID_GUARD_AFTER_MAYOR = 6,
     EVENT_ID_GUARD_GREETING = 7,
     EVENT_ID_MONSTER_DEFEATED = 8,
-    EVENT_ID_BOSS_DEFEATED = 9
+    EVENT_ID_BOSS_DEFEATED = 9,
+    EVENT_ID_MERCHANT_INTRO = 10,
+    EVENT_ID_MERCHANT_DELIVER = 11,
+    EVENT_ID_AMULET_PICKUP = 12
 } EventId;
 
 typedef enum {
@@ -36,19 +39,22 @@ typedef enum {
 } EventTriggerType;
 
 /* Generic event condition.  A FLAG cond requires flag is/not set; a
- * VARIABLE cond requires value >= threshold (at_least) or == threshold. */
+ * VARIABLE cond requires value >= threshold (at_least) or == threshold;
+ * an ITEM_COUNT cond requires the inventory count of the item to be
+ * >= threshold (at_least) or == threshold. */
 typedef enum {
     EVENT_COND_NONE = 0,
     EVENT_COND_FLAG = 1,
-    EVENT_COND_VARIABLE = 2
+    EVENT_COND_VARIABLE = 2,
+    EVENT_COND_ITEM_COUNT = 3
 } EventCondType;
 
 typedef struct {
     EventCondType type;
-    uint16_t id;        /* StoryFlagId / VariableId */
-    int16_t value;      /* variable threshold */
+    uint16_t id;        /* StoryFlagId / VariableId / ItemId */
+    int16_t value;      /* variable threshold / item count */
     bool flag_set;      /* FLAG: required state */
-    bool at_least;      /* VARIABLE: >= when true, == when false */
+    bool at_least;      /* VARIABLE / ITEM_COUNT: >= when true, == when false */
 } EventCond;
 
 #define MAX_EVENT_CONDS 3
@@ -61,7 +67,9 @@ typedef enum {
     EVENT_ACTION_SET_VARIABLE = 4,
     EVENT_ACTION_ADD_VARIABLE = 5,
     EVENT_ACTION_SCENE_CHANGE = 6,
-    EVENT_ACTION_ADD_ITEM = 7
+    EVENT_ACTION_ADD_ITEM = 7,
+    EVENT_ACTION_ADD_CURRENCY = 8,
+    EVENT_ACTION_REMOVE_ITEM = 9
 } EventActionType;
 
 typedef struct {
@@ -86,6 +94,10 @@ typedef struct {
 
 /* Sentinel meaning "any map" for a MAP_ENTER event target. */
 #define EVENT_MAP_ANY 0xFF
+
+/* Register the game's event table.  The engine is generic; the game layer
+ * supplies its content table at boot (see src/game/events.c). */
+void event_init(const EventDefinition *table, uint8_t count);
 
 /* Resolve the first matching INTERACT event for the given actor and run its
  * actions.  Returns the engage result the screen should act on:

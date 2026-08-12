@@ -1,100 +1,38 @@
 #include "actor.h"
 #include <stddef.h>
 
-/* ── Scene-owned actor definitions ─────────────────────────────────
- *
- * Friendly actors are pure static definitions.  Hostile actors are
- * spawned into World.actors runtime slots by actor_load_scene(), so a
- * scene can hold several hostile actors at once.  Each hostile definition
- * carries a stable ActorId (unique across scenes) so its defeat can be
- * recorded persistently in GameState.world and survive scene reloads.
- */
+/* ── Actor engine ──────────────────────────────────────────────────
+ * The per-scene actor definitions are game content, registered at boot via
+ * actor_register_tables() (see src/game/actors.c).  Friendly actors are
+ * pure static definitions; hostile actors are spawned into World.actors
+ * runtime slots so a scene can hold several at once.  Each hostile
+ * definition carries a stable ActorId (unique across scenes) so its defeat
+ * can be recorded persistently in GameState.world. */
 
-static const WorldActorDefinition g_town_actors[] = {
-    {
-        0, ENTITY_ID_MAYOR, 10, 5, DIRECTION_DOWN,
-        ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
-        'M', INTERACTION_DIALOGUE, DIALOGUE_ID_MAYOR_GREETING, BATTLE_NONE, 0, 0, 0, 0, 0
-    },
-    {
-        0, ENTITY_ID_GUARD, 10, 8, DIRECTION_DOWN,
-        ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
-        'G', INTERACTION_DIALOGUE, DIALOGUE_ID_GUARD_GREETING, BATTLE_NONE, 0, 0, 0, 0, 0
-    },
-    {
-        0, ENTITY_ID_SHOPKEEPER, 9, 3, DIRECTION_DOWN,
-        ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
-        'S', INTERACTION_SHOP, DIALOGUE_ID_NONE, BATTLE_NONE, 0, 0, 0, 0, 0
-    }
-};
+static const WorldActorTable *g_actor_tables = NULL;
+static uint8_t g_actor_table_count = 0;
 
-static const WorldActorDefinition g_field_actors[] = {
-    {
-        1, ENTITY_ID_SLIME, 14, 8, DIRECTION_DOWN,
-        ACTOR_FLAG_HOSTILE | ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
-        'E', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_SLIME, 5, 5, 5, 0, 0
-    }
-};
-
-static const WorldActorDefinition g_forest_actors[] = {
-    {
-        2, ENTITY_ID_SLIME, 10, 8, DIRECTION_DOWN,
-        ACTOR_FLAG_HOSTILE | ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
-        'E', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_SLIME, 6, 6, 5, 0, 0
-    },
-    {
-        3, ENTITY_ID_BAT, 7, 4, DIRECTION_DOWN,
-        ACTOR_FLAG_HOSTILE | ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
-        'V', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_BAT, 4, 4, 8, 0, 0
-    }
-};
-
-static const WorldActorDefinition g_mountain_pass_actors[] = {
-    {
-        4, ENTITY_ID_SLIME, 14, 7, DIRECTION_DOWN,
-        ACTOR_FLAG_HOSTILE | ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
-        'E', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_SLIME, 8, 8, 5, 0, 0
-    }
-};
-
-static const WorldActorDefinition g_castle_actors[] = {
-    {
-        5, ENTITY_ID_BAT, 12, 7, DIRECTION_DOWN,
-        ACTOR_FLAG_HOSTILE | ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
-        'V', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_BAT, 4, 4, 8, 0, 0
-    },
-    /* Lord of Slimes: the final boss.  Appears only once the Monster Hunt
-     * quest is COMPLETE (the sword is in the inventory). */
-    {
-        6, ENTITY_ID_SLIME_LORD, 10, 5, DIRECTION_DOWN,
-        ACTOR_FLAG_HOSTILE | ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
-        'L', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_NONE, 25, 25, 50,
-        VARIABLE_ID_QUEST_MONSTER_HUNT, 2
-    }
-};
+void actor_register_tables(const WorldActorTable *tables, uint8_t count)
+{
+    g_actor_tables = tables;
+    g_actor_table_count = count;
+}
 
 static const WorldActorDefinition *actor_defs_for_map(MapId map_id, uint8_t *count)
 {
-    switch (map_id) {
-        case MAP_TOWN:
-            if (count) *count = (uint8_t)(sizeof(g_town_actors) / sizeof(g_town_actors[0]));
-            return g_town_actors;
-        case MAP_FIELD:
-            if (count) *count = (uint8_t)(sizeof(g_field_actors) / sizeof(g_field_actors[0]));
-            return g_field_actors;
-        case MAP_FOREST:
-            if (count) *count = (uint8_t)(sizeof(g_forest_actors) / sizeof(g_forest_actors[0]));
-            return g_forest_actors;
-        case MAP_MOUNTAIN_PASS:
-            if (count) *count = (uint8_t)(sizeof(g_mountain_pass_actors) / sizeof(g_mountain_pass_actors[0]));
-            return g_mountain_pass_actors;
-        case MAP_CASTLE:
-            if (count) *count = (uint8_t)(sizeof(g_castle_actors) / sizeof(g_castle_actors[0]));
-            return g_castle_actors;
-        default:
-            if (count) *count = 0;
-            return NULL;
+    uint8_t i;
+    if (!g_actor_tables) {
+        if (count) *count = 0;
+        return NULL;
     }
+    for (i = 0; i < g_actor_table_count; i++) {
+        if (g_actor_tables[i].map_id == map_id) {
+            if (count) *count = g_actor_tables[i].count;
+            return g_actor_tables[i].defs;
+        }
+    }
+    if (count) *count = 0;
+    return NULL;
 }
 
 static const WorldActorDefinition *actor_find_def_by_id(MapId map_id, EntityId id)
@@ -123,6 +61,7 @@ static void actor_spawn(WorldActorRuntime *r, const WorldActorDefinition *def)
     r->max_hp = def->max_hp;
     r->flags = ACTOR_STATE_NONE;
     r->gold_reward = def->gold_reward;
+    r->display_name = def->display_name;
 }
 
 uint8_t actor_find_hostile_slot(const World *world, uint8_t x, uint8_t y)
@@ -178,16 +117,6 @@ ActorEngageResult actor_engage(const WorldActorDefinition *actor, DialogueState 
     }
 
     return ENGAGE_NONE;
-}
-
-const char *actor_enemy_name(EntityId id)
-{
-    switch (id) {
-        case ENTITY_ID_SLIME:      return "SLIME";
-        case ENTITY_ID_BAT:        return "BAT";
-        case ENTITY_ID_SLIME_LORD: return "LORD OF SLIMES";
-        default:                   return "ENEMY";
-    }
 }
 
 void actor_load_scene(World *world, MapId map_id, const GameState *state)

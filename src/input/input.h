@@ -11,11 +11,17 @@ typedef enum {
     INPUT_DOWN,
     INPUT_A,
     INPUT_B,
-    INPUT_START,
-    INPUT_SELECT
+    INPUT_SELECT,   /* bit 0x40 == J_SELECT */
+    INPUT_START     /* bit 0x80 == J_START */
 } InputButton;
 
 extern volatile uint8_t g_inp_mask;
+
+/* Button bit values in enum order (1 << InputButton).  Mirrors GBDK
+ * joypad()'s J_* layout, enforced by a compile-time check in input.c.  The
+ * harness reads this table to build its injection masks, so the injected
+ * input path always matches the real joypad path. */
+extern const uint8_t g_input_button_bits[8];
 
 void input_init(void);
 void input_reset(void);

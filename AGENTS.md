@@ -2133,3 +2133,19 @@ warnings into the assembly stream).  Use `make lint` to run a
 compile-to-assembly `-Wf-Wall` pass over every source; it must report no
 warnings.  This has caught real bugs (e.g. `uint8_t` progression thresholds
 truncating values > 255).
+
+## 54.5 Input bit layout is a wire contract
+
+`InputButton` bits (`1 << InputButton`) must equal GBDK `joypad()`'s `J_*`
+bits.  They diverge only for the real game, never for the harness (the
+harness injects `g_inp_mask`, which uses the same `1 << InputButton` bits) —
+so a mismatch silently breaks only hardware controls.  Two guards keep the
+paths in sync:
+
+* `src/input/input.c` contains a compile-time check (`g_input_bit_layout_ok`)
+  that makes any `InputButton`/`J_*` mismatch a hard compile error.
+* The harness reads `g_input_button_bits[]` from the ROM at connect and
+  derives its injection masks from it (no hand-synced masks).
+
+Never reorder `InputButton` without updating the `J_*` expectations, and
+never hand-code button masks in `tools/emulator.py`.

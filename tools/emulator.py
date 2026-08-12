@@ -64,12 +64,13 @@ ACTOR_INFO_MAP = {
     "BAT":         {"visual": "V", "hostile": True,  "interaction": "COMBAT", "dialogue": "NONE", "battle": "BAT"},
 }
 
+# Fallback button masks.  At connect() these are overridden by the ROM's
+# g_input_button_bits table (so injected input always matches the compiled
+# InputButton layout, which a compile-time check ties to GBDK's joypad()).
+BUTTON_NAMES = ["RIGHT", "LEFT", "UP", "DOWN", "A", "B", "SELECT", "START"]
 BUTTON_MASKS = {
-    # g_inp_mask is consumed as pad_state and input_pressed() tests
-    # (1 << InputButton), so the masks follow the InputButton enum order:
-    # RIGHT=0 LEFT=1 UP=2 DOWN=3 A=4 B=5 START=6 SELECT=7.
     "RIGHT": 0x01, "LEFT": 0x02, "UP": 0x04, "DOWN": 0x08,
-    "A": 0x10, "B": 0x20, "START": 0x40, "SELECT": 0x80
+    "A": 0x10, "B": 0x20, "SELECT": 0x40, "START": 0x80
 }
 
 SCENARIO_IDS = {
@@ -294,6 +295,7 @@ class EmulatorSession:
         self.proc = None
         self.symbols = {}
         self.current_snapshot = {}
+        self.button_masks = dict(BUTTON_MASKS)
 
     def get_symbol(self, sym_name):
         for candidate in [sym_name, f"_{sym_name}"]:
@@ -437,6 +439,8 @@ class EmulatorSession:
                 "Boot sequence incomplete: main→ui_init→game_init→first_render"
             )
 
+        self._load_button_masks()
+
     def disconnect(self):
         if self.proc:
             try:
@@ -482,11 +486,31 @@ class EmulatorSession:
 
     # ── Input injection ─────────────────────────────────────────────
 
+    def _load_button_masks(self):
+        """Read the ROM's g_input_button_bits table so injected input always
+        matches the compiled InputButton layout (tied to GBDK's joypad() by a
+        compile-time check in input.c).  Falls back to BUTTON_MASKS."""
+        try:
+            addr = self.get_symbol("g_input_button_bits")
+        except KeyError:
+            self.button_masks = dict(BUTTON_MASKS)
+            return
+        bits = []
+        for i in range(8):
+            b = self._memread(addr + i)
+            if b is None:
+                break
+            bits.append(b)
+        if len(bits) == 8:
+            self.button_masks = dict(zip(BUTTON_NAMES, bits))
+        else:
+            self.button_masks = dict(BUTTON_MASKS)
+
     def press(self, button):
         btn_upper = button.upper()
-        if btn_upper not in BUTTON_MASKS:
+        if btn_upper not in self.button_masks:
             raise ValueError(f"Unknown button '{button}'")
-        mask = BUTTON_MASKS[btn_upper]
+        mask = self.button_masks[btn_upper]
         addr = self.get_symbol("g_inp_mask")
         self._memwrite(addr, mask)
         time.sleep(0.005)

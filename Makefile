@@ -29,7 +29,7 @@ OBJS_DEBUG = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/debug/%.o,$(SRCS))
 # Emulator detection
 EMULATOR ?= $(shell command -v sameboy 2>/dev/null || command -v mgba-sdl 2>/dev/null || command -v mgba-qt 2>/dev/null || command -v mgba 2>/dev/null || echo "")
 
-.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot lint clean
+.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot lint memmap clean
 
 all: $(TARGET)
 
@@ -114,6 +114,11 @@ roundtrip: debug
 
 screenshot: $(TARGET)
 	@bash tools/screenshot.sh $(BUILD_DIR)/screenshot.png $(TARGET)
+
+# Print a reproducible memory budget (code/WRAM usage, _HOME headroom vs the
+# 0x8000 ceiling).  Exits non-zero if a documented invariant is violated.
+memmap: debug
+	@python3 tools/memmap.py $(BUILD_DIR)/rpg_card_proto_debug.map
 
 clean:
 	rm -rf $(BUILD_DIR)

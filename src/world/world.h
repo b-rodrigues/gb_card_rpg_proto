@@ -52,6 +52,7 @@ typedef struct {
     uint8_t max_hp;
     uint8_t flags;               /* runtime state flags (future) */
     uint8_t gold_reward;         /* copied from the definition */
+    uint8_t reward_currency;     /* copied from the definition */
     const char *display_name;    /* copied from the definition */
 } WorldActorRuntime;
 

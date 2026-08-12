@@ -26,7 +26,8 @@ typedef enum {
 typedef struct {
     ItemId id;
     const char *name;
-    uint16_t price;   /* gold cost in the shop (0 = not sold) */
+    uint16_t price;   /* shop price (0 = not sold) */
+    CurrencyId currency;  /* currency charged by item_purchase (e.g. GOLD) */
     ItemKind kind;
     ItemEffectType effect;
     uint8_t effect_amount;

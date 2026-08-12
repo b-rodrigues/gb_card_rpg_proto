@@ -61,6 +61,7 @@ static void actor_spawn(WorldActorRuntime *r, const WorldActorDefinition *def)
     r->max_hp = def->max_hp;
     r->flags = ACTOR_STATE_NONE;
     r->gold_reward = def->gold_reward;
+    r->reward_currency = def->reward_currency;
     r->display_name = def->display_name;
 }
 

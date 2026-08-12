@@ -1,4 +1,40 @@
-# RPG State Foundation v1 — Implementation Plan
+# Game Boy RPG Foundation Roadmap
+
+## Status
+
+### DONE
+
+- GameState (scene, party, inventory, flags, variables, currency, world actors, progression, equipment)
+- World actors (data-driven definitions, persistent defeat lifecycle)
+- Scenes & exits (data-driven)
+- Dialogue (registered content)
+- Scripted events (conditions + actions, registered content)
+- Inventory, items, equipment, shops (data-driven, per-shop stock)
+- Quests as a registered engine module; data-driven QUEST menu
+- Multiple quest archetypes (kill-counter, fetch/deliver/unlock)
+- Game/content separation (`src/game/` registered against a generic engine)
+- Deterministic debug harness (89 scenarios, assertions, telemetry, RNG)
+- LLM-readable state/telemetry (snapshot, semantic dump, roundtrip)
+- Complete vertical slice (town, quest, sword, boss, ending)
+- Save/load foundation (wire descriptor, snapshot, roundtrip probe)
+- Repository hardening (engine/game boundaries, `make memmap` budget)
+
+### NEXT
+
+- Save / load production implementation (SRAM persistence of `GameState`)
+- Battle system expansion (per-enemy stats/AI, command menu, variance, etc.)
+- Card battle prototype (hand/deck/discard, draw, play, resolve)
+
+### LATER
+
+- Extract a reusable template repo from this codebase
+- Start the actual game repository on top of the foundation
+
+The detailed plan below is the historical record of how the foundation was
+built (every section marked DONE).  The forward-looking items live in the
+status lists above; see the detailed sections for what each entails.
+
+---
 
 ## 1. Objective — DONE
 
@@ -1040,7 +1076,7 @@ That gives us a very strong RPG substrate before introducing the most game-speci
 
 ---
 
-# Roadmap
+# Detailed roadmap (per-area status)
 
 ## 1. RPG State Foundation v1 — DONE
 

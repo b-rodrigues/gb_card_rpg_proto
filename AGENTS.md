@@ -2227,3 +2227,77 @@ Rules:
 * The quick screen keeps a dedicated tab row: full labels (`ITEM EQUIP
   QUEST STAT`) with the active tab marked by a `^` on the row below, and a
   per-tab centered title (`ITEMS`/`EQUIP`/`QUESTS`/`STATUS`).
+
+---
+
+# 55. Architecture Invariants (repository hardening)
+
+These are the boundaries the architecture depends on.  Treat them as review
+rules: a change that violates one must be justified, not silent.
+
+## 55.1 Engine vs game layer dependency direction
+
+The engine (`src/core`, `src/rpg`, `src/world`, `src/battle`, `src/ui`,
+`src/screens`, `src/input`, `src/audio`, `src/debug`) is generic and owns no
+game content.  The game layer (`src/game`) owns content tables, named ids,
+initial state, and stat hooks, registered with the engine at boot.
+
+* **Adding a new enemy, item, quest, shop, or dialogue line must be a
+  `src/game/` content change only** — never a change to engine files or
+  shared screens.
+* **Engine files must not include game-layer headers** (`content.h`,
+  `game_ids.h`, `shops.h`) — with one documented exception: `main.c` is the
+  composition root and calls `game_content_init()` before `game_init()`, and
+  `src/core/game.c` calls the game's `game_new_game` hook at boot.  These are
+  the engine's *hooks into the game*, the intended dependency-inversion.
+* **Engine files must not branch on game ids.**  A `switch` over
+  `ENTITY_ID_MAYOR` / `ITEM_SWORD` / `QUEST_MONSTER_HUNT` in an engine file is
+  a regression.  Game decisions live in `src/game` (event table, hooks like
+  `game_screen_after_victory`, `game_hero_attack`).
+* **The engine headers define the shared ID vocabulary** (`EntityId`,
+  `EventId`, `DialogueId`, `ItemId` values in `entity.h`/`event.h`/
+  `dialogue.h`/`state.h`).  This is a deliberate boundary: the engine owns the
+  identity namespace, the game layer owns the content that uses it.  The
+  *generic* ids (`FlagId`/`VariableId`/`CurrencyId`) are already plain
+  integers in `src/rpg/state.h`.
+
+## 55.2 Content is registered, not compiled in
+
+Every content system follows the same pattern: an engine provider plus a
+game-layer `game_*_register()` called from `game_content_init()`:
+
+* events: `event_init` (`src/core/event.c`) / `src/game/events.c`
+* dialogue: `dialogue_register` (`src/core/dialogue.c`) / `src/game/dialogue.c`
+* actors: `actor_register_tables` (`src/world/actor.c`) / `src/game/actors.c`
+* items: `item_register_defs` (`src/rpg/items.c`) / `src/game/items.c`
+* quests: `quest_init` (`src/core/quest.c`) / `src/game/quests.c`
+* shops: read directly by the shop screen via `game_shop_for_id` (`src/game/shops.c`)
+
+A new content system should follow the same shape rather than inventing a new
+registration mechanism.
+
+## 55.3 Quests are data
+
+A quest is **a row in the quest registry + event-table entries**, nothing
+else.  The QUEST menu iterates the registered registry generically; it must
+never switch on individual quest ids.  Quest state is a generic variable
+encoded 0 = not started / 1 = active / 2 = complete (or equivalent
+thresholds), mutated by events.  Known gaps (multi-stage quests, "key unlocks
+a location", per-quest hints, repeatable quests) are logged in
+`docs/roadmap.md`; do not add machinery for them until a real quest needs it.
+
+## 55.4 Observability is non-optional
+
+Every quest/event/item/actor state transition must remain visible to the
+harness: `SCRIPT_TRIGGERED` (events), `VARIABLE_SET` (quest/variable state),
+`ITEM_ADDED`/`ITEM_REMOVED`, `CURRENCY_ADDED`/`CURRENCY_SPENT`,
+`ACTOR_STATE_CHANGE`, plus the semantic snapshot.  A content change that makes
+a gameplay outcome invisible to `make test-harness` is incomplete.
+
+## 55.5 Memory budget
+
+`make memmap` prints the reproducible memory budget and fails on a violation.
+The non-bankable `_HOME` area must stay below `0x8000` (CPU addresses
+`0x8000+` alias VRAM).  Keep `_CODE` (fixed bank) as small as practical and
+track the budget in the roadmap; every substantial feature should be checked
+against `make memmap`.

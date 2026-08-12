@@ -5,7 +5,6 @@
 #include "scene.h"
 #include "event.h"
 #include "rpg/currency.h"
-#include "game_ids.h"
 
 void world_load_map(World *w, MapId map_id, const GameState *state)
 {
@@ -139,8 +138,9 @@ void world_on_battle_end(Game *g, bool victory)
         w->actors[idx].hp = 0;
         w->actors[idx].flags = ACTOR_STATE_NONE;
         telemetry_emit(EVENT_ENTITY_DEFEATED, (uint8_t)w->actors[idx].id, 0, 0, 0);
-        if (w->actors[idx].gold_reward != 0) {
-            currency_add(&g->state, CURRENCY_ID_GOLD, w->actors[idx].gold_reward);
+        if (w->actors[idx].reward_currency != 0 && w->actors[idx].gold_reward != 0) {
+            currency_add(&g->state, (CurrencyId)w->actors[idx].reward_currency,
+                         w->actors[idx].gold_reward);
         }
         if (actor_id != 0) {
             game_world_set_actor_state(&g->state, actor_id, ACTOR_STATE_DEFEATED);

@@ -53,7 +53,8 @@ typedef struct {
     BattleId battle_id;
     uint8_t hp;                  /* hostile actors only */
     uint8_t max_hp;              /* hostile actors only */
-    uint8_t gold_reward;         /* gold granted on defeat (hostile only) */
+    uint8_t gold_reward;         /* amount granted on defeat (hostile only) */
+    CurrencyId reward_currency;  /* currency granted on defeat (0 = none) */
     VariableId spawn_variable;   /* spawn only when this variable == spawn_value (0 = always) */
     int16_t spawn_value;
 } WorldActorDefinition;

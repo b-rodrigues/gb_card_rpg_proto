@@ -3,7 +3,6 @@
 #include "rpg/currency.h"
 #include "rpg/party.h"
 #include "telemetry.h"
-#include "game_ids.h"
 #include <stddef.h>
 
 /* The item catalog is game content, registered at boot via
@@ -130,7 +129,7 @@ ItemPurchaseResult item_purchase(GameState *state, ItemId id)
 
     if (!state) return ITEM_PURCHASE_NOT_SOLD;
     def = item_get_def(id);
-    if (!def || def->price == 0) {
+    if (!def || def->price == 0 || def->currency == 0) {
         telemetry_emit(EVENT_ITEM_PURCHASE_FAILED, (uint8_t)id,
                        (uint8_t)ITEM_PURCHASE_NOT_SOLD, 0, 0);
         return ITEM_PURCHASE_NOT_SOLD;
@@ -142,14 +141,14 @@ ItemPurchaseResult item_purchase(GameState *state, ItemId id)
                        (uint8_t)ITEM_PURCHASE_NO_CAPACITY, 0, 0);
         return ITEM_PURCHASE_NO_CAPACITY;
     }
-    if (currency_get(state, CURRENCY_ID_GOLD) < price) {
+    if (currency_get(state, def->currency) < price) {
         telemetry_emit(EVENT_ITEM_PURCHASE_FAILED, (uint8_t)id,
                        (uint8_t)ITEM_PURCHASE_NO_GOLD, 0, 0);
         return ITEM_PURCHASE_NO_GOLD;
     }
 
     /* Commit (both can no longer fail after the checks above). */
-    currency_add(state, CURRENCY_ID_GOLD, -price);
+    currency_add(state, def->currency, -price);
     inventory_add(&state->inventory, id, 1);
     telemetry_emit(EVENT_ITEM_PURCHASED, (uint8_t)id, (uint8_t)price, 0, 0);
     return ITEM_PURCHASE_OK;

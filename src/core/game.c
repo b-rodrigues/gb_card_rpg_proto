@@ -38,7 +38,6 @@ void game_init(Game *g)
     g->prev_screen = SCREEN_OVERWORLD;
     telemetry_init();
     telemetry_set_frame_ptr(&g->frame);
-    game_content_init();
     game_new_game(&g->state);
     world_init(&g->world, &g->state);
     dialogue_init(&g->dialogue);
@@ -62,7 +61,6 @@ void game_restart(Game *g)
     g->shop_id = 1;
     g->screen = SCREEN_OVERWORLD;
     g->prev_screen = SCREEN_OVERWORLD;
-    game_content_init();
     game_new_game(&g->state);
     world_init(&g->world, &g->state);
     dialogue_init(&g->dialogue);

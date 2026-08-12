@@ -3,6 +3,7 @@
 #include "audio.h"
 #include "input.h"
 #include "ui.h"
+#include "content.h"
 
 Game g_game;
 
@@ -42,6 +43,9 @@ int main(void)
     ui_init();
     g_boot_phase = 2;
 
+    /* Composition root: register THIS game's content with the generic
+     * engine before boot glue runs. */
+    game_content_init();
     game_init(&g_game);
     g_boot_phase = 3;
 

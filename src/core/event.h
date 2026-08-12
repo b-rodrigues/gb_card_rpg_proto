@@ -16,22 +16,13 @@
  * ACTOR_DEFEATED runs EVERY matching event so a specific defeat handler
  * never suppresses the generic defeat bookkeeping. */
 
-/* Stable event identifiers (telemetry + host EVENT_ID_MAP). */
-typedef enum {
-    EVENT_ID_NONE = 0,
-    EVENT_ID_TOWN_ARRIVAL = 1,
-    EVENT_ID_QUEST_START = 2,
-    EVENT_ID_QUEST_ACTIVE = 3,
-    EVENT_ID_QUEST_COMPLETE = 4,
-    EVENT_ID_QUEST_DONE = 5,
-    EVENT_ID_GUARD_AFTER_MAYOR = 6,
-    EVENT_ID_GUARD_GREETING = 7,
-    EVENT_ID_MONSTER_DEFEATED = 8,
-    EVENT_ID_BOSS_DEFEATED = 9,
-    EVENT_ID_MERCHANT_INTRO = 10,
-    EVENT_ID_MERCHANT_DELIVER = 11,
-    EVENT_ID_AMULET_PICKUP = 12
-} EventId;
+/* Stable event identifiers (telemetry + host EVENT_ID_MAP).  The engine
+ * defines only the NONE sentinel and the start of the per-game content
+ * range; the game names its events in src/game/game_ids.h. */
+typedef uint8_t EventId;
+
+#define EVENT_ID_NONE       0
+#define EVENT_ID_FIRST_GAME 0x80
 
 typedef enum {
     EVENT_TRIGGER_INTERACT = 1,      /* player engages a specific actor */

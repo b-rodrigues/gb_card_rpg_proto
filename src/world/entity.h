@@ -16,18 +16,14 @@ typedef enum {
     DIRECTION_RIGHT
 } Direction;
 
-typedef enum {
-    ENTITY_ID_NONE = 0,
-    ENTITY_ID_PLAYER = 1,
-    ENTITY_ID_SLIME = 2,
-    ENTITY_ID_MAYOR = 3,
-    ENTITY_ID_GUARD = 4,
-    ENTITY_ID_SHOPKEEPER = 5,
-    ENTITY_ID_BAT = 6,
-    ENTITY_ID_SLIME_LORD = 7,
-    ENTITY_ID_MERCHANT = 8,
-    ENTITY_ID_AMULET = 9
-} EntityId;
+/* Entity identity.  The engine defines only the sentinels it needs plus the
+ * start of the per-game content range; each game names its own entity types
+ * in src/game/game_ids.h using values >= ENTITY_ID_FIRST_GAME. */
+typedef uint8_t EntityId;
+
+#define ENTITY_ID_NONE       0
+#define ENTITY_ID_PLAYER     1
+#define ENTITY_ID_FIRST_GAME 0x80
 
 typedef struct {
     Position position;

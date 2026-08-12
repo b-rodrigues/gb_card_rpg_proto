@@ -6,22 +6,13 @@
 
 #define MAX_DIALOGUE_LINES 8
 
-typedef enum {
-    DIALOGUE_ID_NONE = 0,
-    DIALOGUE_ID_MAYOR_GREETING = 1,
-    DIALOGUE_ID_GUARD_GREETING = 2,
-    DIALOGUE_ID_SHOPKEEPER_GREETING = 3,
-    DIALOGUE_ID_MAYOR_INTRO = 4,
-    DIALOGUE_ID_GUARD_AFTER_MAYOR = 5,
-    DIALOGUE_ID_QUEST_ACTIVE = 6,
-    DIALOGUE_ID_QUEST_COMPLETE = 7,
-    DIALOGUE_ID_QUEST_DONE = 8,
-    DIALOGUE_ID_MERCHANT_INTRO = 9,
-    DIALOGUE_ID_MERCHANT_THANKS = 10,
-    DIALOGUE_ID_AMULET_FOUND = 11,
-    DIALOGUE_ID_AMULET_NOTHING = 12,
-    DIALOGUE_ID_COUNT = 13
-} DialogueId;
+/* Dialogue identifiers.  The engine defines only the NONE sentinel and the
+ * start of the per-game content range; the game names its dialogues in
+ * src/game/game_ids.h. */
+typedef uint8_t DialogueId;
+
+#define DIALOGUE_ID_NONE       0
+#define DIALOGUE_ID_FIRST_GAME 0x80
 
 typedef struct {
     DialogueId id;

@@ -20,16 +20,27 @@ BATTLE_TURN_MAP = {0: "PLAYER", 1: "ENEMY_DELAY", 2: "ENEMY", 3: "RESULT"}
 BATTLE_RESULT_MAP = {0: "NONE", 1: "VICTORY", 2: "DEFEAT", 3: "FLED"}
 MAP_NAME_MAP = {0: "FIELD", 1: "TOWN", 2: "FOREST", 3: "MOUNTAIN_PASS", 4: "CASTLE"}
 STORY_FLAG_ID_MAP = {1: "ARRIVED_TOWN", 2: "MET_MAYOR"}
-ENTITY_ID_MAP = {0: "NONE", 1: "PLAYER", 2: "SLIME", 3: "MAYOR", 4: "GUARD",
-                 5: "SHOPKEEPER", 6: "BAT", 7: "SLIME_LORD",
-                 8: "MERCHANT", 9: "AMULET"}
+# Per-game content range base (mirrors *_FIRST_GAME in the engine headers).
+GAME_ID_BASE = 0x80
+ENTITY_ID_MAP = {0: "NONE", 1: "PLAYER",
+                 GAME_ID_BASE + 0: "SLIME", GAME_ID_BASE + 1: "MAYOR",
+                 GAME_ID_BASE + 2: "GUARD", GAME_ID_BASE + 3: "SHOPKEEPER",
+                 GAME_ID_BASE + 4: "BAT", GAME_ID_BASE + 5: "SLIME_LORD",
+                 GAME_ID_BASE + 6: "MERCHANT", GAME_ID_BASE + 7: "AMULET"}
 INTERACTION_ID_MAP = {0: "NONE", 1: "DIALOGUE", 2: "COMBAT"}
-DIALOGUE_ID_MAP = {0: "NONE", 1: "MAYOR_GREETING", 2: "GUARD_GREETING",
-                   3: "SHOPKEEPER_GREETING", 4: "MAYOR_INTRO",
-                   5: "GUARD_AFTER_MAYOR", 6: "QUEST_ACTIVE",
-                   7: "QUEST_COMPLETE", 8: "QUEST_DONE",
-                   9: "MERCHANT_INTRO", 10: "MERCHANT_THANKS",
-                   11: "AMULET_FOUND", 12: "AMULET_NOTHING"}
+DIALOGUE_ID_MAP = {0: "NONE",
+                   GAME_ID_BASE + 0: "MAYOR_GREETING",
+                   GAME_ID_BASE + 1: "GUARD_GREETING",
+                   GAME_ID_BASE + 2: "SHOPKEEPER_GREETING",
+                   GAME_ID_BASE + 3: "MAYOR_INTRO",
+                   GAME_ID_BASE + 4: "GUARD_AFTER_MAYOR",
+                   GAME_ID_BASE + 5: "QUEST_ACTIVE",
+                   GAME_ID_BASE + 6: "QUEST_COMPLETE",
+                   GAME_ID_BASE + 7: "QUEST_DONE",
+                   GAME_ID_BASE + 8: "MERCHANT_INTRO",
+                   GAME_ID_BASE + 9: "MERCHANT_THANKS",
+                   GAME_ID_BASE + 10: "AMULET_FOUND",
+                   GAME_ID_BASE + 11: "AMULET_NOTHING"}
 BATTLE_ID_MAP = {0: "NONE", 1: "SLIME", 2: "BAT"}
 EVENT_TYPE_MAP = {
     0: "PLAYER_MOVED", 1: "COLLISION", 2: "ENCOUNTER_STARTED",
@@ -48,12 +59,18 @@ EVENT_TYPE_MAP = {
     38: "PROGRESSION_GAINED", 39: "LEVEL_UP", 40: "ITEM_EQUIPPED",
     41: "BATTLE_FLED"
 }
-EVENT_ID_MAP = {1: "TOWN_ARRIVAL", 2: "QUEST_START", 3: "QUEST_ACTIVE",
-                4: "QUEST_COMPLETE", 5: "QUEST_DONE",
-                6: "GUARD_AFTER_MAYOR", 7: "GUARD_GREETING",
-                8: "MONSTER_DEFEATED", 9: "BOSS_DEFEATED",
-                10: "MERCHANT_INTRO", 11: "MERCHANT_DELIVER",
-                12: "AMULET_PICKUP"}
+EVENT_ID_MAP = {GAME_ID_BASE + 0: "TOWN_ARRIVAL",
+                GAME_ID_BASE + 1: "QUEST_START",
+                GAME_ID_BASE + 2: "QUEST_ACTIVE",
+                GAME_ID_BASE + 3: "QUEST_COMPLETE",
+                GAME_ID_BASE + 4: "QUEST_DONE",
+                GAME_ID_BASE + 5: "GUARD_AFTER_MAYOR",
+                GAME_ID_BASE + 6: "GUARD_GREETING",
+                GAME_ID_BASE + 7: "MONSTER_DEFEATED",
+                GAME_ID_BASE + 8: "BOSS_DEFEATED",
+                GAME_ID_BASE + 9: "MERCHANT_INTRO",
+                GAME_ID_BASE + 10: "MERCHANT_DELIVER",
+                GAME_ID_BASE + 11: "AMULET_PICKUP"}
 
 # Weapon attack bonuses (host-side mirror of src/rpg/items.c).
 ITEM_ATTACK_BONUS = {"SWORD": 3}
@@ -140,8 +157,10 @@ VARIABLE_ID_MAP = {"CHAPTER": 1, "MONSTERS_DEFEATED": 2,
                    "QUEST_MONSTER_HUNT": 3, "ENDING_SHOWN": 4,
                    "MERCHANT_QUEST": 5}
 CHARACTER_ID_MAP = {"HERO": 1}
-ITEM_ID_MAP = {"NONE": 0, "POTION": 1, "BOMB": 2, "ETHER": 3, "SWORD": 4,
-               "AMULET": 5, "NUT": 6}
+ITEM_ID_MAP = {"NONE": 0,
+               "POTION": GAME_ID_BASE + 0, "BOMB": GAME_ID_BASE + 1,
+               "ETHER": GAME_ID_BASE + 2, "SWORD": GAME_ID_BASE + 3,
+               "AMULET": GAME_ID_BASE + 4, "NUT": GAME_ID_BASE + 5}
 ACTOR_ID_MAP = {"SLIME_FIELD": 1, "SLIME_FOREST": 2, "BAT_FOREST": 3,
                 "SLIME_MOUNTAIN_PASS": 4, "BAT_CASTLE": 5}
 ACTOR_STATE_NAME_MAP = {"ALIVE": 0, "DEFEATED": 1}

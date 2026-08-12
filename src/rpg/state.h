@@ -22,16 +22,13 @@ typedef uint16_t VariableId;
 typedef uint16_t ActorId;
 typedef uint16_t CurrencyId;
 
-/* Item catalog (identity only; the foundation stores possession/count). */
-typedef enum {
-    ITEM_NONE = 0,
-    ITEM_POTION = 1,
-    ITEM_BOMB = 2,
-    ITEM_ETHER = 3,
-    ITEM_SWORD = 4,
-    ITEM_AMULET = 5,
-    ITEM_NUT = 6
-} ItemId;
+/* Item identity.  The foundation stores possession/count only; the engine
+ * defines the NONE sentinel and the start of the per-game content range.
+ * The game names its items in src/game/game_ids.h. */
+typedef uint8_t ItemId;
+
+#define ITEM_NONE       0
+#define ITEM_FIRST_GAME 0x80
 
 /* Party member identity. */
 typedef enum {

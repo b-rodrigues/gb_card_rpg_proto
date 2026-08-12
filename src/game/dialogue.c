@@ -1,4 +1,5 @@
 #include "dialogue.h"
+#include "game_ids.h"
 
 /* ── Dialogue table (game content) ───────────────────────────────── */
 static const DialogueDefinition g_dialogues[] = {

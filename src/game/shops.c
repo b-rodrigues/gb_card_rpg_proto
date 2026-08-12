@@ -1,4 +1,5 @@
 #include "shops.h"
+#include "game_ids.h"
 #include <stddef.h>
 
 /* ── Shop stock lists (game content) ───────────────────────────────

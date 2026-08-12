@@ -2278,12 +2278,18 @@ initial state, and stat hooks, registered with the engine at boot.
   `ENTITY_ID_MAYOR` / `ITEM_SWORD` / `QUEST_MONSTER_HUNT` in an engine file is
   a regression.  Game decisions live in `src/game` (event table, hooks like
   `game_screen_after_victory`, `game_hero_attack`).
-* **The engine headers define the shared ID vocabulary** (`EntityId`,
-  `EventId`, `DialogueId`, `ItemId` values in `entity.h`/`event.h`/
-  `dialogue.h`/`state.h`).  This is a deliberate boundary: the engine owns the
-  identity namespace, the game layer owns the content that uses it.  The
-  *generic* ids (`FlagId`/`VariableId`/`CurrencyId`) are already plain
-  integers in `src/rpg/state.h`.
+* **Engine headers define only the ID *types* and engine sentinels.**
+  `EntityId`/`EventId`/`DialogueId`/`ItemId` are `uint8_t` in
+  `entity.h`/`event.h`/`dialogue.h`/`state.h`, along with the engine's own
+  constants (`*_NONE`, `ENTITY_ID_PLAYER`) and the per-game content range
+  base (`ENTITY_ID_FIRST_GAME = 0x80`, and the analogous `EVENT_ID_FIRST_GAME`,
+  `DIALOGUE_ID_FIRST_GAME`, `ITEM_FIRST_GAME`).  Game-specific values
+  (`ENTITY_ID_MAYOR`, `ITEM_SWORD`, ...) live in `src/game/game_ids.h` as
+  `#define`s relative to those bases.  A second game defines its own ids in
+  its own `game_ids.h` without ever touching the engine headers.  The
+  *generic* ids (`FlagId`/`VariableId`/`CurrencyId`) are plain integers in
+  `src/rpg/state.h`.  Values >= 0x80 must be `#define`s, never enum members
+  (SDCC enums are signed 8-bit; 0x80 would wrap to -128).
 
 ## 55.2 Content is registered, not compiled in
 

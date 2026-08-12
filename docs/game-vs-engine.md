@@ -53,8 +53,9 @@ For any new feature:
 
 ## How to add content (never touch the engine)
 
-1. Extend the shared ID vocabulary if needed (`entity.h`, `event.h`,
-   `dialogue.h`, `state.h` — engine *defines* ids, game *uses* them).
+1. Define any new ids in `src/game/game_ids.h` as `#define`s relative to the
+   engine's `*_FIRST_GAME` bases (`entity.h`/`event.h`/`dialogue.h`/`state.h`
+   define only the sentinels and the range base).
 2. Add the data row(s) in `src/game/`.
 3. Register via `game_content_init()` if the content system needs it.
 4. Add a scenario + assertions; run `make test-harness`.

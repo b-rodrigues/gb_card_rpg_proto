@@ -47,11 +47,14 @@ Three boundary tiers:
 1. **Strict** — `core/`, `rpg/`, `world/`, `battle/`, `input/`, `audio/` must
    never include game-layer headers (`content.h`, `game_ids.h`, `shops.h`) or
    branch on game ids.  Verified clean.  The two documented exceptions:
-   * the shared **ID vocabulary** — `EntityId`, `EventId`, `DialogueId`,
-     `ItemId` values live in the engine headers (`entity.h`, `event.h`,
-     `dialogue.h`, `state.h`); the engine owns the identity namespace, the
-     game layer owns the content that uses it.  The generic ids (`FlagId`,
-     `VariableId`, `CurrencyId`) are plain integers in `src/rpg/state.h`.
+   * the **ID vocabulary** — the engine headers define only the ID *types*
+     (`EntityId`/`EventId`/`DialogueId`/`ItemId` are `uint8_t`) and engine
+     sentinels plus a per-game content range base (`*_FIRST_GAME = 0x80`).
+     Game-specific values (`ENTITY_ID_MAYOR`, `ITEM_SWORD`, ...) are
+     `#define`s in `src/game/game_ids.h` relative to those bases, so a
+     second game defines its own ids there without touching the engine
+     headers.  The generic ids (`FlagId`, `VariableId`, `CurrencyId`) are
+     plain integers in `src/rpg/state.h`.
    * the composition root — `main.c` calls `game_content_init()` before
      `game_init()`, and `src/core/game.c` calls the `game_new_game` hook at
      boot (engine → game hook, the intended dependency inversion).

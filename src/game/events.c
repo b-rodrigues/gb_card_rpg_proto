@@ -92,41 +92,41 @@ static const EventDefinition g_events[] = {
         {{ EVENT_ACTION_DIALOGUE, DIALOGUE_ID_GUARD_GREETING, 0, 0 }}
     },
     /* ── Lost Merchant quest (data-driven fetch/deliver) ─────────────
-     * DELIVER must precede INTRO (more specific first): delivering runs
-     * when the hero carries the amulet, otherwise the intro repeats.
-     * After delivery no merchant event matches, so the interaction falls
-     * back to the merchant's SHOP interaction (which then opens). */
+     * Quest state is the MERCHANT_QUEST variable: 0 = not started,
+     * 1 = amulet found (ACTIVE), 2 = complete.  DELIVER must precede INTRO
+     * (more specific first).  After delivery no merchant event matches, so
+     * the interaction falls back to the merchant's SHOP interaction. */
     {
         EVENT_ID_MERCHANT_DELIVER, EVENT_TRIGGER_INTERACT, ENTITY_ID_MERCHANT, EVENT_MAP_ANY,
         2,
         {
             { EVENT_COND_ITEM_COUNT, ITEM_AMULET, 1, false, true },
-            { EVENT_COND_VARIABLE, VARIABLE_ID_MERCHANT_HELPED, 0, false, false }
+            { EVENT_COND_VARIABLE, VARIABLE_ID_MERCHANT_QUEST, 1, false, false }
         },
         4,
         {
             { EVENT_ACTION_DIALOGUE, DIALOGUE_ID_MERCHANT_THANKS, 0, 0 },
             { EVENT_ACTION_ADD_CURRENCY, CURRENCY_ID_GOLD, 15, 0 },
             { EVENT_ACTION_REMOVE_ITEM, ITEM_AMULET, 1, 0 },
-            { EVENT_ACTION_SET_VARIABLE, VARIABLE_ID_MERCHANT_HELPED, 2, 0 }
+            { EVENT_ACTION_SET_VARIABLE, VARIABLE_ID_MERCHANT_QUEST, 2, 0 }
         }
     },
     {
         EVENT_ID_MERCHANT_INTRO, EVENT_TRIGGER_INTERACT, ENTITY_ID_MERCHANT, EVENT_MAP_ANY,
         1,
-        {{ EVENT_COND_VARIABLE, VARIABLE_ID_MERCHANT_HELPED, 0, false, false }},
+        {{ EVENT_COND_VARIABLE, VARIABLE_ID_MERCHANT_QUEST, 0, false, false }},
         1,
         {{ EVENT_ACTION_DIALOGUE, DIALOGUE_ID_MERCHANT_INTRO, 0, 0 }}
     },
     {
         EVENT_ID_AMULET_PICKUP, EVENT_TRIGGER_INTERACT, ENTITY_ID_AMULET, EVENT_MAP_ANY,
         1,
-        {{ EVENT_COND_FLAG, STORY_FLAG_ID_AMULET_COLLECTED, 0, false, false }},
+        {{ EVENT_COND_VARIABLE, VARIABLE_ID_MERCHANT_QUEST, 0, false, false }},
         3,
         {
             { EVENT_ACTION_DIALOGUE, DIALOGUE_ID_AMULET_FOUND, 0, 0 },
             { EVENT_ACTION_ADD_ITEM, ITEM_AMULET, 1, 0 },
-            { EVENT_ACTION_SET_FLAG, STORY_FLAG_ID_AMULET_COLLECTED, 0, 0 }
+            { EVENT_ACTION_SET_VARIABLE, VARIABLE_ID_MERCHANT_QUEST, 1, 0 }
         }
     }
 };

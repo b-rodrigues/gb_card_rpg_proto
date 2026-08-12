@@ -20,7 +20,7 @@
     },
     {
       "type": "variable",
-      "variable": "MERCHANT_HELPED",
+      "variable": "MERCHANT_QUEST",
       "expected": 0
     },
     {
@@ -45,7 +45,7 @@
       "ARRIVED_TOWN": true
     },
     "variables": {
-      "MERCHANT_HELPED": 0
+      "MERCHANT_QUEST": 0
     }
   }
 }

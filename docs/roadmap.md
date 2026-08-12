@@ -1099,11 +1099,34 @@ and reusable by any game:
 New scenarios: `merchant_quest_start`, `merchant_pickup`, `merchant_deliver`,
 `merchant_shop_open`, `merchant_repeat` (87 scenarios total).
 
-## 7. Save / Load
+## 7. Quest Abstraction — DONE (with known gaps)
+
+Quests are a first-class registered engine module: the vocabulary
+(`QuestDefinition`, `QuestStatus`) and the status derivation live in
+`src/core/quest.{h,c}` and are registered via `quest_init()`, while the game
+layer supplies its quest table (`src/game/quests.c`, `game_quest_register()`).
+Quest behavior (starts, progress, completion) is expressed by the event table,
+quest state lives in generic variables/items/flags, and the QUEST menu renders
+the registry automatically.
+
+Known quest-system gaps (reference — abstract further only when a new quest
+archetype proves the need):
+
+* linear 0/1/2 status only — no multi-stage / ordered-objective quests
+  ("talk to A, then B, then return"); the menu cannot show "stage 2 of 3";
+* one progress counter per quest — cannot express "collect 3 of A and 2 of B";
+* no per-quest ACTIVE hint text (LOST AMULET shows "active", not "return it");
+* the "key unlocks a location/exit" archetype is unexpressible — the event
+  engine has no condition on scene transitions or locked tiles;
+* soft coupling: a quest's `status_variable` must match the variable the
+  events mutate; no validation catches a mismatch;
+* no repeatable / cycling quests.
+
+## 8. Save / Load
 
 Serialize the persistent `GameState` into Game Boy-compatible save storage, with deterministic harness tests for save/load round trips.
 
-## 8. Battle Expansion — PARTIAL
+## 9. Battle Expansion — PARTIAL
 
 Strengthen the existing battle system now that it has a proper persistent RPG state to interact with.
 Missing:
@@ -1116,7 +1139,7 @@ Missing:
 * richer rewards (XP/leveling from battle, loot);
 * flee chance / consequences.
 
-## 9. Card System
+## 10. Card System
 
 Finally introduce the Baten Kaitos-inspired card mechanics on top of the stable RPG/battle foundation rather than allowing the card system to dictate the architecture.
 

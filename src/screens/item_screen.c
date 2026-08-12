@@ -7,6 +7,7 @@
 #include "rpg/progression.h"
 #include "menu.h"
 #include "game_ids.h"
+#include "quest.h"
 
 #define MENU_TAB_ITEM   0
 #define MENU_TAB_EQUIP  1
@@ -105,23 +106,71 @@ static void menu_draw_status(Game *g, const MenuFrame *frame, char *buf)
     }
 }
 
+static uint8_t menu_str_len(const char *s, uint8_t max)
+{
+    uint8_t n = 0;
+    if (!s) return 0;
+    while (s[n] != '\0' && n < max) n++;
+    return n;
+}
+
+/* Draw one quest's status line under its name: "not started", an ACTIVE
+ * progress counter ("monsters: 1/3") when the quest has one, or
+ * "complete - <note>". */
+static void quest_draw_status(Game *g, const QuestDefinition *q, uint8_t y, char *buf)
+{
+    QuestStatus st;
+    uint8_t x;
+    uint8_t l;
+    int16_t prog;
+
+    if (!q) return;
+    st = quest_status(&g->state, q);
+
+    if (st == QUEST_STATUS_NOT_STARTED) {
+        ui_draw_text_line(0, y, "not started", 20);
+    } else if (st == QUEST_STATUS_ACTIVE) {
+        if (q->progress_variable != 0) {
+            x = menu_str_len(q->progress_label, 12);
+            ui_draw_text_line(0, y, q->progress_label, x);
+            ui_draw_text_line(x, y, ": ", 2);
+            x += 2;
+            prog = game_variable_get(&g->state, q->progress_variable);
+            ui_format_int(prog, buf);
+            l = menu_str_len(buf, 6);
+            ui_draw_text_line(x, y, buf, l);
+            x += l;
+            ui_draw_text_line(x, y, "/", 1);
+            x += 1;
+            ui_format_int(q->progress_target, buf);
+            ui_draw_text_line(x, y, buf, menu_str_len(buf, 6));
+        } else {
+            ui_draw_text_line(0, y, "active", 20);
+        }
+    } else {
+        ui_draw_text_line(0, y, "complete - ", 11);
+        ui_draw_text_line(11, y, q->complete_note ? q->complete_note : "",
+                          menu_str_len(q->complete_note, 9));
+    }
+}
+
 static void menu_draw_quest(Game *g, const MenuFrame *frame, char *buf)
 {
-    int16_t quest = game_variable_get(&g->state, VARIABLE_ID_QUEST_MONSTER_HUNT);
-    int16_t slain = game_variable_get(&g->state, VARIABLE_ID_MONSTERS_DEFEATED);
+    uint8_t i;
+    uint8_t ci = 2;
     uint8_t y;
+    const QuestDefinition *q;
 
-    menu_draw_content(frame, 2, "MONSTER HUNT");
-    y = menu_row(frame, 3);
-    if (quest == 1) {
-        ui_draw_text_line(0, y, "monsters: ", 10);
-        ui_format_int(slain, buf);
-        ui_draw_text_line(10, y, buf, 1);
-        ui_draw_text_line(11, y, "/3", 2);
-    } else if (quest == 2) {
-        ui_draw_text_line(0, y, "complete - SWORD", 20);
-    } else {
-        ui_draw_text_line(0, y, "not started", 20);
+    /* Every quest in the engine's registry is listed automatically: name
+     * row, then status row.  Quest i occupies content rows (2+2i)/(3+2i). */
+    for (i = 0; i < quest_count(); i++) {
+        q = quest_at(i);
+        if (!q) break;
+        if (ci + 1 >= (uint8_t)(frame->bottom_row - frame->top_row)) break;
+        menu_draw_content(frame, ci, q->name);
+        y = menu_row(frame, ci + 1);
+        quest_draw_status(g, q, y, buf);
+        ci += 2;
     }
 }
 

@@ -19,6 +19,7 @@ void game_content_init(void)
     game_dialogue_register();
     game_actors_register();
     game_items_register();
+    game_quest_register();
 }
 
 void game_new_game(GameState *state)

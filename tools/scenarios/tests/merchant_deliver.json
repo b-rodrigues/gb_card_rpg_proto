@@ -1,7 +1,7 @@
 {
   "name": "merchant_deliver",
   "test": true,
-  "description": "Returning the Lost Amulet to the Merchant: reward gold, amulet consumed, MERCHANT_HELPED set",
+  "description": "Returning the Lost Amulet to the Merchant: reward gold, amulet consumed, MERCHANT_QUEST set",
   "scenario_id": "TOWN_BOOT",
   "actions": [
     {
@@ -24,7 +24,7 @@
     },
     {
       "type": "variable",
-      "variable": "MERCHANT_HELPED",
+      "variable": "MERCHANT_QUEST",
       "expected": 2
     },
     {
@@ -64,7 +64,7 @@
       "GOLD": 50
     },
     "variables": {
-      "MERCHANT_HELPED": 0
+      "MERCHANT_QUEST": 1
     }
   }
 }

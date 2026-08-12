@@ -35,6 +35,16 @@
       "expected": "ITEM"
     },
     {
+      "type": "screen_row",
+      "row": 0,
+      "contains": "EQUIP"
+    },
+    {
+      "type": "screen_row",
+      "row": 2,
+      "contains": "EQUIP"
+    },
+    {
       "type": "attack",
       "expected": 6
     },

@@ -3,6 +3,7 @@
 #include "telemetry.h"
 #include "rpg/items.h"
 #include "rpg/currency.h"
+#include "menu.h"
 
 #define SHOP_MSG_NONE 0
 #define SHOP_MSG_BOUGHT 1
@@ -12,32 +13,43 @@ static void shop_draw(Game *g)
 {
     const ItemDefinition *potion = item_get_def(ITEM_POTION);
     int16_t gold = currency_get(&g->state, CURRENCY_ID_GOLD);
+    MenuFrame frame;
     char gold_str[7];
     char price_str[7];
+    uint8_t y;
 
     ui_format_int(gold, gold_str);
     ui_format_int((int16_t)potion->price, price_str);
 
-    ui_clear_screen();
-    ui_draw_text_line(0, 1, "SHOP", 20);
-    ui_draw_text_line(0, 2, "GOLD:", 5);
-    ui_draw_text_line(5, 2, gold_str, 14);
+    frame.title = "SHOP";
+    frame.title_row = 0;
+    frame.top_row = 3;
+    frame.bottom_row = 12;
+    frame.boxed = false;
 
-    ui_draw_text_line(0, 4, "POTION", 6);
-    ui_draw_text_line(7, 4, price_str, 4);
-    ui_draw_text_line(12, 4, "G", 1);
+    menu_draw_frame(&frame);
 
-    ui_draw_text_line(0, 6, "[A] Buy  [B] Leave", 20);
+    y = menu_row(&frame, 0);
+    ui_draw_text_line(0, y, "GOLD:", 5);
+    ui_draw_text_line(5, y, gold_str, 14);
+
+    y = menu_row(&frame, 1);
+    ui_draw_text_line(0, y, "POTION", 6);
+    ui_draw_text_line(7, y, price_str, 4);
+    ui_draw_text_line(12, y, "G", 1);
+
+    y = menu_row(&frame, 3);
+    ui_draw_text_line(0, y, "[A] Buy  [B] Leave", 20);
 
     switch (g->shop_message) {
         case SHOP_MSG_BOUGHT:
-            ui_draw_text_line(0, 8, "Bought a POTION!", 20);
+            menu_draw_content(&frame, 5, "Bought a POTION!");
             break;
         case SHOP_MSG_NO_GOLD:
-            ui_draw_text_line(0, 8, "Not enough gold!", 20);
+            menu_draw_content(&frame, 5, "Not enough gold!");
             break;
         default:
-            ui_draw_text_line(0, 8, "", 20);
+            menu_draw_content(&frame, 5, "");
             break;
     }
 }

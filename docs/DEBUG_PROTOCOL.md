@@ -525,9 +525,23 @@ SELECT tab-focus → arrows → A) are both testable.
 
 `SCREEN_ITEM` is the quick screen: tabs ITEM | EQUIP | QUEST | STATUS.
 START opens it in both the overworld and battle (player turn); SELECT in the
-overworld does nothing.  SELECT inside focuses the tab row, LEFT/RIGHT move
-the tab, A confirms, B closes.  Hero HP/gold appear only on the STATUS tab;
-the QUEST tab lists ongoing quests and their progress.
+overworld does nothing.  SELECT (or LEFT/RIGHT) cycles tabs directly with a
+`^` marking the active tab; B closes.  Hero HP/gold appear only on the
+STATUS tab; the QUEST tab lists ongoing quests and their progress.
+
+### Menu screens (`MenuFrame`)
+
+All menu screens (quick screen, shop, future menus) are drawn through the
+shared `MenuFrame` (`src/ui/menu.{h,c}`): a centered title plus a bounded
+content area.  Harness-relevant details:
+
+* Assert menu content with `screen_row` (row = absolute screen row).  The
+  quick screen layout is: row 0 centered title, row 2 tab labels, row 3 `^`
+  marker, content from row 5; the shop uses row 0 title, content from row 3.
+* Titles and tab labels are direct literals (never a const pointer table),
+  so asserting row 0 / row 2 text proves the title/labels actually render.
+* Scenario actions for menus: `START` opens, `SELECT` cycles the tab,
+  `B` closes; `use_item`/`equip_item` drive the underlying mechanics.
 
 ---
 

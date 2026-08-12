@@ -2149,3 +2149,41 @@ paths in sync:
 
 Never reorder `InputButton` without updating the `J_*` expectations, and
 never hand-code button masks in `tools/emulator.py`.
+
+## 54.6 Reusable menu screens (`MenuFrame`)
+
+Every menu screen (the quick screen, the shop, future menus/subscreens)
+draws through `MenuFrame` (`src/ui/menu.{h,c}`) so they all share one
+layout: a centered title plus a bounded content area.  A subscreen is shown
+by clearing the content area (`menu_clear_content`) and redrawing it, or by
+nesting another `MenuFrame` inside it.
+
+```c
+MenuFrame f;
+f.title      = "SHOP";   /* direct literal */
+f.title_row  = 0;
+f.top_row    = 3;        /* first content row */
+f.bottom_row = 12;       /* one past the last content row */
+f.boxed      = false;
+menu_draw_frame(&f);                 /* clear + centered title + separator */
+menu_draw_content(&f, idx, "text");  /* content rows, clamped to [top,bottom) */
+menu_draw_centered(y, "title");      /* centered helper */
+```
+
+Rules:
+
+* Instantiate the `MenuFrame` **locally** in the screen's draw function and
+  pass titles/text as **direct string literals**.  NEVER store titles in a
+  file-scope `const char *[]` pointer table — the linker can place such a
+  table in a ROM bank that is not mapped when the screen draws, which makes
+  that text render **blank** (plus a stray character).  This bit the quick
+  screen's tab labels (`g_tab_labels`); the fix was direct literals.
+  `const uint8_t[]` byte tables (e.g. `g_tab_x`) are safe.
+* `menu_row(&f, idx)` returns the absolute row for a content index (callers
+  pass in-range indices).
+* Content rows are bounded by `top_row`/`bottom_row`; `menu_draw_content`
+  ignores out-of-range indices and `menu_clear_content` blanks the area for
+  subscreens.
+* The quick screen keeps a dedicated tab row: full labels (`ITEM EQUIP
+  QUEST STAT`) with the active tab marked by a `^` on the row below, and a
+  per-tab centered title (`ITEMS`/`EQUIP`/`QUESTS`/`STATUS`).

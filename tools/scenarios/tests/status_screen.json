@@ -43,6 +43,21 @@
       "expected": "ITEM"
     },
     {
+      "type": "screen_row",
+      "row": 0,
+      "contains": "STATUS"
+    },
+    {
+      "type": "screen_row",
+      "row": 2,
+      "contains": "ITEM"
+    },
+    {
+      "type": "screen_row",
+      "row": 2,
+      "contains": "STAT"
+    },
+    {
       "type": "currency",
       "currency": "GOLD",
       "expected": 20
@@ -54,17 +69,17 @@
     },
     {
       "type": "screen_row",
-      "row": 5,
+      "row": 6,
       "contains": "HP: 10"
     },
     {
       "type": "screen_row",
-      "row": 6,
+      "row": 7,
       "contains": "GOLD: 20"
     },
     {
       "type": "screen_row",
-      "row": 10,
+      "row": 11,
       "contains": "WEAPON: NONE"
     }
   ],

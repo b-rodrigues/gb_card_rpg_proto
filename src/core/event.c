@@ -135,16 +135,23 @@ void event_resolve_map_enter(Game *g, MapId to_map)
 
 void event_resolve_actor_defeated(Game *g, ActorId actor_id, EntityId entity_id)
 {
+    uint8_t i;
     bool dialogue_started = false;
-    const EventDefinition *def;
 
-    /* Runs for every hostile defeat, including non-persistent actors
-     * (actor_id 0), so their kills count toward quest progress. */
-    if (!g) return;
+    /* Runs for EVERY hostile defeat, including non-persistent actors
+     * (actor_id 0), so their kills count toward quest progress.  Unlike
+     * INTERACT and MAP_ENTER (first-match), ACTOR_DEFEATED events are
+     * all-match: a specific defeat event (e.g. the boss) does NOT suppress
+     * the generic fallback counter. */
+    if (!g || !g_events) return;
     (void)actor_id;
 
-    def = event_first_match(g, EVENT_TRIGGER_ACTOR_DEFEATED, entity_id, EVENT_MAP_ANY);
-    if (def) {
+    for (i = 0; i < g_event_count; i++) {
+        const EventDefinition *def = &g_events[i];
+        if (def->trigger != EVENT_TRIGGER_ACTOR_DEFEATED) continue;
+        if (def->actor != ENTITY_ID_NONE && def->actor != entity_id) continue;
+        if (!event_conds_met(&g->state, def)) continue;
+
         telemetry_emit(EVENT_SCRIPT_TRIGGERED, (uint8_t)def->id, 0, 0, 0);
         event_execute_actions(g, def, &dialogue_started);
     }

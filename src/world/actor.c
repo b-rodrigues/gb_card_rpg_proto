@@ -35,14 +35,14 @@ static const WorldActorDefinition *actor_defs_for_map(MapId map_id, uint8_t *cou
     return NULL;
 }
 
-static const WorldActorDefinition *actor_find_def_by_id(MapId map_id, EntityId id)
+static const WorldActorDefinition *actor_find_def_by_actor_id(MapId map_id, ActorId actor_id)
 {
     const WorldActorDefinition *defs;
     uint8_t count, i;
 
     defs = actor_defs_for_map(map_id, &count);
     for (i = 0; i < count; i++) {
-        if (defs[i].id == id) {
+        if (defs[i].actor_id == actor_id) {
             return &defs[i];
         }
     }
@@ -88,7 +88,10 @@ const WorldActorDefinition *actor_find_at(const World *world, uint8_t x, uint8_t
 
     slot = actor_find_hostile_slot(world, x, y);
     if (slot != NO_ACTOR_INDEX) {
-        return actor_find_def_by_id(world->map_id, world->actors[slot].id);
+        /* Hostile defs are keyed by their stable ActorId (copied into the
+         * runtime slot), never by EntityId -- a scene may hold several
+         * actors of the same EntityId with different defs. */
+        return actor_find_def_by_actor_id(world->map_id, world->actors[slot].actor_id);
     }
 
     defs = actor_defs_for_map(world->map_id, &count);

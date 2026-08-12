@@ -11,9 +11,10 @@
 
 /* Declarative scripted events connect existing systems (world actors,
  * interaction, dialogue, flags/variables, scenes) without embedding the
- * sequence in gameplay code.  An event fires when its trigger condition is
- * met and executes a fixed list of actions.  First match in table order
- * wins, so more specific conditions must be listed first. */
+ * sequence in gameplay code.  INTERACT and MAP_ENTER resolve the first
+ * match in table order (more specific conditions must be listed first);
+ * ACTOR_DEFEATED runs EVERY matching event so a specific defeat handler
+ * never suppresses the generic defeat bookkeeping. */
 
 /* Stable event identifiers (telemetry + host EVENT_ID_MAP). */
 typedef enum {

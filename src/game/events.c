@@ -2,8 +2,10 @@
 #include "game_ids.h"
 
 /* ── Event table (game content) ────────────────────────────────────
- * First match in table order wins.  For INTERACT events, more specific
- * conditions must precede the default fallback.
+ * INTERACT / MAP_ENTER resolve first-match in table order: more specific
+ * conditions must precede the default fallback.  ACTOR_DEFEATED events are
+ * all-match: BOSS_DEFEATED below does NOT suppress MONSTER_DEFEATED, so the
+ * boss kill also counts toward the global MONSTERS_DEFEATED counter.
  *
  * Mayor quest (MONSTER HUNT), expressed as data, not game code:
  *   QUEST_START    : first meeting (quest NOT_STARTED) starts the quest:

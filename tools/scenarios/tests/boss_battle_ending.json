@@ -72,6 +72,11 @@
       "expected": 1
     },
     {
+      "type": "variable",
+      "variable": "MONSTERS_DEFEATED",
+      "expected": 4
+    },
+    {
       "type": "event_occurred",
       "event": "SCRIPT_TRIGGERED"
     },

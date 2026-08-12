@@ -136,7 +136,10 @@ ItemPurchaseResult item_purchase(GameState *state, ItemId id)
     }
     price = (int16_t)def->price;
 
-    if (state->inventory.count >= MAX_INVENTORY_ITEMS) {
+    /* A new slot is only needed when the item is not already held; an
+     * existing entry stacks (inventory_add never needs a new slot). */
+    if (inventory_count(&state->inventory, id) == 0 &&
+        state->inventory.count >= MAX_INVENTORY_ITEMS) {
         telemetry_emit(EVENT_ITEM_PURCHASE_FAILED, (uint8_t)id,
                        (uint8_t)ITEM_PURCHASE_NO_CAPACITY, 0, 0);
         return ITEM_PURCHASE_NO_CAPACITY;

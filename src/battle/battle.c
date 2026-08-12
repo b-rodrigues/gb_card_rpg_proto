@@ -1,11 +1,12 @@
 #include "battle.h"
 #include "telemetry.h"
 
-void battle_start(Battle *b, uint8_t player_hp, uint8_t player_max_hp, uint8_t enemy_hp, uint8_t enemy_max_hp)
+void battle_start(Battle *b, const char *enemy_name, uint8_t player_hp,
+                  uint8_t player_max_hp, uint8_t enemy_hp, uint8_t enemy_max_hp)
 {
     if (!b) return;
     combatant_init(&b->player, "Hero", player_hp, player_max_hp);
-    combatant_init(&b->enemy, "Slime", enemy_hp, enemy_max_hp);
+    combatant_init(&b->enemy, enemy_name ? enemy_name : "Enemy", enemy_hp, enemy_max_hp);
     b->turn = BATTLE_TURN_PLAYER;
     b->result = BATTLE_RESULT_NONE;
     b->delay_timer = 0;

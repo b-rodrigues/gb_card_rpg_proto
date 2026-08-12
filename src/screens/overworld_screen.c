@@ -13,7 +13,8 @@ static void start_battle_from_world(Game *g)
 
     /* Hero HP is authoritative in the party state; the world entity is the
      * runtime engine copy. */
-    battle_start(&g->battle, g->state.party.members[0].hp,
+    battle_start(&g->battle, actor_enemy_name(g->world.actors[idx].id),
+                 g->state.party.members[0].hp,
                  g->state.party.members[0].max_hp,
                  g->world.actors[idx].hp, g->world.actors[idx].max_hp);
     audio_play_music(MUSIC_BATTLE);
@@ -38,6 +39,11 @@ void overworld_screen_update(Game *g)
     if (input_pressed(INPUT_SELECT)) {
         g->item_menu_index = 0;
         screen_change(g, SCREEN_ITEM);
+        return;
+    }
+
+    if (input_pressed(INPUT_START)) {
+        screen_change(g, SCREEN_STATUS);
         return;
     }
 

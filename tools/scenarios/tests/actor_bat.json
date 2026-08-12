@@ -7,6 +7,10 @@
     {
       "type": "press",
       "button": "RIGHT"
+    },
+    {
+      "type": "wait",
+      "frames": 4
     }
   ],
   "assertions": [
@@ -21,6 +25,11 @@
     {
       "type": "battle_enemy_hp",
       "expected": 4
+    },
+    {
+      "type": "screen_row",
+      "row": 5,
+      "contains": "BAT"
     },
     {
       "type": "event_occurred",

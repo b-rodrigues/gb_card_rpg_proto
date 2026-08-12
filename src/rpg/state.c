@@ -49,6 +49,7 @@ void game_state_reset(GameState *state)
     for (i = 0; i < MAX_CURRENCIES; i++) {
         state->currency.amount[i] = 0;
     }
+    state->currency.amount[CURRENCY_ID_GOLD - 1] = 20; /* the hero starts with 20 gold */
 
     state->world.count = 0;
     for (i = 0; i < MAX_PERSISTENT_ACTORS; i++) {

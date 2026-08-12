@@ -29,7 +29,7 @@
     },
     {
       "type": "currency",
-      "expected": 0,
+      "expected": 20,
       "currency": "GOLD"
     },
     {

@@ -75,6 +75,9 @@ uint8_t actor_find_hostile_slot(const World *world, uint8_t x, uint8_t y);
  * everything else runs its interaction (dialogue for v1). */
 ActorEngageResult actor_engage(const WorldActorDefinition *actor, DialogueState *dialogue);
 
+/* Display name for a hostile EntityId (used as the battle enemy name). */
+const char *actor_enemy_name(EntityId id);
+
 /* Spawn all hostile actor definitions for the given map into
  * World.actors runtime slots.  Actors whose ActorId is marked DEFEATED in
  * state are not spawned (persistent defeat). */

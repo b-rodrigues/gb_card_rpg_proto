@@ -262,7 +262,8 @@ void ui_draw_battle_full(const Battle *battle)
     ui_draw_text_line(0, 1, "    BATTLE ENCOUNTER", 20);
     ui_draw_text_line(0, 2, "====================", 20);
 
-    ui_draw_text_line(0, 5, "  ENEMY: SLIME [E]", 20);
+    ui_draw_text_line(0, 5, "  ENEMY: ", 9);
+    ui_draw_text_line(9, 5, battle->enemy.name ? battle->enemy.name : "ENEMY", 8);
     ui_draw_hp_row(6, battle->enemy.hp, battle->enemy.max_hp);
 
     ui_draw_text_line(0, 9, "  HERO:  HERO [@]", 20);

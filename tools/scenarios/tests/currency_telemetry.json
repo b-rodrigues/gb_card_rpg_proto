@@ -14,7 +14,7 @@
     {
       "type": "currency",
       "currency": "GOLD",
-      "expected": 50
+      "expected": 70
     },
     {
       "type": "event_occurred",

@@ -156,7 +156,6 @@ const WorldActorDefinition *actor_find_at(const World *world, uint8_t x, uint8_t
 ActorEngageResult actor_engage(const WorldActorDefinition *actor, DialogueState *dialogue)
 {
     if (!actor) return ENGAGE_NONE;
-
     if (actor->flags & ACTOR_FLAG_HOSTILE) {
         return ENGAGE_BATTLE;
     }
@@ -171,6 +170,15 @@ ActorEngageResult actor_engage(const WorldActorDefinition *actor, DialogueState 
     }
 
     return ENGAGE_NONE;
+}
+
+const char *actor_enemy_name(EntityId id)
+{
+    switch (id) {
+        case ENTITY_ID_SLIME: return "SLIME";
+        case ENTITY_ID_BAT:   return "BAT";
+        default:              return "ENEMY";
+    }
 }
 
 void actor_load_scene(World *world, MapId map_id, const GameState *state)

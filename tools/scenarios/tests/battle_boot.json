@@ -22,6 +22,11 @@
       "expected": 5
     },
     {
+      "type": "screen_row",
+      "row": 5,
+      "contains": "SLIME"
+    },
+    {
       "type": "battle_player_hp",
       "expected": 10
     },

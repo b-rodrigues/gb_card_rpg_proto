@@ -1,0 +1,51 @@
+{
+  "name": "status_screen",
+  "test": true,
+  "description": "Pressing START opens the status screen showing hero HP and gold",
+  "scenario_id": "NEW_GAME",
+  "actions": [
+    {
+      "type": "press",
+      "button": "START"
+    },
+    {
+      "type": "wait",
+      "frames": 5
+    }
+  ],
+  "assertions": [
+    {
+      "type": "screen",
+      "expected": "STATUS"
+    },
+    {
+      "type": "currency",
+      "currency": "GOLD",
+      "expected": 20
+    },
+    {
+      "type": "party_hp",
+      "member": 0,
+      "expected": 10
+    },
+    {
+      "type": "screen_row",
+      "row": 4,
+      "contains": "HP: 10  /10"
+    },
+    {
+      "type": "screen_row",
+      "row": 6,
+      "contains": "GOLD: 20"
+    }
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 4,
+      "y": 4,
+      "facing": "DOWN"
+    },
+    "seed": 8301
+  }
+}

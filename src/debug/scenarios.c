@@ -8,6 +8,7 @@
 #include "dialogue.h"
 #include "world.h"
 #include "entity.h"
+#include "actor.h"
 #include "battle.h"
 #include "ui.h"
 #include "input.h"
@@ -181,7 +182,7 @@ static void scenario_load_state(void)
                 break;
             }
         }
-        battle_start(&g_game.battle,
+        battle_start(&g_game.battle, actor_enemy_name(g_game.world.actors[idx].id),
                      g_game.state.party.members[0].hp,
                      g_game.state.party.members[0].max_hp,
                      g_game.world.actors[idx].hp,

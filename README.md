@@ -10,48 +10,37 @@ This is **not intended to become a general-purpose game engine**. The architectu
 
 ## Current State
 
-The project currently has a working vertical slice demonstrating the core gameplay loop:
+The project has a complete, playable vertical slice — a small but complete
+RPG:
 
 ```text
-Overworld
-   ↓
-Movement / collision
-   ↓
-Hostile actor (Slime)
-   ↓
-Battle
-   ↓
-Victory / defeat
-   ↓
-Game Over → Continue?
-
-Overworld
-   ↓
-Town
-   ↓
-NPC interaction
-   ├── Mayor → dialogue
-   └── Guard → dialogue
+Town → Mayor → Monster Hunt quest → kill 3 monsters
+   → return → SWORD → equip → Castle → Lord of Slimes → Ending
 ```
 
-The current prototype already exercises reusable infrastructure for:
+plus a second, structurally different quest (the Lost Merchant:
+fetch/deliver/unlock his shop) that proves the quest/event abstraction is
+reusable.  The full state/flow is deterministic and driven by the debug
+harness.
 
-- screen/state management;
-- overworld scenes and stable scene IDs;
-- world actors;
-- player movement and collision;
-- NPC interaction;
-- hostile actors and combat encounters;
-- dialogue;
-- battle entry/exit;
-- game-over flow;
-- audio/music;
-- deterministic debug scenarios;
-- telemetry and assertions;
-- LLM-readable debugging;
-- automated emulator/scenario testing.
+Current status (Foundation 1.0, non-graphical):
 
-The **card system is not yet implemented**. The current battle implementation primarily proves the battle lifecycle and surrounding architecture before the more complex card mechanics are introduced.
+- GameState + persistent world actor lifecycle + progression;
+- overworld scenes, actors, movement, collision, interaction;
+- scripted events, dialogue, quests (registered engine modules);
+- items, inventory, equipment, per-shop stock;
+- battle flow + results back into GameState;
+- battery-backed SRAM save/load (versioned format);
+- game/content separation (`src/game/` registered against a generic engine);
+- deterministic debug harness (scenarios, telemetry, assertions, RNG);
+- memory budget (`make memmap`), lint, release validation.
+
+The **card system is not yet implemented**.  The current battle
+implementation proves the battle lifecycle and keeps the combat boundary
+clean so the card mechanics can plug in later.
+
+Graphics are still the ASCII console-font prototype; a graphics pipeline is a
+specified but deferred milestone (see `docs/graphics.md`).
 
 ## Architectural Direction
 
@@ -226,6 +215,21 @@ make test
 
 Builds the release ROM and validates its Game Boy header/checksum integrity.
 
+### Memory Budget
+
+```bash
+make memmap
+```
+
+Prints the reproducible ROM/WRAM budget and fails on a `_HOME` >= 0x8000
+violation.
+
+### Save/Load Roundtrip (host descriptor check)
+
+```bash
+make roundtrip SCENARIO=save_load_roundtrip
+```
+
 ### Capture a Screenshot
 
 ```bash
@@ -277,17 +281,17 @@ The debug protocol is documented in [`docs/DEBUG_PROTOCOL.md`](docs/DEBUG_PROTOC
 
 ```text
 src/
-├── core/       Core game/state architecture
+├── core/       Boot glue, events, dialogue, story, quests
+├── rpg/        GameState, items, inventory, currency, party, progression, save
 ├── world/      Scenes, actors, movement and collision
 ├── battle/     Battle lifecycle and combatants
 ├── input/      Joypad handling and debug input
 ├── audio/      Game Boy audio/music infrastructure
 ├── ui/         Screen and UI rendering
+├── screens/    Individual game screens
 ├── debug/      Telemetry, scenarios, assertions and deterministic debug support
-└── screens/    Individual game screens
+└── game/       Game-specific content (events, dialogue, actors, items, quests, shops)
 
-assets/         Game-specific and graphical assets
-asm/            Assembly routines
 build/          Generated ROMs and build artifacts
 docs/           Architecture and development documentation
 tools/          Host-side development and emulator harness
@@ -295,10 +299,25 @@ tools/          Host-side development and emulator harness
 
 ## Documentation
 
-- [`docs/rpg-foundation.md`](docs/rpg-foundation.md) — architecture and the emerging reusable RPG foundation.
-- [`docs/DEBUG_PROTOCOL.md`](docs/DEBUG_PROTOCOL.md) — debug protocol and LLM-readable game state contract.
-- [`docs/dev-harness.md`](docs/dev-harness.md) — deterministic scenario and development harness design.
-- [`AGENTS.md`](AGENTS.md) — operational instructions for AI coding agents working on the repository.
+- [`docs/architecture.md`](docs/architecture.md) — module layout, dependency
+  direction, state ownership, content registration.
+- [`docs/FOUNDATION_CONTRACT.md`](docs/FOUNDATION_CONTRACT.md) — what the
+  foundation provides, what it does not, and the golden rule.
+- [`docs/game-vs-engine.md`](docs/game-vs-engine.md) — how to decide where a
+  feature belongs.
+- [`docs/save-format.md`](docs/save-format.md) — the SRAM save format and
+  versioning policy.
+- [`docs/memory-budget.md`](docs/memory-budget.md) — the memory budget.
+- [`docs/graphics.md`](docs/graphics.md) — the deferred graphics pipeline spec.
+- [`docs/testing.md`](docs/testing.md) — how the foundation is validated.
+- [`docs/roadmap.md`](docs/roadmap.md) — status (DONE / NEXT / LATER) and the
+  detailed historical plan.
+- [`docs/DEBUG_PROTOCOL.md`](docs/DEBUG_PROTOCOL.md) — debug protocol and
+  LLM-readable game state contract.
+- [`docs/dev-harness.md`](docs/dev-harness.md) — deterministic scenario and
+  development harness design.
+- [`AGENTS.md`](AGENTS.md) — operational instructions for AI coding agents
+  working on the repository.
 
 ## Long-Term Direction
 
@@ -328,4 +347,9 @@ A future game should be able to replace:
 
 while retaining reusable infrastructure such as screens, scenes, actors, input, audio, persistence, debugging, telemetry, and the scenario harness.
 
-The repository is **not ready to be frozen as a generic engine/template yet**. The current project is still using the game itself to discover and validate the correct abstractions. The next major foundation areas are persistent game state, items/inventory, progression, flags/variables, scripted events, and save/load.
+The repository has reached **Foundation 1.0 (non-graphical)**: the generic
+runtime is cleanly separated from game content, the vertical slice is complete
+and deterministically testable, save/load works, and the memory budget is
+understood.  The next milestones are the graphics pipeline (spec'd in
+`docs/graphics.md`), then the card battle system — at which point this
+repository is the template a real game is forked from.

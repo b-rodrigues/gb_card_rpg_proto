@@ -1985,6 +1985,30 @@ area changes, the snapshot bytes and symbol addresses shift. The harness
 resolves symbols via `get_symbol()`, but the ROM must be fully rebuilt; a
 partial build leaves a stale `.sym`/`.gb` pair that reads garbage.
 
+## 52.14 No large stack locals under the harness (SP = 0xFFFE)
+
+The custom CRT0 sets `SP = 0xE000` (`ld sp, #0xE000` in `src/crt0.s`). The
+harness skips CRT0 and jumps straight to `main()`, so under the harness `SP`
+stays at the boot-ROM value **0xFFFE**.  From there the stack only has ~254
+bytes of usable space before it grows down into the I/O register region
+(0xFF00-0xFF7F), where reads return garbage and pushes are ignored.
+
+Consequence: **any function whose stack frame is large (roughly a local
+struct of ~100+ bytes, on top of the existing call depth) crashes the ROM
+under the harness** — the return address gets corrupted and the CPU executes
+an illegal opcode.  This bit the first SRAM save implementation, which
+declared a ~200 byte `SaveSlot` on the stack.
+
+Rules:
+
+* Do not declare large locals (structs > ~64 bytes) in harness-exercised
+  code.  Write to SRAM/state directly with small (byte/word) locals, or use a
+  module-scope static buffer.
+* `save.c` is the template: it copies `GameState` straight to SRAM at
+  `0xA004` with a flat header, no staging local.
+* If a new feature needs a big scratch buffer, put it in a `static`
+  (WRAM or banked) buffer, never on the stack.
+
 ---
 
 # 53. State Ownership

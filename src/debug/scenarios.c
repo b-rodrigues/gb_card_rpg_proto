@@ -17,6 +17,7 @@
 #include "rpg/currency.h"
 #include "rpg/progression.h"
 #include "rpg/items.h"
+#include "rpg/save.h"
 
 extern Game g_game;
 
@@ -40,7 +41,9 @@ enum {
     DBG_ACT_ADD_PROGRESS = 4,
     DBG_ACT_BUY_ITEM = 5,
     DBG_ACT_USE_ITEM = 6,
-    DBG_ACT_EQUIP_ITEM = 7
+    DBG_ACT_EQUIP_ITEM = 7,
+    DBG_ACT_SAVE = 8,
+    DBG_ACT_LOAD = 9
 };
 
 /* Shared post-setup: reset frame/flags/input/telemetry/audio. */
@@ -249,6 +252,25 @@ static void debug_run_action(void)
             break;
         case DBG_ACT_EQUIP_ITEM:
             item_equip(&g_game.state, (ItemId)a0);
+            break;
+        case DBG_ACT_SAVE:
+            save_game(&g_game.state);
+            break;
+        case DBG_ACT_LOAD:
+            /* Restore the canonical state from SRAM, then rebuild the world
+             * copy so scene/actors/position stay consistent with the state. */
+            if (load_game(&g_game.state)) {
+                uint8_t x = g_game.state.scene.player_x;
+                uint8_t y = g_game.state.scene.player_y;
+                world_init(&g_game.world, &g_game.state);
+                world_load_map(&g_game.world,
+                               scene_id_to_map(g_game.state.scene.scene_id),
+                               &g_game.state);
+                g_game.world.player.position.x = x;
+                g_game.world.player.position.y = y;
+                g_game.world.player.facing =
+                    (Direction)g_game.state.scene.player_facing;
+            }
             break;
         default:
             break;

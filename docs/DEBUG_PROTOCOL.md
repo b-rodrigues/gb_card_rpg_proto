@@ -491,6 +491,11 @@ dialogue + sets `MET_MAYOR`), `MAYOR_GREETING` (already met),
   `add_item`, `remove_item`, `add_currency`, `add_progress`, `buy_item`,
   `use_item_direct` (via the ROM `g_debug_action` channel).  The button-driven
   `use_item` action still tests the item menu UI.
+* Save/load: the `save` and `load` scenario actions (via the `g_debug_action`
+  channel, codes 8 and 9) call `save_game`/`load_game`
+  (`src/rpg/save.{h,c}`) — SRAM battery persistence of `GameState`.  After a
+  `load`, the world copy is rebuilt from the restored state.  See
+  `docs/save-format.md`.
 * Assertions: `currency`, `progression_level`, `progression_progress`;
   `party_level` reads the `HERO_1` progression target.
 * Equipment: `GameState.equipment.weapon`; `item_equip` emits `ITEM_EQUIPPED`;

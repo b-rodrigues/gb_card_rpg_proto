@@ -205,6 +205,10 @@ def run_scenario(scenario):
                 session.debug_action(session.DBG_ACT_USE_ITEM,
                                      ITEM_ID_MAP[act.get("item")],
                                      0, act.get("member", 1))
+            elif act_type == "save":
+                session.debug_action(session.DBG_ACT_SAVE)
+            elif act_type == "load":
+                session.debug_action(session.DBG_ACT_LOAD)
 
         # Read final snapshot, canonical state buffer and telemetry
         snap = session.snapshot()

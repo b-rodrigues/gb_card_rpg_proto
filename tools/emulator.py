@@ -730,6 +730,8 @@ class EmulatorSession:
     DBG_ACT_BUY_ITEM = 5
     DBG_ACT_USE_ITEM = 6
     DBG_ACT_EQUIP_ITEM = 7
+    DBG_ACT_SAVE = 8
+    DBG_ACT_LOAD = 9
 
     def debug_action(self, action, a0=0, a1=0, a2=0):
         """Run a debug action through the ROM's real mechanic functions."""

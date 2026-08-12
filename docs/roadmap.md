@@ -8,20 +8,27 @@
 - World actors (data-driven definitions, persistent defeat lifecycle)
 - Scenes & exits (data-driven)
 - Dialogue (registered content)
-- Scripted events (conditions + actions, registered content)
+- Scripted events (conditions + actions, registered content; ACTOR_DEFEATED is all-match)
 - Inventory, items, equipment, shops (data-driven, per-shop stock)
 - Quests as a registered engine module; data-driven QUEST menu
 - Multiple quest archetypes (kill-counter, fetch/deliver/unlock)
 - Game/content separation (`src/game/` registered against a generic engine)
-- Deterministic debug harness (89 scenarios, assertions, telemetry, RNG)
+- Deterministic debug harness (90 scenarios, assertions, telemetry, RNG)
 - LLM-readable state/telemetry (snapshot, semantic dump, roundtrip)
 - Complete vertical slice (town, quest, sword, boss, ending)
-- Save/load foundation (wire descriptor, snapshot, roundtrip probe)
+- Battery-backed SRAM save/load (versioned format, roundtrip scenario)
 - Repository hardening (engine/game boundaries, `make memmap` budget)
+- Foundation docs (`architecture`, `FOUNDATION_CONTRACT`, `game-vs-engine`,
+  `save-format`, `memory-budget`, `testing`; graphics pipeline spec'd)
+
+**Foundation 1.0 (non-graphical) reached** — the runtime is cleanly separated
+from game content, the vertical slice is complete and deterministically
+testable, save/load works, and the memory budget is understood.
 
 ### NEXT
 
-- Save / load production implementation (SRAM persistence of `GameState`)
+- Graphics pipeline (tile/sprite renderer, DMG+CGB, screen rewiring, asset
+  converter + validation) — spec'd in `docs/graphics.md`
 - Battle system expansion (per-enemy stats/AI, command menu, variance, etc.)
 - Card battle prototype (hand/deck/discard, draw, play, resolve)
 
@@ -1158,9 +1165,13 @@ archetype proves the need):
   events mutate; no validation catches a mismatch;
 * no repeatable / cycling quests.
 
-## 8. Save / Load
+## 8. Save / Load — DONE
 
-Serialize the persistent `GameState` into Game Boy-compatible save storage, with deterministic harness tests for save/load round trips.
+Battery-backed SRAM save/load of the canonical `GameState` in a versioned
+format (`{magic, version, checksum, state}`), with the debug `save`/`load`
+actions and the `save_load_roundtrip` harness scenario.  See
+`docs/save-format.md`.  (Power-cycle persistence is emulator/hardware
+behavior, verified manually.)
 
 ## 9. Battle Expansion — PARTIAL
 

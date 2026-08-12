@@ -67,10 +67,12 @@ $(GB_LITE) $(SM83_LITE): $(OBJS) $(OBJS_DEBUG) | $(BUILD_DIR)
 
 $(TARGET): $(OBJS) build/crt0.o $(GB_LITE) $(SM83_LITE) | $(BUILD_DIR)
 	$(CC) -no-crt -Wm-yc -Wl-yt0x19 -Wl-yo8 -o $@ build/crt0.o $(OBJS) $(GB_LITE) $(SM83_LITE)
+	@$(RGBFIX) -C -m 0x1b -r 2 -t "GBCARDRPG" $@ 2>/dev/null || true
 
 $(TARGET_DEBUG): $(OBJS_DEBUG) build/crt0.o $(GB_LITE) $(SM83_LITE) | $(BUILD_DIR)
 	$(CC) -no-crt -Wm-yc -Wl-yt0x19 -Wl-yo8 -Wl-m -Wl-j -Wl-y -o $@ build/crt0.o $(OBJS_DEBUG) $(GB_LITE) $(SM83_LITE)
 	@python3 tools/make_sym.py $(BUILD_DIR)/rpg_card_proto_debug.noi $(BUILD_DIR)/rpg_card_proto_debug.sym
+	@$(RGBFIX) -C -m 0x1b -r 2 -t "GBCARDRPG" $@ 2>/dev/null || true
 
 build/crt0.o: src/crt0.s | $(BUILD_DIR)
 	sdasgb -o $@ $<

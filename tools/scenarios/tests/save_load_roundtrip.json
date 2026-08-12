@@ -1,0 +1,74 @@
+{
+  "name": "save_load_roundtrip",
+  "test": true,
+  "description": "SAVE captures the canonical state to SRAM; mutating state then LOAD restores it exactly",
+  "scenario_id": "NEW_GAME",
+  "actions": [
+    {
+      "type": "save"
+    },
+    {
+      "type": "add_currency",
+      "currency": "GOLD",
+      "amount": 100
+    },
+    {
+      "type": "load"
+    }
+  ],
+  "assertions": [
+    {
+      "type": "currency",
+      "expected": 50,
+      "currency": "GOLD"
+    },
+    {
+      "type": "variable",
+      "variable": "MONSTERS_DEFEATED",
+      "expected": 3
+    },
+    {
+      "type": "inventory",
+      "item": "POTION",
+      "expected": 1
+    },
+    {
+      "type": "party_hp",
+      "member": 0,
+      "expected": 7
+    },
+    {
+      "type": "story_flag",
+      "flag": "MET_MAYOR",
+      "expected": true
+    }
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 4,
+      "y": 4,
+      "facing": "DOWN"
+    },
+    "seed": 8601,
+    "flags": {
+      "ARRIVED_TOWN": true,
+      "MET_MAYOR": true
+    },
+    "variables": {
+      "MONSTERS_DEFEATED": 3
+    },
+    "party": {
+      "HERO": {
+        "hp": 7,
+        "max_hp": 10
+      }
+    },
+    "inventory": {
+      "POTION": 1
+    },
+    "currency": {
+      "GOLD": 50
+    }
+  }
+}

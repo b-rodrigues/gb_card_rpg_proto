@@ -48,8 +48,11 @@ static const DialogueDefinition g_dialogue_defs[] = {
     {
         DIALOGUE_ID_QUEST_COMPLETE,
         "MAYOR:",
-        3,
-        {"You did it!", "Take this Sword!", "It cuts through slimes.", ""},
+        8,
+        {"You did it!", "Take this Sword!",
+         "I have felt a", "disturbance in the",
+         "ether: I believe", "that something",
+         "dreadful waits for", "you at the Castle."},
         0
     },
     {

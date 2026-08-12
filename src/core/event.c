@@ -71,6 +71,13 @@ static const EventDefinition g_event_defs[] = {
         {{ EVENT_ACTION_DIALOGUE, DIALOGUE_ID_QUEST_DONE, 0, 0 }}
     },
     {
+        EVENT_ID_BOSS_DEFEATED, EVENT_TRIGGER_ACTOR_DEFEATED, ENTITY_ID_SLIME_LORD, EVENT_MAP_ANY,
+        0,
+        {{ EVENT_COND_NONE, 0, 0, false, false }},
+        1,
+        {{ EVENT_ACTION_SET_VARIABLE, VARIABLE_ID_ENDING_SHOWN, 1, 0 }}
+    },
+    {
         EVENT_ID_MONSTER_DEFEATED, EVENT_TRIGGER_ACTOR_DEFEATED, ENTITY_ID_NONE, EVENT_MAP_ANY,
         0,
         {{ EVENT_COND_NONE, 0, 0, false, false }},
@@ -195,20 +202,21 @@ void event_resolve_map_enter(Game *g, MapId to_map)
     }
 }
 
-void event_resolve_actor_defeated(Game *g, ActorId actor_id)
+void event_resolve_actor_defeated(Game *g, ActorId actor_id, EntityId entity_id)
 {
     uint8_t i;
     bool dialogue_started = false;
     const EventDefinition *def;
 
-    /* Runs for every hostile defeat, including non-persistent training
-     * actors (actor_id 0), so their kills count toward quest progress. */
+    /* Runs for every hostile defeat, including non-persistent actors
+     * (actor_id 0), so their kills count toward quest progress. */
     if (!g) return;
     (void)actor_id;
 
     for (i = 0; i < NUM_EVENT_DEFS; i++) {
         def = &g_event_defs[i];
         if (def->trigger != EVENT_TRIGGER_ACTOR_DEFEATED) continue;
+        if (def->actor != ENTITY_ID_NONE && def->actor != entity_id) continue;
         if (!event_conds_met(&g->state, def)) continue;
 
         telemetry_emit(EVENT_SCRIPT_TRIGGERED, (uint8_t)def->id, 0, 0, 0);

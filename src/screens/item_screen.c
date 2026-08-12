@@ -213,8 +213,8 @@ void item_screen_update(Game *g)
                         g->battle.delay_timer = 20;
                     }
                 }
-            } else if (item_equip(&g->state, id)) {
-                game_on_equip(g, id);
+            } else {
+                item_equip(&g->state, id);
             }
             if (g->item_menu_index >= g->state.inventory.count) {
                 if (g->state.inventory.count > 0) {

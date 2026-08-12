@@ -8,7 +8,6 @@
 #include "rpg/progression.h"
 #include "rpg/party.h"
 #include "rpg/items.h"
-#include "actor.h"
 
 #define HERO_BASE_ATTACK 3
 
@@ -21,31 +20,6 @@ uint8_t game_hero_attack(const GameState *state)
         return (uint8_t)(HERO_BASE_ATTACK + def->attack_bonus);
     }
     return HERO_BASE_ATTACK;
-}
-
-void game_on_equip(Game *g, ItemId item)
-{
-    static const int8_t dx[4] = {0, 0, -1, 1};
-    static const int8_t dy[4] = {-1, 1, 0, 0};
-    uint8_t r;
-    uint8_t d;
-    uint8_t x;
-    uint8_t y;
-
-    if (!g || item != ITEM_SWORD) return;
-
-    /* Spawn a training slime on a walkable tile near the player. */
-    for (r = 1; r <= 3; r++) {
-        for (d = 0; d < 4; d++) {
-            x = (uint8_t)((int16_t)g->world.player.position.x + dx[d] * r);
-            y = (uint8_t)((int16_t)g->world.player.position.y + dy[d] * r);
-            if (world_is_walkable(&g->world, x, y) &&
-                actor_find_hostile_slot(&g->world, x, y) == NO_ACTOR_INDEX) {
-                world_spawn_actor(&g->world, ENTITY_ID_SLIME, x, y, 5);
-                return;
-            }
-        }
-    }
 }
 
 void game_on_level_up(GameState *state, ProgressionTarget target,

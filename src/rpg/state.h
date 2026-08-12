@@ -41,7 +41,8 @@ typedef enum {
 typedef enum {
     VARIABLE_ID_CHAPTER            = 1,
     VARIABLE_ID_MONSTERS_DEFEATED  = 2,   /* global total (all kills count) */
-    VARIABLE_ID_QUEST_MONSTER_HUNT = 3    /* 0 = NOT_STARTED, 1 = ACTIVE, 2 = COMPLETE */
+    VARIABLE_ID_QUEST_MONSTER_HUNT = 3,   /* 0 = NOT_STARTED, 1 = ACTIVE, 2 = COMPLETE */
+    VARIABLE_ID_ENDING_SHOWN       = 4    /* set when the final boss is defeated */
 } VariableIdNamed;
 
 /* Named currencies.  CURRENCY_ID_x - 1 indexes CurrencyState.amount[]. */

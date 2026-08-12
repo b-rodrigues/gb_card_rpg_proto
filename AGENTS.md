@@ -2119,12 +2119,12 @@ LEFT/RIGHT moves tabs, A confirms, B closes.
 ## 54.3 Actor lifecycle
 
 * `WorldActorDefinition` (static): scene-owned configuration, never mutable.
+  Hostile actors may carry a conditional spawn (`spawn_variable`/`spawn_value`):
+  the actor is only spawned when the variable equals the value — used for the
+  final boss, which appears once the Monster Hunt quest is COMPLETE.
 * `World.actors` (runtime): the engine's current-scene copy, rebuilt on every
   scene load; spawned hostiles live here.
 * `GameState.world` (persistent): defeats/lifecycle keyed by stable `ActorId`.
-
-`world_spawn_actor()` creates a runtime-only hostile (actor_id 0) that is NOT
-persistent — used for training enemies and test fixtures.
 
 ## 54.4 Warnings / lint
 

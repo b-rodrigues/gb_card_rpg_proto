@@ -17,7 +17,11 @@ void battle_screen_update(Game *g)
                 world_on_battle_end(g, true);
                 audio_play_music(MUSIC_OVERWORLD);
                 telemetry_emit(EVENT_MUSIC_CHANGED, MUSIC_OVERWORLD, 0, 0, 0);
-                screen_change(g, SCREEN_OVERWORLD);
+                if (game_variable_get(&g->state, VARIABLE_ID_ENDING_SHOWN) != 0) {
+                    screen_change(g, SCREEN_ENDING);
+                } else {
+                    screen_change(g, SCREEN_OVERWORLD);
+                }
             } else {
                 world_on_battle_end(g, false);
                 g->game_over_choice = 0;

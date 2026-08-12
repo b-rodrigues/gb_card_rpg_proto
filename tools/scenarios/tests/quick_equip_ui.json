@@ -1,7 +1,7 @@
 {
   "name": "quick_equip_ui",
   "test": true,
-  "description": "Via the quick screen UI: START opens it, SELECT cycles to the EQUIP tab, A equips the SWORD -> attack 6 and a training slime appears",
+  "description": "Via the quick screen UI: START opens it, SELECT cycles to the EQUIP tab, A equips the SWORD -> attack 6",
   "scenario_id": "NEW_GAME",
   "actions": [
     {
@@ -47,12 +47,6 @@
     {
       "type": "attack",
       "expected": 6
-    },
-    {
-      "type": "actor_at",
-      "entity": "SLIME",
-      "x": 4,
-      "y": 3
     }
   ],
   "initial_state": {

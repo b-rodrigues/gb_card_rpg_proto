@@ -25,7 +25,8 @@ typedef enum {
     EVENT_ID_QUEST_DONE = 5,
     EVENT_ID_GUARD_AFTER_MAYOR = 6,
     EVENT_ID_GUARD_GREETING = 7,
-    EVENT_ID_MONSTER_DEFEATED = 8
+    EVENT_ID_MONSTER_DEFEATED = 8,
+    EVENT_ID_BOSS_DEFEATED = 9
 } EventId;
 
 typedef enum {
@@ -95,7 +96,7 @@ ActorEngageResult event_engage_actor(Game *g, const WorldActorDefinition *actor)
 void event_resolve_map_enter(Game *g, MapId to_map);
 
 /* Resolve the first matching ACTOR_DEFEATED event for the defeated actor and
- * run its actions (e.g. quest progress counters). */
-void event_resolve_actor_defeated(Game *g, ActorId actor_id);
+ * run its actions (e.g. quest progress counters, final-boss ending). */
+void event_resolve_actor_defeated(Game *g, ActorId actor_id, EntityId entity_id);
 
 #endif /* RPG_EVENT_H */

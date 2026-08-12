@@ -60,9 +60,4 @@ void game_on_level_up(GameState *state, ProgressionTarget target,
 /* Derived hero attack: base 3 plus the equipped weapon's attack bonus. */
 uint8_t game_hero_attack(const GameState *state);
 
-/* Game-specific consequence of equipping an item: equipping the sword
- * spawns a fresh training slime on the current field so the player can
- * immediately test the one-shot kill. */
-void game_on_equip(Game *g, ItemId item);
-
 #endif /* GAME_H */

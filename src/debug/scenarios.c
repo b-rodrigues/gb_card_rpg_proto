@@ -199,6 +199,9 @@ static void scenario_load_state(void)
     if (screen == SCREEN_THANKS) {
         g_game.screen = SCREEN_THANKS;
     }
+    if (screen == SCREEN_ENDING) {
+        g_game.screen = SCREEN_ENDING;
+    }
 
     game_render_reset(&g_game);
     debug_snapshot();
@@ -241,9 +244,7 @@ static void debug_run_action(void)
             item_use(&g_game.state, (ItemId)a0, (CharacterId)a2);
             break;
         case DBG_ACT_EQUIP_ITEM:
-            if (item_equip(&g_game.state, (ItemId)a0)) {
-                game_on_equip(&g_game, (ItemId)a0);
-            }
+            item_equip(&g_game.state, (ItemId)a0);
             break;
         default:
             break;

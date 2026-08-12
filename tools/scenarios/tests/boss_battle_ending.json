@@ -1,0 +1,119 @@
+{
+  "name": "boss_battle_ending",
+  "test": true,
+  "description": "Defeating the Lord of Slimes (25 HP, five hits with the SWORD) reaches the ending screen with the victory text and restart prompt",
+  "scenario_id": "CASTLE_BOOT",
+  "actions": [
+    {
+      "type": "press",
+      "button": "RIGHT"
+    },
+    {
+      "type": "wait",
+      "frames": 3
+    },
+    {
+      "type": "press",
+      "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 26
+    },
+    {
+      "type": "press",
+      "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 26
+    },
+    {
+      "type": "press",
+      "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 26
+    },
+    {
+      "type": "press",
+      "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 26
+    },
+    {
+      "type": "press",
+      "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 26
+    },
+    {
+      "type": "press",
+      "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 4
+    }
+  ],
+  "assertions": [
+    {
+      "type": "screen",
+      "expected": "ENDING"
+    },
+    {
+      "type": "variable",
+      "variable": "ENDING_SHOWN",
+      "expected": 1
+    },
+    {
+      "type": "event_occurred",
+      "event": "SCRIPT_TRIGGERED"
+    },
+    {
+      "type": "screen_row",
+      "row": 4,
+      "contains": "The Hero cleared"
+    },
+    {
+      "type": "screen_row",
+      "row": 9,
+      "contains": "playing!"
+    },
+    {
+      "type": "screen_row",
+      "row": 14,
+      "contains": "[A] RESTART"
+    }
+  ],
+  "initial_state": {
+    "scene": "CASTLE",
+    "player": {
+      "x": 9,
+      "y": 5,
+      "facing": "RIGHT"
+    },
+    "seed": 8503,
+    "flags": {
+      "ARRIVED_TOWN": true
+    },
+    "variables": {
+      "QUEST_MONSTER_HUNT": 2,
+      "MONSTERS_DEFEATED": 3
+    },
+    "party": {
+      "HERO": {
+        "hp": 30,
+        "max_hp": 30
+      }
+    },
+    "equipment": {
+      "weapon": "SWORD"
+    }
+  }
+}

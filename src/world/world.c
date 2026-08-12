@@ -144,31 +144,9 @@ void world_on_battle_end(Game *g, bool victory)
         if (actor_id != 0) {
             game_world_set_actor_state(&g->state, actor_id, ACTOR_STATE_DEFEATED);
         }
-        /* Quest progress is expressed by the event table, not this code. */
-        event_resolve_actor_defeated(g, actor_id);
+        /* Quest progress / final-boss ending is expressed by the event table. */
+        event_resolve_actor_defeated(g, actor_id, w->actors[idx].id);
     }
-}
-
-bool world_spawn_actor(World *w, EntityId id, uint8_t x, uint8_t y, uint8_t hp)
-{
-    uint8_t i;
-    if (!w) return false;
-    for (i = 0; i < MAX_WORLD_ACTORS; i++) {
-        if (!w->actors[i].active) {
-            w->actors[i].actor_id = 0;   /* non-persistent training actor */
-            w->actors[i].id = id;
-            w->actors[i].active = 1;
-            w->actors[i].x = x;
-            w->actors[i].y = y;
-            w->actors[i].facing = DIRECTION_DOWN;
-            w->actors[i].hp = hp;
-            w->actors[i].max_hp = hp;
-            w->actors[i].flags = ACTOR_STATE_NONE;
-            w->actors[i].gold_reward = 0;
-            return true;
-        }
-    }
-    return false;
 }
 
 void world_set_player_pos(World *w, uint8_t x, uint8_t y)

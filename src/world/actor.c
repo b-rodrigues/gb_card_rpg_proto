@@ -14,17 +14,17 @@ static const WorldActorDefinition g_town_actors[] = {
     {
         0, ENTITY_ID_MAYOR, 10, 5, DIRECTION_DOWN,
         ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
-        'M', INTERACTION_DIALOGUE, DIALOGUE_ID_MAYOR_GREETING, BATTLE_NONE, 0, 0, 0
+        'M', INTERACTION_DIALOGUE, DIALOGUE_ID_MAYOR_GREETING, BATTLE_NONE, 0, 0, 0, 0, 0
     },
     {
         0, ENTITY_ID_GUARD, 10, 8, DIRECTION_DOWN,
         ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
-        'G', INTERACTION_DIALOGUE, DIALOGUE_ID_GUARD_GREETING, BATTLE_NONE, 0, 0, 0
+        'G', INTERACTION_DIALOGUE, DIALOGUE_ID_GUARD_GREETING, BATTLE_NONE, 0, 0, 0, 0, 0
     },
     {
         0, ENTITY_ID_SHOPKEEPER, 9, 3, DIRECTION_DOWN,
         ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
-        'S', INTERACTION_SHOP, DIALOGUE_ID_NONE, BATTLE_NONE, 0, 0, 0
+        'S', INTERACTION_SHOP, DIALOGUE_ID_NONE, BATTLE_NONE, 0, 0, 0, 0, 0
     }
 };
 
@@ -32,7 +32,7 @@ static const WorldActorDefinition g_field_actors[] = {
     {
         1, ENTITY_ID_SLIME, 14, 8, DIRECTION_DOWN,
         ACTOR_FLAG_HOSTILE | ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
-        'E', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_SLIME, 5, 5, 5
+        'E', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_SLIME, 5, 5, 5, 0, 0
     }
 };
 
@@ -40,12 +40,12 @@ static const WorldActorDefinition g_forest_actors[] = {
     {
         2, ENTITY_ID_SLIME, 10, 8, DIRECTION_DOWN,
         ACTOR_FLAG_HOSTILE | ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
-        'E', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_SLIME, 6, 6, 5
+        'E', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_SLIME, 6, 6, 5, 0, 0
     },
     {
         3, ENTITY_ID_BAT, 7, 4, DIRECTION_DOWN,
         ACTOR_FLAG_HOSTILE | ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
-        'V', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_BAT, 4, 4, 8
+        'V', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_BAT, 4, 4, 8, 0, 0
     }
 };
 
@@ -53,7 +53,7 @@ static const WorldActorDefinition g_mountain_pass_actors[] = {
     {
         4, ENTITY_ID_SLIME, 14, 7, DIRECTION_DOWN,
         ACTOR_FLAG_HOSTILE | ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
-        'E', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_SLIME, 8, 8, 5
+        'E', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_SLIME, 8, 8, 5, 0, 0
     }
 };
 
@@ -61,7 +61,15 @@ static const WorldActorDefinition g_castle_actors[] = {
     {
         5, ENTITY_ID_BAT, 12, 7, DIRECTION_DOWN,
         ACTOR_FLAG_HOSTILE | ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
-        'V', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_BAT, 4, 4, 8
+        'V', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_BAT, 4, 4, 8, 0, 0
+    },
+    /* Lord of Slimes: the final boss.  Appears only once the Monster Hunt
+     * quest is COMPLETE (the sword is in the inventory). */
+    {
+        6, ENTITY_ID_SLIME_LORD, 10, 5, DIRECTION_DOWN,
+        ACTOR_FLAG_HOSTILE | ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
+        'L', INTERACTION_COMBAT, DIALOGUE_ID_NONE, BATTLE_NONE, 25, 25, 50,
+        VARIABLE_ID_QUEST_MONSTER_HUNT, 2
     }
 };
 
@@ -175,9 +183,10 @@ ActorEngageResult actor_engage(const WorldActorDefinition *actor, DialogueState 
 const char *actor_enemy_name(EntityId id)
 {
     switch (id) {
-        case ENTITY_ID_SLIME: return "SLIME";
-        case ENTITY_ID_BAT:   return "BAT";
-        default:              return "ENEMY";
+        case ENTITY_ID_SLIME:      return "SLIME";
+        case ENTITY_ID_BAT:        return "BAT";
+        case ENTITY_ID_SLIME_LORD: return "LORD OF SLIMES";
+        default:                   return "ENEMY";
     }
 }
 
@@ -198,6 +207,13 @@ void actor_load_scene(World *world, MapId map_id, const GameState *state)
         if (defs[i].flags & ACTOR_FLAG_HOSTILE) {
             if (defs[i].actor_id != 0 &&
                 game_world_actor_is_defeated(state, defs[i].actor_id)) {
+                continue;
+            }
+            /* Conditional spawn: the definition may require a variable to
+             * equal a specific value (e.g. the final boss only after the
+             * quest is complete). */
+            if (defs[i].spawn_variable != 0 &&
+                game_variable_get(state, defs[i].spawn_variable) != defs[i].spawn_value) {
                 continue;
             }
             actor_spawn(&world->actors[slot], &defs[i]);

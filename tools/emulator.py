@@ -13,7 +13,7 @@ TELEMETRY_EVENT_SIZE = 13
 
 GAME_STATE_MAP = {0: "OVERWORLD", 1: "BATTLE", 2: "GAME_OVER", 3: "THANKS"}
 SCREEN_MAP = {0: "OVERWORLD", 1: "DIALOGUE", 2: "BATTLE", 3: "GAME_OVER", 4: "THANKS",
-              5: "SHOP", 6: "ITEM"}
+              5: "SHOP", 6: "ITEM", 7: "ENDING"}
 SCENE_MAP = {0: "FIELD", 1: "TOWN", 2: "FOREST", 3: "MOUNTAIN_PASS", 4: "CASTLE"}
 MUSIC_TRACK_MAP = {0: "NONE", 1: "OVERWORLD", 2: "BATTLE"}
 BATTLE_TURN_MAP = {0: "PLAYER", 1: "ENEMY_DELAY", 2: "ENEMY", 3: "RESULT"}
@@ -21,7 +21,7 @@ BATTLE_RESULT_MAP = {0: "NONE", 1: "VICTORY", 2: "DEFEAT"}
 MAP_NAME_MAP = {0: "FIELD", 1: "TOWN", 2: "FOREST", 3: "MOUNTAIN_PASS", 4: "CASTLE"}
 STORY_FLAG_ID_MAP = {1: "ARRIVED_TOWN", 2: "MET_MAYOR"}
 ENTITY_ID_MAP = {0: "NONE", 1: "PLAYER", 2: "SLIME", 3: "MAYOR", 4: "GUARD",
-                 5: "SHOPKEEPER", 6: "BAT"}
+                 5: "SHOPKEEPER", 6: "BAT", 7: "SLIME_LORD"}
 INTERACTION_ID_MAP = {0: "NONE", 1: "DIALOGUE", 2: "COMBAT"}
 DIALOGUE_ID_MAP = {0: "NONE", 1: "MAYOR_GREETING", 2: "GUARD_GREETING",
                    3: "SHOPKEEPER_GREETING", 4: "MAYOR_INTRO",
@@ -47,7 +47,7 @@ EVENT_TYPE_MAP = {
 EVENT_ID_MAP = {1: "TOWN_ARRIVAL", 2: "QUEST_START", 3: "QUEST_ACTIVE",
                 4: "QUEST_COMPLETE", 5: "QUEST_DONE",
                 6: "GUARD_AFTER_MAYOR", 7: "GUARD_GREETING",
-                8: "MONSTER_DEFEATED"}
+                8: "MONSTER_DEFEATED", 9: "BOSS_DEFEATED"}
 
 # Weapon attack bonuses (host-side mirror of src/rpg/items.c).
 ITEM_ATTACK_BONUS = {"SWORD": 3}
@@ -62,6 +62,7 @@ ACTOR_INFO_MAP = {
     "GUARD":       {"visual": "G", "hostile": False, "interaction": "DIALOGUE", "dialogue": "GUARD_GREETING", "battle": "NONE"},
     "SHOPKEEPER":  {"visual": "S", "hostile": False, "interaction": "DIALOGUE", "dialogue": "SHOPKEEPER_GREETING", "battle": "NONE"},
     "BAT":         {"visual": "V", "hostile": True,  "interaction": "COMBAT", "dialogue": "NONE", "battle": "BAT"},
+    "SLIME_LORD":  {"visual": "L", "hostile": True,  "interaction": "COMBAT", "dialogue": "NONE", "battle": "NONE"},
 }
 
 # Fallback button masks.  At connect() these are overridden by the ROM's
@@ -128,7 +129,7 @@ SCREEN_NAME_TO_ID = {v: k for k, v in SCREEN_MAP.items()}
 DIRECTION_NAME_TO_ID = {v: k for k, v in DIRECTION_MAP.items()}
 STATE_FLAG_ID_MAP = {"ARRIVED_TOWN": 1, "MET_MAYOR": 2}
 VARIABLE_ID_MAP = {"CHAPTER": 1, "MONSTERS_DEFEATED": 2,
-                   "QUEST_MONSTER_HUNT": 3}
+                   "QUEST_MONSTER_HUNT": 3, "ENDING_SHOWN": 4}
 CHARACTER_ID_MAP = {"HERO": 1}
 ITEM_ID_MAP = {"NONE": 0, "POTION": 1, "BOMB": 2, "ETHER": 3, "SWORD": 4}
 ACTOR_ID_MAP = {"SLIME_FIELD": 1, "SLIME_FOREST": 2, "BAT_FOREST": 3,

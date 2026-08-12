@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include "story.h"
 
-#define MAX_DIALOGUE_LINES 4
+#define MAX_DIALOGUE_LINES 8
 
 typedef enum {
     DIALOGUE_ID_NONE = 0,

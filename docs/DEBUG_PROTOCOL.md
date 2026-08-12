@@ -504,8 +504,10 @@ Quest state and objectives are generic variables owned by the event table in
 
 * `QUEST_MONSTER_HUNT` = 0 (NOT_STARTED), 1 (ACTIVE), 2 (COMPLETE).
 * `MONSTERS_DEFEATED` — a **global** counter incremented on every hostile
-  defeat (persistent and training actors alike, no quest gating), so kills
-  before the quest starts still count.
+  defeat (no quest gating), so kills before the quest starts still count.
+* `ENDING_SHOWN` — set when the final boss (Lord of Slimes) is defeated;
+  the battle victory then goes to the `SCREEN_ENDING` instead of the
+  overworld.  A on the ending restarts the game.
 
 The event engine supports generic conditions (flag is/not set, variable
 `>=`/`==`) and actions (dialogue, set/clear flag, set/add variable, give

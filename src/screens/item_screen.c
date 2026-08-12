@@ -15,6 +15,38 @@
 
 static const uint8_t g_tab_x[MENU_TAB_COUNT] = {0, 5, 10, 15};
 
+/* Per-tab item visibility: the ITEM tab shows consumables only, the EQUIP
+ * tab shows weapons only. */
+static bool menu_item_visible(uint8_t tab, const ItemDefinition *def)
+{
+    if (!def) return false;
+    if (tab == MENU_TAB_ITEM) return def->kind == ITEM_KIND_CONSUMABLE;
+    return def->kind == ITEM_KIND_WEAPON;   /* MENU_TAB_EQUIP */
+}
+
+static uint8_t menu_visible_count(const InventoryState *inv, uint8_t tab)
+{
+    uint8_t i;
+    uint8_t n = 0;
+    for (i = 0; i < inv->count && i < MAX_INVENTORY_ITEMS; i++) {
+        if (menu_item_visible(tab, item_get_def(inv->entries[i].item_id))) n++;
+    }
+    return n;
+}
+
+static uint8_t menu_visible_entry(const InventoryState *inv, uint8_t tab, uint8_t idx)
+{
+    uint8_t i;
+    uint8_t n = 0;
+    for (i = 0; i < inv->count && i < MAX_INVENTORY_ITEMS; i++) {
+        if (menu_item_visible(tab, item_get_def(inv->entries[i].item_id))) {
+            if (n == idx) return i;
+            n++;
+        }
+    }
+    return 0xFF;
+}
+
 static void menu_draw_tab_row(Game *g)
 {
     /* Full labels (direct literals), active tab marked on the row below. */
@@ -99,6 +131,7 @@ static void menu_draw(Game *g)
     char buf[7];
     uint8_t i;
     uint8_t y;
+    uint8_t vis_count;
 
     frame.title_row = 0;
     frame.top_row = 5;
@@ -125,18 +158,20 @@ static void menu_draw(Game *g)
         return;
     }
 
-    if (inv->count == 0) {
+    vis_count = menu_visible_count(inv, g->item_menu_tab);
+    if (vis_count == 0) {
         menu_draw_content(&frame, 0, "(no items)");
     }
-    for (i = 0; i < inv->count && i < MAX_INVENTORY_ITEMS; i++) {
-        const ItemDefinition *def = item_get_def(inv->entries[i].item_id);
+    for (i = 0; i < vis_count; i++) {
+        uint8_t ei = menu_visible_entry(inv, g->item_menu_tab, i);
+        const ItemDefinition *def = item_get_def(inv->entries[ei].item_id);
         const char *name = def ? def->name : "???";
-        bool equipped = (g->state.equipment.weapon == inv->entries[i].item_id);
+        bool equipped = (g->state.equipment.weapon == inv->entries[ei].item_id);
         y = menu_row(&frame, i);
         ui_draw_text_line(0, y, (g->item_menu_index == i) ? ">" : " ", 1);
         ui_draw_text_line(1, y, name, 8);
         if (def && def->kind == ITEM_KIND_CONSUMABLE) {
-            ui_format_int((int16_t)inv->entries[i].quantity, buf);
+            ui_format_int((int16_t)inv->entries[ei].quantity, buf);
             ui_draw_text_line(10, y, "x", 1);
             ui_draw_text_line(11, y, buf, 4);
         } else if (equipped) {
@@ -194,17 +229,20 @@ void item_screen_update(Game *g)
         return;
     }
 
-    if (g->state.inventory.count > 0) {
+    if (menu_visible_count(&g->state.inventory, g->item_menu_tab) > 0) {
         if (input_pressed(INPUT_UP)) {
             if (g->item_menu_index > 0) g->item_menu_index--;
             g->render_cache.valid = false;
         }
         if (input_pressed(INPUT_DOWN)) {
-            if ((uint8_t)(g->item_menu_index + 1) < g->state.inventory.count) g->item_menu_index++;
+            if ((uint8_t)(g->item_menu_index + 1) < menu_visible_count(&g->state.inventory, g->item_menu_tab)) {
+                g->item_menu_index++;
+            }
             g->render_cache.valid = false;
         }
         if (input_pressed(INPUT_A)) {
-            id = g->state.inventory.entries[g->item_menu_index].item_id;
+            uint8_t ei = menu_visible_entry(&g->state.inventory, g->item_menu_tab, g->item_menu_index);
+            id = g->state.inventory.entries[ei].item_id;
             if (g->item_menu_tab == MENU_TAB_ITEM) {
                 if (item_use(&g->state, id, CHARACTER_HERO)) {
                     if (g->prev_screen == SCREEN_BATTLE) {
@@ -216,9 +254,10 @@ void item_screen_update(Game *g)
             } else {
                 item_equip(&g->state, id);
             }
-            if (g->item_menu_index >= g->state.inventory.count) {
-                if (g->state.inventory.count > 0) {
-                    g->item_menu_index = (uint8_t)(g->state.inventory.count - 1);
+            if (g->item_menu_index >= menu_visible_count(&g->state.inventory, g->item_menu_tab)) {
+                uint8_t vc = menu_visible_count(&g->state.inventory, g->item_menu_tab);
+                if (vc > 0) {
+                    g->item_menu_index = (uint8_t)(vc - 1);
                 } else {
                     g->item_menu_index = 0;
                 }

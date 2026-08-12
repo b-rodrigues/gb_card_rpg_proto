@@ -1,0 +1,70 @@
+{
+  "name": "equip_tab_filter",
+  "test": true,
+  "description": "The EQUIP tab shows only weapons (no potions) and equipping still works",
+  "scenario_id": "NEW_GAME",
+  "actions": [
+    {
+      "type": "press",
+      "button": "START"
+    },
+    {
+      "type": "wait",
+      "frames": 5
+    },
+    {
+      "type": "press",
+      "button": "SELECT"
+    },
+    {
+      "type": "wait",
+      "frames": 3
+    },
+    {
+      "type": "press",
+      "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 5
+    }
+  ],
+  "assertions": [
+    {
+      "type": "screen",
+      "expected": "ITEM"
+    },
+    {
+      "type": "screen_row",
+      "row": 5,
+      "contains": "SWORD"
+    },
+    {
+      "type": "screen_row_not_contains",
+      "row": 5,
+      "contains": "POTION"
+    },
+    {
+      "type": "screen_row_not_contains",
+      "row": 6,
+      "contains": "POTION"
+    },
+    {
+      "type": "attack",
+      "expected": 6
+    }
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 4,
+      "y": 4,
+      "facing": "DOWN"
+    },
+    "seed": 8604,
+    "inventory": {
+      "SWORD": 1,
+      "POTION": 1
+    }
+  }
+}

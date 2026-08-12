@@ -24,7 +24,7 @@ VALID_ASSERTION_TYPES = {
     "enemy_hp", "battle_turn", "battle_result", "battle_player_hp", "battle_enemy_hp",
     "game_over_choice", "story_flag", "screen", "scene",
     "event_occurred", "event_not_occurred", "dialogue_active", "dialogue_line", "dialogue_id",
-    "screen_row", "actor_at",
+    "screen_row", "screen_row_not_contains", "actor_at",
     "flag", "variable", "inventory", "party_hp", "party_level", "actor_state",
     "currency", "progression_level", "progression_progress", "attack"
 }
@@ -212,7 +212,7 @@ def run_scenario(scenario):
         telemetry = session.get_telemetry()
 
         # Check if any assertion needs logical screen buffer
-        has_screen_assert = any(a.get("type") == "screen_row" for a in scenario.get("assertions", []))
+        has_screen_assert = any(a.get("type") in ("screen_row", "screen_row_not_contains") for a in scenario.get("assertions", []))
         screen_lines = []
         if has_screen_assert:
             screen_buf = session.get_screen_buf()
@@ -329,6 +329,14 @@ def run_scenario(scenario):
             expected = f"row {row_idx} contains '{contains_str}'"
             actual_row = screen_lines[row_idx] if row_idx < len(screen_lines) else ""
             passed = contains_str in actual_row
+            actual = f"row {row_idx}: '{actual_row.strip()}'"
+
+        elif a_type == "screen_row_not_contains":
+            row_idx = a.get("row", 0)
+            contains_str = a.get("contains", expected)
+            expected = f"row {row_idx} does not contain '{contains_str}'"
+            actual_row = screen_lines[row_idx] if row_idx < len(screen_lines) else ""
+            passed = contains_str not in actual_row
             actual = f"row {row_idx}: '{actual_row.strip()}'"
 
         elif a_type == "event_occurred":

@@ -1,7 +1,7 @@
 {
-  "name": "status_screen",
+  "name": "quick_equip_ui",
   "test": true,
-  "description": "START opens the quick screen; SELECT focuses tabs, RIGHT+A switches to the STATUS tab showing hero HP, gold, level and weapon",
+  "description": "Via the quick screen UI: START opens it, SELECT focuses the tab row, RIGHT to EQUIP, A confirms, A equips the SWORD -> attack 6 and a training slime appears",
   "scenario_id": "NEW_GAME",
   "actions": [
     {
@@ -30,11 +30,11 @@
     },
     {
       "type": "press",
-      "button": "RIGHT"
+      "button": "A"
     },
     {
       "type": "wait",
-      "frames": 3
+      "frames": 5
     },
     {
       "type": "press",
@@ -51,29 +51,14 @@
       "expected": "ITEM"
     },
     {
-      "type": "currency",
-      "currency": "GOLD",
-      "expected": 20
+      "type": "attack",
+      "expected": 6
     },
     {
-      "type": "party_hp",
-      "member": 0,
-      "expected": 10
-    },
-    {
-      "type": "screen_row",
-      "row": 1,
-      "contains": "HP: 10"
-    },
-    {
-      "type": "screen_row",
-      "row": 8,
-      "contains": "LEVEL:1"
-    },
-    {
-      "type": "screen_row",
-      "row": 10,
-      "contains": "WEAPON: NONE"
+      "type": "actor_at",
+      "entity": "SLIME",
+      "x": 4,
+      "y": 3
     }
   ],
   "initial_state": {
@@ -83,6 +68,9 @@
       "y": 4,
       "facing": "DOWN"
     },
-    "seed": 8301
+    "seed": 8409,
+    "inventory": {
+      "SWORD": 1
+    }
   }
 }

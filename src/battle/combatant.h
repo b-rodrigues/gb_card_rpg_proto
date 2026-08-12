@@ -7,6 +7,7 @@
 typedef struct {
     uint8_t hp;
     uint8_t max_hp;
+    uint8_t attack;
     const char *name;
 } Combatant;
 

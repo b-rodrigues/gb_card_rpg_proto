@@ -32,7 +32,8 @@ typedef struct {
 } Battle;
 
 void battle_start(Battle *b, const char *enemy_name, uint8_t player_hp,
-                  uint8_t player_max_hp, uint8_t enemy_hp, uint8_t enemy_max_hp);
+                  uint8_t player_max_hp, uint8_t player_attack,
+                  uint8_t enemy_hp, uint8_t enemy_max_hp);
 void battle_execute_action(Battle *b, BattleAction action);
 void battle_update(Battle *b);
 

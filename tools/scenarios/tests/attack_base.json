@@ -1,0 +1,22 @@
+{
+  "name": "attack_base",
+  "test": true,
+  "description": "The hero's base attack is 3 with no weapon equipped",
+  "scenario_id": "NEW_GAME",
+  "actions": [],
+  "assertions": [
+    {
+      "type": "attack",
+      "expected": 3
+    }
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 4,
+      "y": 4,
+      "facing": "DOWN"
+    },
+    "seed": 8407
+  }
+}

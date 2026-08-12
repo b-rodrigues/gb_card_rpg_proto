@@ -1,0 +1,73 @@
+{
+  "name": "quest_progress",
+  "test": true,
+  "description": "Defeating a hostile actor while the quest is ACTIVE decrements MONSTERS_REMAINING",
+  "scenario_id": "FIRST_ENCOUNTER",
+  "actions": [
+    {
+      "type": "press",
+      "button": "RIGHT"
+    },
+    {
+      "type": "wait",
+      "frames": 3
+    },
+    {
+      "type": "press",
+      "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 26
+    },
+    {
+      "type": "press",
+      "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 4
+    },
+    {
+      "type": "press",
+      "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 4
+    }
+  ],
+  "assertions": [
+    {
+      "type": "game_state",
+      "expected": "OVERWORLD"
+    },
+    {
+      "type": "variable",
+      "variable": "MONSTERS_REMAINING",
+      "expected": 2
+    },
+    {
+      "type": "variable",
+      "variable": "QUEST_MONSTER_HUNT",
+      "expected": 1
+    },
+    {
+      "type": "event_occurred",
+      "event": "SCRIPT_TRIGGERED"
+    }
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 13,
+      "y": 8,
+      "facing": "DOWN"
+    },
+    "seed": 8402,
+    "variables": {
+      "QUEST_MONSTER_HUNT": 1,
+      "MONSTERS_REMAINING": 3
+    }
+  }
+}

@@ -29,7 +29,7 @@
  *   byte  133          : progression count
  *   bytes 134..181     : up to 8 progression x {type, id_lo, id_hi, level, prog_lo, prog_hi}
  */
-#define STATE_SNAP_VERSION_BYTE    0x02
+#define STATE_SNAP_VERSION_BYTE    0x03
 #define STATE_SNAP_FLAGS_OFFSET    1
 #define STATE_SNAP_FLAGS_SIZE      8
 #define STATE_SNAP_VARIABLES_OFFSET  9
@@ -46,14 +46,15 @@
 #define STATE_SNAP_PROGRESSION_COUNT_OFF 133
 #define STATE_SNAP_PROGRESSION_ENTRY_OFF 134
 #define STATE_SNAP_PROGRESSION_ENTRY_SIZE 6
-#define STATE_SNAP_TOTAL_SIZE        182
+#define STATE_SNAP_EQUIPMENT_OFF 182
+#define STATE_SNAP_TOTAL_SIZE        183
 
 /* Scenario initial-state descriptor (g_scen_state_buf) layout (version 0x02).
  * Written by the host STATE_LOAD command and applied by scenario_load_state().
  * Fixed offsets; variable-length sections carry a count and only the
  * listed entries are applied (unspecified sections keep their defaults). */
-#define STATE_LOAD_DESC_VERSION           0x02
-#define STATE_LOAD_DESC_SIZE              228
+#define STATE_LOAD_DESC_VERSION           0x03
+#define STATE_LOAD_DESC_SIZE              229
 #define STATE_LOAD_DESC_SCREEN_OFF        1
 #define STATE_LOAD_DESC_SCENE_OFF         2
 #define STATE_LOAD_DESC_PLAYER_X_OFF      3
@@ -84,6 +85,7 @@
 #define STATE_LOAD_DESC_START_BATTLE_OFF  225
 #define STATE_LOAD_DESC_GAME_OVER_CHOICE_OFF 226
 #define STATE_LOAD_DESC_FONT_TEST_OFF     227
+#define STATE_LOAD_DESC_EQUIPMENT_OFF     228
 
 typedef enum {
     EVENT_PLAYER_MOVED,
@@ -125,7 +127,8 @@ typedef enum {
     EVENT_CURRENCY_ADDED,
     EVENT_CURRENCY_SPENT,
     EVENT_PROGRESSION_GAINED,
-    EVENT_LEVEL_UP
+    EVENT_LEVEL_UP,
+    EVENT_ITEM_EQUIPPED
 } GameEventType;
 
 typedef struct {

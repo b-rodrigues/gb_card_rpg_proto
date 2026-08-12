@@ -11,8 +11,6 @@ void party_init(PartyState *party);
 CharacterState *party_get_member(PartyState *party, CharacterId id);
 const CharacterState *party_get_member_const(const PartyState *party, CharacterId id);
 
-bool party_add_member(PartyState *party, CharacterId id, uint8_t hp, uint8_t max_hp);
-
 void party_set_hp(PartyState *party, CharacterId id, uint8_t hp);
 uint8_t party_get_hp(const PartyState *party, CharacterId id);
 

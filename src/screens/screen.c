@@ -85,9 +85,6 @@ void screen_update(Game *g)
         case SCREEN_ITEM:
             item_screen_update(g);
             break;
-        case SCREEN_STATUS:
-            status_screen_update(g);
-            break;
     }
 }
 
@@ -115,9 +112,6 @@ void screen_render(Game *g)
             break;
         case SCREEN_ITEM:
             item_screen_render(g);
-            break;
-        case SCREEN_STATUS:
-            status_screen_render(g);
             break;
     }
 }

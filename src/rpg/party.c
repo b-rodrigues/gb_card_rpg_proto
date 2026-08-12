@@ -37,18 +37,6 @@ const CharacterState *party_get_member_const(const PartyState *party, CharacterI
     return NULL;
 }
 
-bool party_add_member(PartyState *party, CharacterId id, uint8_t hp, uint8_t max_hp)
-{
-    CharacterState *m;
-    if (!party || party->count >= MAX_PARTY_MEMBERS) return false;
-    m = &party->members[party->count];
-    m->id = id;
-    m->hp = hp;
-    m->max_hp = max_hp;
-    party->count++;
-    return true;
-}
-
 void party_set_hp(PartyState *party, CharacterId id, uint8_t hp)
 {
     CharacterState *m = party_get_member(party, id);

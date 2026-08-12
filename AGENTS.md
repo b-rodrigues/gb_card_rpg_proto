@@ -2020,9 +2020,9 @@ in sync; changing one without the other silently breaks every scenario.
 
 * Core snapshot (`g_snap_buf`, 36 bytes): byte 12 is `state.flags.bytes[0]`,
   byte 19 is `state.scene.scene_id`.  Existing scenarios depend on these.
-* Extended snapshot (`g_state_snap_buf`, 182 bytes, version 0x02): version
+* Extended snapshot (`g_state_snap_buf`, 183 bytes, version 0x03): version
   byte 0, flags 1..8, variables 9..24, currency 25..37, party 38..50,
-  inventory 51..83, world 84..132, progression 133..181.
+  inventory 51..83, world 84..132, progression 133..181, equipment 182.
 * Every important gameplay transition must emit a telemetry event; state
   assertions must be possible without screenshots.
 
@@ -2077,3 +2077,58 @@ The byte offsets in `g_snap_buf` / `g_state_snap_buf` are an internal
 transport contract and may change; scenarios must not depend on them.
 Semantic assertions (`flag`, `variable`, `inventory`, `party_hp`,
 `party_level`, `actor_state`, `screen_row`, ...) are the stable API.
+
+---
+
+# 54. State Ownership, Screens & Actor Lifecycle (audit)
+
+## 54.1 State ownership
+
+For every piece of persistent state, one clear owner:
+
+| State             | Owner                        | Mutators                          | Persistent |
+|-------------------|------------------------------|-----------------------------------|------------|
+| Player HP/max     | `state.party.members[0]`     | battle, item_use, level-up        | yes        |
+| Current scene/pos | `state.scene`                | scene_load / scene_sync_from_world| yes        |
+| Quest state       | `state.variables[QUEST_MONSTER_HUNT]` | event actions             | yes        |
+| Quest objective   | `state.variables[MONSTERS_REMAINING]` | MONSTER_DEFEATED event      | yes        |
+| Slime defeated    | `state.world` (ActorId)      | world_on_battle_end               | yes        |
+| Gold              | `state.currency[GOLD]`       | currency_add                      | yes        |
+| Equipped weapon   | `state.equipment.weapon`     | item_equip                        | yes        |
+| Hero attack       | derived (`game_hero_attack`) | from equipment                    | derived    |
+| Screen            | `g_game.screen`              | screen_change                     | no         |
+
+The quest/objective lives in **generic variables** owned by the event table
+(`src/core/event.c`) — never in the Mayor actor or the dialogue screens.
+
+## 54.2 Screen transition contract
+
+Every screen implements `update()` + `render()` (+ shared `screen_change`
+enter/exit).  Screens hold **no persistent state**: everything that matters
+lives in `GameState`.  Transient UI state (`game_over_choice`,
+`item_menu_index`, `item_menu_tab`, `shop_message`) lives in `Game` and is
+reset on exit.  A screen must never become the home of gameplay state
+(quest progress, HP, etc.).
+
+The quick screen (`SCREEN_ITEM`) is a tabbed menu: ITEM (use consumables),
+EQUIP (equip weapons), STATUS (display).  START opens it in the overworld;
+SELECT in the overworld does nothing; SELECT in battle opens it on the ITEM
+tab.  SELECT inside focuses the tab row, LEFT/RIGHT moves tabs, A confirms.
+
+## 54.3 Actor lifecycle
+
+* `WorldActorDefinition` (static): scene-owned configuration, never mutable.
+* `World.actors` (runtime): the engine's current-scene copy, rebuilt on every
+  scene load; spawned hostiles live here.
+* `GameState.world` (persistent): defeats/lifecycle keyed by stable `ActorId`.
+
+`world_spawn_actor()` creates a runtime-only hostile (actor_id 0) that is NOT
+persistent — used for training enemies and test fixtures.
+
+## 54.4 Warnings / lint
+
+The normal build cannot enable `-Wall` (sdcc's `--use-stdout` pipeline leaks
+warnings into the assembly stream).  Use `make lint` to run a
+compile-to-assembly `-Wf-Wall` pass over every source; it must report no
+warnings.  This has caught real bugs (e.g. `uint8_t` progression thresholds
+truncating values > 255).

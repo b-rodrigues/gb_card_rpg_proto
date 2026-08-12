@@ -6,9 +6,10 @@
 #include <stddef.h>
 
 static const ItemDefinition g_item_defs[] = {
-    { ITEM_POTION, "POTION", 20, ITEM_EFFECT_HEAL_HP, 5 },
-    { ITEM_BOMB,   "BOMB",   50, ITEM_EFFECT_NONE,    0 },
-    { ITEM_ETHER,  "ETHER",  40, ITEM_EFFECT_NONE,    0 }
+    { ITEM_POTION, "POTION", 20, ITEM_KIND_CONSUMABLE, ITEM_EFFECT_HEAL_HP, 5, 0 },
+    { ITEM_BOMB,   "BOMB",   50, ITEM_KIND_CONSUMABLE, ITEM_EFFECT_NONE,    0, 0 },
+    { ITEM_ETHER,  "ETHER",  40, ITEM_KIND_CONSUMABLE, ITEM_EFFECT_NONE,    0, 0 },
+    { ITEM_SWORD,  "SWORD",   0, ITEM_KIND_WEAPON,     ITEM_EFFECT_NONE,    0, 3 }
 };
 
 #define NUM_ITEM_DEFS (sizeof(g_item_defs) / sizeof(g_item_defs[0]))
@@ -43,12 +44,25 @@ bool item_can_use(const GameState *state, ItemId id, CharacterId target)
     if (!state) return false;
 
     def = item_get_def(id);
-    if (!def || def->effect == ITEM_EFFECT_NONE) return false;
+    if (!def || def->kind != ITEM_KIND_CONSUMABLE) return false;
+    if (def->effect == ITEM_EFFECT_NONE) return false;
     if (inventory_count(&state->inventory, id) == 0) return false;
 
     member = party_get_member_const(&state->party, target);
     if (!member) member = &state->party.members[0];
     if (member->hp >= member->max_hp) return false;
+    return true;
+}
+
+bool item_equip(GameState *state, ItemId id)
+{
+    const ItemDefinition *def;
+    if (!state) return false;
+    def = item_get_def(id);
+    if (!def || def->kind != ITEM_KIND_WEAPON) return false;
+
+    state->equipment.weapon = id;
+    telemetry_emit(EVENT_ITEM_EQUIPPED, (uint8_t)id, 0, 0, 0);
     return true;
 }
 

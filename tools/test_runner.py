@@ -16,7 +16,8 @@ from emulator import (EmulatorSession, STORY_FLAG_ID_MAP, DIALOGUE_ID_MAP,
                       ACTOR_STATE_NAME_MAP, CHARACTER_ID_MAP, SCENE_MAP,
                       CHARACTER_ID_TO_NAME, ITEM_ID_TO_NAME, ACTOR_ID_TO_NAME,
                       CURRENCY_ID_MAP, PROGRESSION_TARGET_MAP,
-                      CURRENCY_ID_TO_NAME, PROG_TYPE_HERO)
+                      CURRENCY_ID_TO_NAME, PROG_TYPE_HERO,
+                      ITEM_ATTACK_BONUS, HERO_BASE_ATTACK)
 
 VALID_ASSERTION_TYPES = {
     "game_state", "player_position", "player_facing", "player_hp", "music_track",
@@ -25,7 +26,7 @@ VALID_ASSERTION_TYPES = {
     "event_occurred", "event_not_occurred", "dialogue_active", "dialogue_line", "dialogue_id",
     "screen_row", "actor_at",
     "flag", "variable", "inventory", "party_hp", "party_level", "actor_state",
-    "currency", "progression_level", "progression_progress"
+    "currency", "progression_level", "progression_progress", "attack"
 }
 
 VALID_ENTITY_IDS = set(ENTITY_ID_MAP.values())
@@ -34,7 +35,7 @@ VALID_STORY_FLAGS = set(STORY_FLAG_ID_MAP.values())
 VALID_DIALOGUE_IDS = set(DIALOGUE_ID_MAP.values())
 VALID_FLAG_NAMES = set(STATE_FLAG_ID_MAP)
 VALID_VARIABLE_NAMES = set(VARIABLE_ID_MAP)
-VALID_ITEM_NAMES = set(ITEM_ID_MAP)
+VALID_ITEM_NAMES = set(ITEM_ID_MAP) - {"NONE"}
 VALID_ACTOR_NAMES = set(ACTOR_ID_MAP)
 VALID_ACTOR_STATES = set(ACTOR_STATE_NAME_MAP)
 VALID_CURRENCY_NAMES = set(CURRENCY_ID_MAP)
@@ -116,6 +117,9 @@ def validate_scenario(data, filepath):
         for pname, pstats in (init.get("progression") or {}).items():
             if pname not in VALID_PROGRESSION_NAMES:
                 raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown progression target '{pname}'. Valid targets: {sorted(list(VALID_PROGRESSION_NAMES))}")
+        equip = init.get("equipment") or {}
+        if "weapon" in equip and equip["weapon"] not in VALID_ITEM_NAMES:
+            raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown equipment weapon '{equip.get('weapon')}'. Valid items: {sorted(list(VALID_ITEM_NAMES))}")
         scene = init.get("scene")
         if scene and scene not in set(SCENE_MAP.values()):
             raise ValueError(f"SCENARIO ERROR in {filepath}: Unknown scene '{scene}'. Valid scenes: {sorted(set(SCENE_MAP.values()))}")
@@ -168,12 +172,18 @@ def run_scenario(scenario):
                 session.press("A")
                 session.wait(act.get("frames", 5))
             elif act_type == "use_item":
-                # Open the item menu (SELECT) and use the cursor item (A).
-                # Works for the first/only inventory item; cursor starts at 0.
-                session.press("SELECT")
+                # Open the quick screen (START in the overworld, SELECT in
+                # battle) and use the cursor item (A).  ITEM is the default
+                # tab; cursor starts at the first inventory item.
+                cur = session.snapshot()
+                button = "SELECT" if cur.get("screen") == "BATTLE" else "START"
+                session.press(button)
                 session.wait(4)
                 session.press("A")
                 session.wait(act.get("frames", 4))
+            elif act_type == "equip_item":
+                session.debug_action(session.DBG_ACT_EQUIP_ITEM,
+                                     ITEM_ID_MAP[act.get("item")], 0, 0)
             elif act_type == "add_item":
                 session.debug_action(session.DBG_ACT_ADD_ITEM,
                                      ITEM_ID_MAP[act.get("item")],
@@ -423,6 +433,13 @@ def run_scenario(scenario):
             actual = entry.get("progress") if entry else None
             passed = (actual == int(a.get("expected")))
 
+        elif a_type == "attack":
+            equipment = (state_snap or {}).get("equipment", {})
+            weapon = equipment.get("weapon", "NONE")
+            actual = HERO_BASE_ATTACK + ITEM_ATTACK_BONUS.get(weapon, 0)
+            expected = f"hero attack == {expected}"
+            passed = (actual == int(a.get("expected")))
+
         status_str = "PASS" if passed else "FAIL"
         assertion_results.append({
             "type": a_type,
@@ -503,6 +520,11 @@ def format_state(snap, state_snap):
         for p in progression:
             lines.append("  {}: level={} progress={}".format(
                 p.get("name"), p.get("level"), p.get("progress")))
+
+    equipment = (state_snap or {}).get("equipment", {})
+    weapon = equipment.get("weapon", "NONE")
+    lines.append(f"EQUIPMENT: {weapon}")
+    lines.append(f"ATTACK: {HERO_BASE_ATTACK + ITEM_ATTACK_BONUS.get(weapon, 0)}")
     return "\n".join(lines)
 
 
@@ -574,6 +596,11 @@ def build_initial_state_from_snapshot(snap, state_snap):
     if progression:
         initial["progression"] = progression
 
+    equipment = state_snap.get("equipment", {})
+    weapon = equipment.get("weapon", "NONE")
+    if weapon != "NONE":
+        initial["equipment"] = {"weapon": weapon}
+
     return initial
 
 
@@ -594,6 +621,7 @@ def normalize_semantic_state(snap, state_snap):
                         for w in (state_snap or {}).get("world", [])),
         "progression": sorted((p.get("name"), p.get("level"), p.get("progress"))
                               for p in (state_snap or {}).get("progression", [])),
+        "equipment": (state_snap or {}).get("equipment", {}),
     }
 
 

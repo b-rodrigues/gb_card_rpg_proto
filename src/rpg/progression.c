@@ -5,9 +5,9 @@
 /* ── Static progression definitions (rules), separate from state ─────
  * Fixed lookup tables (Game Boy friendly).  Threshold entries are the
  * progress needed to advance FROM level N to level N+1. */
-static const uint8_t g_hero_thresholds[] = {100, 250, 450, 700, 1000, 1400, 1900, 2500, 3200, 4000};
-static const uint8_t g_weapon_thresholds[] = {50, 120, 220, 350, 520, 750, 1020};
-static const uint8_t g_companion_thresholds[] = {60, 150, 280, 450, 660, 900, 1200};
+static const uint16_t g_hero_thresholds[] = {100, 250, 450, 700, 1000, 1400, 1900, 2500, 3200, 4000};
+static const uint16_t g_weapon_thresholds[] = {50, 120, 220, 350, 520, 750, 1020};
+static const uint16_t g_companion_thresholds[] = {60, 150, 280, 450, 660, 900, 1200};
 
 typedef struct {
     uint8_t type;

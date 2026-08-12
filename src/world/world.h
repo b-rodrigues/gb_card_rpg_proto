@@ -72,9 +72,13 @@ void world_change_map(World *w, MapId map_id, uint8_t spawn_x, uint8_t spawn_y,
 bool world_is_walkable(const World *w, uint8_t x, uint8_t y);
 WorldMoveResult world_move_player(World *w, int8_t dx, int8_t dy,
                                   const GameState *state);
-void world_on_battle_end(World *w, GameState *state, bool victory);
+void world_on_battle_end(Game *g, bool victory);
 void world_set_player_pos(World *w, uint8_t x, uint8_t y);
 void world_set_actor_pos(World *w, EntityId id, uint8_t x, uint8_t y);
 void world_set_player_facing(World *w, Direction facing);
+
+/* Spawn a fresh, non-persistent hostile runtime actor (e.g. a training
+ * slime) into a free slot.  Returns false if no slot is free. */
+bool world_spawn_actor(World *w, EntityId id, uint8_t x, uint8_t y, uint8_t hp);
 
 #endif /* WORLD_H */

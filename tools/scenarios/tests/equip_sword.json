@@ -1,0 +1,40 @@
+{
+  "name": "equip_sword",
+  "test": true,
+  "description": "Equipping the SWORD raises hero attack to 6 and spawns a training slime on the field",
+  "scenario_id": "NEW_GAME",
+  "actions": [
+    {
+      "type": "equip_item",
+      "item": "SWORD"
+    }
+  ],
+  "assertions": [
+    {
+      "type": "attack",
+      "expected": 6
+    },
+    {
+      "type": "event_occurred",
+      "event": "ITEM_EQUIPPED"
+    },
+    {
+      "type": "actor_at",
+      "entity": "SLIME",
+      "x": 4,
+      "y": 3
+    }
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 4,
+      "y": 4,
+      "facing": "DOWN"
+    },
+    "seed": 8406,
+    "inventory": {
+      "SWORD": 1
+    }
+  }
+}

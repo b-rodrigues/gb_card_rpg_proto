@@ -38,7 +38,8 @@ enum {
     DBG_ACT_ADD_CURRENCY = 3,
     DBG_ACT_ADD_PROGRESS = 4,
     DBG_ACT_BUY_ITEM = 5,
-    DBG_ACT_USE_ITEM = 6
+    DBG_ACT_USE_ITEM = 6,
+    DBG_ACT_EQUIP_ITEM = 7
 };
 
 /* Shared post-setup: reset frame/flags/input/telemetry/audio. */
@@ -142,6 +143,7 @@ static void scenario_load_state(void)
         progression_ensure(&g_game.state, t, b[n + 3],
                            (uint16_t)(b[n + 4] | (b[n + 5] << 8)));
     }
+    g_game.state.equipment.weapon = (ItemId)b[STATE_LOAD_DESC_EQUIPMENT_OFF];
 
     /* Scene + world.  Persistent defeats are in state before the world is
      * (re)loaded, so actor_load_scene() skips defeated actors. */
@@ -185,6 +187,7 @@ static void scenario_load_state(void)
         battle_start(&g_game.battle, actor_enemy_name(g_game.world.actors[idx].id),
                      g_game.state.party.members[0].hp,
                      g_game.state.party.members[0].max_hp,
+                     game_hero_attack(&g_game.state),
                      g_game.world.actors[idx].hp,
                      g_game.world.actors[idx].max_hp);
         g_game.screen = SCREEN_BATTLE;
@@ -236,6 +239,11 @@ static void debug_run_action(void)
             break;
         case DBG_ACT_USE_ITEM:
             item_use(&g_game.state, (ItemId)a0, (CharacterId)a2);
+            break;
+        case DBG_ACT_EQUIP_ITEM:
+            if (item_equip(&g_game.state, (ItemId)a0)) {
+                game_on_equip(&g_game, (ItemId)a0);
+            }
             break;
         default:
             break;

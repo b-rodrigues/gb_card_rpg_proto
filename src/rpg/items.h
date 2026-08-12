@@ -14,12 +14,21 @@ typedef enum {
     ITEM_EFFECT_HEAL_HP = 1
 } ItemEffectType;
 
+/* Broad item category.  Consumables are used (and consumed); weapons are
+ * equipped (never consumed). */
+typedef enum {
+    ITEM_KIND_CONSUMABLE = 0,
+    ITEM_KIND_WEAPON = 1
+} ItemKind;
+
 typedef struct {
     ItemId id;
     const char *name;
     uint16_t price;   /* gold cost in the shop (0 = not sold) */
+    ItemKind kind;
     ItemEffectType effect;
     uint8_t effect_amount;
+    uint8_t attack_bonus;  /* weapons only */
 } ItemDefinition;
 
 typedef enum {
@@ -32,7 +41,7 @@ typedef enum {
 const ItemDefinition *item_get_def(ItemId id);
 
 /* True if the item is owned and its effect can currently apply to the
- * target party member. */
+ * target party member (consumables only). */
 bool item_can_use(const GameState *state, ItemId id, CharacterId target);
 
 /* Use a consumable item from GameState.inventory on a target party member.
@@ -40,6 +49,10 @@ bool item_can_use(const GameState *state, ItemId id, CharacterId target);
  * the use succeeds.  Emits ITEM_USED / ITEM_USE_FAILED (plus HEALED and
  * ITEM_REMOVED on success). */
 bool item_use(GameState *state, ItemId id, CharacterId target);
+
+/* Equip a weapon into GameState.equipment.weapon (never consumed).  Emits
+ * ITEM_EQUIPPED.  Returns false for non-weapons. */
+bool item_equip(GameState *state, ItemId id);
 
 /* Atomic shop purchase: checks gold + inventory capacity, then spends
  * currency and adds the item.  On failure the state is unchanged and

@@ -1,0 +1,45 @@
+{
+  "name": "quest_no_double_reward",
+  "test": true,
+  "description": "Once the quest is COMPLETE, the Mayor gives the already-rewarded dialogue and the SWORD is not duplicated",
+  "scenario_id": "MAYOR_DIALOGUE",
+  "actions": [
+    {
+      "type": "interact",
+      "actor": "MAYOR"
+    }
+  ],
+  "assertions": [
+    {
+      "type": "dialogue_id",
+      "expected": "QUEST_DONE"
+    },
+    {
+      "type": "inventory",
+      "item": "SWORD",
+      "expected": 1
+    },
+    {
+      "type": "event_not_occurred",
+      "event": "ITEM_ADDED"
+    }
+  ],
+  "initial_state": {
+    "scene": "TOWN",
+    "player": {
+      "x": 9,
+      "y": 5,
+      "facing": "RIGHT"
+    },
+    "seed": 8404,
+    "flags": {
+      "ARRIVED_TOWN": true
+    },
+    "variables": {
+      "QUEST_MONSTER_HUNT": 2
+    },
+    "inventory": {
+      "SWORD": 1
+    }
+  }
+}

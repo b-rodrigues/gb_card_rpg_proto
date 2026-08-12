@@ -14,7 +14,7 @@
 
 typedef struct {
     uint8_t max_level;
-    const uint8_t *thresholds;   /* thresholds[level-1] = progress needed to reach level+1 */
+    const uint16_t *thresholds;  /* thresholds[level-1] = progress needed to reach level+1 */
     uint8_t threshold_count;
 } ProgressionDefinition;
 

@@ -37,7 +37,9 @@ typedef struct Game {
     DialogueState dialogue;
     uint32_t frame;
     uint8_t game_over_choice;  /* 0 = YES, 1 = NO on the continue prompt */
-    uint8_t item_menu_index;   /* cursor into inventory on the item screen */
+    uint8_t item_menu_index;   /* cursor into the active tab's list */
+    uint8_t item_menu_tab;     /* 0 = ITEM, 1 = EQUIP, 2 = STATUS */
+    uint8_t item_menu_tab_focus; /* SELECT has focus on the tab row */
     uint8_t shop_message;      /* 0 = none, 1 = bought, 2 = not enough gold */
     RenderCache render_cache;
 } Game;
@@ -55,5 +57,13 @@ void game_render_reset(Game *g);
  * The generic progression engine never knows what a level-up means. */
 void game_on_level_up(GameState *state, ProgressionTarget target,
                       const ProgressionAddResult *result);
+
+/* Derived hero attack: base 3 plus the equipped weapon's attack bonus. */
+uint8_t game_hero_attack(const GameState *state);
+
+/* Game-specific consequence of equipping an item: equipping the sword
+ * spawns a fresh training slime on the current field so the player can
+ * immediately test the one-shot kill. */
+void game_on_equip(Game *g, ItemId item);
 
 #endif /* GAME_H */

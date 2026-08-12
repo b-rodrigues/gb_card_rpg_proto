@@ -217,4 +217,6 @@ void debug_state_snapshot(void)
             b[n] = 0; b[n + 1] = 0; b[n + 2] = 0; b[n + 3] = 0; b[n + 4] = 0; b[n + 5] = 0;
         }
     }
+
+    b[STATE_SNAP_EQUIPMENT_OFF] = (uint8_t)st->equipment.weapon;
 }

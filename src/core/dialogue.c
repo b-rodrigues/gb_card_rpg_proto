@@ -37,6 +37,27 @@ static const DialogueDefinition g_dialogue_defs[] = {
         2,
         {"The Mayor trusts you.", "Welcome, hero!", "", ""},
         0
+    },
+    {
+        DIALOGUE_ID_QUEST_ACTIVE,
+        "MAYOR:",
+        2,
+        {"Still monsters about.", "Defeat them all!", "", ""},
+        0
+    },
+    {
+        DIALOGUE_ID_QUEST_COMPLETE,
+        "MAYOR:",
+        3,
+        {"You did it!", "Take this Sword!", "It cuts through slimes.", ""},
+        0
+    },
+    {
+        DIALOGUE_ID_QUEST_DONE,
+        "MAYOR:",
+        2,
+        {"The Sword suits you.", "Go forth, hero!", "", ""},
+        0
     }
 };
 

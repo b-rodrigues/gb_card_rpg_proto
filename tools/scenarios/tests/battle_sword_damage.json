@@ -1,0 +1,43 @@
+{
+  "name": "battle_sword_damage",
+  "test": true,
+  "description": "With the SWORD equipped the hero one-shots the slime (attack 6 vs 5 HP)",
+  "scenario_id": "BATTLE_BOOT",
+  "actions": [
+    {
+      "type": "press",
+      "button": "A"
+    },
+    {
+      "type": "wait",
+      "frames": 4
+    }
+  ],
+  "assertions": [
+    {
+      "type": "battle_result",
+      "expected": "VICTORY"
+    },
+    {
+      "type": "battle_enemy_hp",
+      "expected": 0
+    },
+    {
+      "type": "event_occurred",
+      "event": "BATTLE_WON"
+    }
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 13,
+      "y": 8,
+      "facing": "DOWN"
+    },
+    "seed": 8408,
+    "equipment": {
+      "weapon": "SWORD"
+    },
+    "start_battle": true
+  }
+}

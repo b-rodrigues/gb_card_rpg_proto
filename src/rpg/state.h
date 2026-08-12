@@ -27,7 +27,8 @@ typedef enum {
     ITEM_NONE = 0,
     ITEM_POTION = 1,
     ITEM_BOMB = 2,
-    ITEM_ETHER = 3
+    ITEM_ETHER = 3,
+    ITEM_SWORD = 4
 } ItemId;
 
 /* Party member identity. */
@@ -38,8 +39,10 @@ typedef enum {
 
 /* Named variables.  VARIABLE_ID_x - 1 indexes VariableState.values[]. */
 typedef enum {
-    VARIABLE_ID_CHAPTER          = 1,
-    VARIABLE_ID_SLIMES_DEFEATED  = 2
+    VARIABLE_ID_CHAPTER            = 1,
+    VARIABLE_ID_SLIMES_DEFEATED    = 2,
+    VARIABLE_ID_QUEST_MONSTER_HUNT = 3,   /* 0 = NOT_STARTED, 1 = ACTIVE, 2 = COMPLETE */
+    VARIABLE_ID_MONSTERS_REMAINING = 4
 } VariableIdNamed;
 
 /* Named currencies.  CURRENCY_ID_x - 1 indexes CurrencyState.amount[]. */
@@ -135,6 +138,12 @@ typedef struct {
     ProgressionEntry entries[MAX_PROGRESSION_TARGETS];
 } ProgressionStore;
 
+/* Equipped loadout.  For the single-hero slice this is one weapon slot;
+ * the game layer derives stats from it (see game_hero_attack). */
+typedef struct {
+    ItemId weapon;   /* ITEM_NONE when nothing is equipped */
+} EquipmentState;
+
 /* Persistent world actor state: survives scene reloads.  Keyed by the
  * stable ActorId of a particular spawned instance, not its type. */
 typedef struct {
@@ -158,6 +167,7 @@ typedef struct {
     CurrencyState currency;
     WorldState world;
     ProgressionStore progression;
+    EquipmentState equipment;
 } GameState;
 
 void game_state_init(GameState *state);

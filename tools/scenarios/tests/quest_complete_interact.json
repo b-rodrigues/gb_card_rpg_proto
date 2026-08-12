@@ -1,0 +1,48 @@
+{
+  "name": "quest_complete_interact",
+  "test": true,
+  "description": "With all monsters defeated, the Mayor completes the quest, gives the SWORD exactly once, and marks it COMPLETE",
+  "scenario_id": "MAYOR_DIALOGUE",
+  "actions": [
+    {
+      "type": "interact",
+      "actor": "MAYOR"
+    }
+  ],
+  "assertions": [
+    {
+      "type": "dialogue_id",
+      "expected": "QUEST_COMPLETE"
+    },
+    {
+      "type": "variable",
+      "variable": "QUEST_MONSTER_HUNT",
+      "expected": 2
+    },
+    {
+      "type": "inventory",
+      "item": "SWORD",
+      "expected": 1
+    },
+    {
+      "type": "event_occurred",
+      "event": "ITEM_ADDED"
+    }
+  ],
+  "initial_state": {
+    "scene": "TOWN",
+    "player": {
+      "x": 9,
+      "y": 5,
+      "facing": "RIGHT"
+    },
+    "seed": 8403,
+    "flags": {
+      "ARRIVED_TOWN": true
+    },
+    "variables": {
+      "QUEST_MONSTER_HUNT": 1,
+      "MONSTERS_REMAINING": 0
+    }
+  }
+}

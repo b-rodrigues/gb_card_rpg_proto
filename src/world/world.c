@@ -1,7 +1,9 @@
 #include "world.h"
+#include "game.h"
 #include "telemetry.h"
 #include "actor.h"
 #include "scene.h"
+#include "event.h"
 #include "rpg/currency.h"
 
 void world_load_map(World *w, MapId map_id, const GameState *state)
@@ -118,11 +120,13 @@ WorldMoveResult world_move_player(World *w, int8_t dx, int8_t dy,
     return MOVE_RESULT_MOVED;
 }
 
-void world_on_battle_end(World *w, GameState *state, bool victory)
+void world_on_battle_end(Game *g, bool victory)
 {
+    World *w;
     uint8_t idx;
     uint16_t actor_id;
-    if (!w) return;
+    if (!g) return;
+    w = &g->world;
 
     idx = w->encounter_actor_index;
     w->encounter_actor_index = NO_ACTOR_INDEX;
@@ -134,13 +138,37 @@ void world_on_battle_end(World *w, GameState *state, bool victory)
         w->actors[idx].hp = 0;
         w->actors[idx].flags = ACTOR_STATE_NONE;
         telemetry_emit(EVENT_ENTITY_DEFEATED, (uint8_t)w->actors[idx].id, 0, 0, 0);
-        if (state && w->actors[idx].gold_reward != 0) {
-            currency_add(state, CURRENCY_ID_GOLD, w->actors[idx].gold_reward);
+        if (w->actors[idx].gold_reward != 0) {
+            currency_add(&g->state, CURRENCY_ID_GOLD, w->actors[idx].gold_reward);
         }
-        if (state && actor_id != 0) {
-            game_world_set_actor_state(state, actor_id, ACTOR_STATE_DEFEATED);
+        if (actor_id != 0) {
+            game_world_set_actor_state(&g->state, actor_id, ACTOR_STATE_DEFEATED);
+        }
+        /* Quest progress is expressed by the event table, not this code. */
+        event_resolve_actor_defeated(g, actor_id);
+    }
+}
+
+bool world_spawn_actor(World *w, EntityId id, uint8_t x, uint8_t y, uint8_t hp)
+{
+    uint8_t i;
+    if (!w) return false;
+    for (i = 0; i < MAX_WORLD_ACTORS; i++) {
+        if (!w->actors[i].active) {
+            w->actors[i].actor_id = 0;   /* non-persistent training actor */
+            w->actors[i].id = id;
+            w->actors[i].active = 1;
+            w->actors[i].x = x;
+            w->actors[i].y = y;
+            w->actors[i].facing = DIRECTION_DOWN;
+            w->actors[i].hp = hp;
+            w->actors[i].max_hp = hp;
+            w->actors[i].flags = ACTOR_STATE_NONE;
+            w->actors[i].gold_reward = 0;
+            return true;
         }
     }
+    return false;
 }
 
 void world_set_player_pos(World *w, uint8_t x, uint8_t y)

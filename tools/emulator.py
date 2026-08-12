@@ -13,7 +13,7 @@ TELEMETRY_EVENT_SIZE = 13
 
 GAME_STATE_MAP = {0: "OVERWORLD", 1: "BATTLE", 2: "GAME_OVER", 3: "THANKS"}
 SCREEN_MAP = {0: "OVERWORLD", 1: "DIALOGUE", 2: "BATTLE", 3: "GAME_OVER", 4: "THANKS",
-              5: "SHOP", 6: "ITEM", 7: "STATUS"}
+              5: "SHOP", 6: "ITEM"}
 SCENE_MAP = {0: "FIELD", 1: "TOWN", 2: "FOREST", 3: "MOUNTAIN_PASS", 4: "CASTLE"}
 MUSIC_TRACK_MAP = {0: "NONE", 1: "OVERWORLD", 2: "BATTLE"}
 BATTLE_TURN_MAP = {0: "PLAYER", 1: "ENEMY_DELAY", 2: "ENEMY", 3: "RESULT"}
@@ -25,7 +25,8 @@ ENTITY_ID_MAP = {0: "NONE", 1: "PLAYER", 2: "SLIME", 3: "MAYOR", 4: "GUARD",
 INTERACTION_ID_MAP = {0: "NONE", 1: "DIALOGUE", 2: "COMBAT"}
 DIALOGUE_ID_MAP = {0: "NONE", 1: "MAYOR_GREETING", 2: "GUARD_GREETING",
                    3: "SHOPKEEPER_GREETING", 4: "MAYOR_INTRO",
-                   5: "GUARD_AFTER_MAYOR"}
+                   5: "GUARD_AFTER_MAYOR", 6: "QUEST_ACTIVE",
+                   7: "QUEST_COMPLETE", 8: "QUEST_DONE"}
 BATTLE_ID_MAP = {0: "NONE", 1: "SLIME", 2: "BAT"}
 EVENT_TYPE_MAP = {
     0: "PLAYER_MOVED", 1: "COLLISION", 2: "ENCOUNTER_STARTED",
@@ -41,10 +42,16 @@ EVENT_TYPE_MAP = {
     29: "ACTOR_STATE_CHANGE", 30: "SCRIPT_TRIGGERED", 31: "HEALED",
     32: "ITEM_USED", 33: "ITEM_USE_FAILED", 34: "ITEM_PURCHASED",
     35: "ITEM_PURCHASE_FAILED", 36: "CURRENCY_ADDED", 37: "CURRENCY_SPENT",
-    38: "PROGRESSION_GAINED", 39: "LEVEL_UP"
+    38: "PROGRESSION_GAINED", 39: "LEVEL_UP", 40: "ITEM_EQUIPPED"
 }
-EVENT_ID_MAP = {1: "TOWN_ARRIVAL", 2: "MAYOR_INTRO", 3: "MAYOR_GREETING",
-                4: "GUARD_AFTER_MAYOR", 5: "GUARD_GREETING"}
+EVENT_ID_MAP = {1: "TOWN_ARRIVAL", 2: "QUEST_START", 3: "QUEST_ACTIVE",
+                4: "QUEST_COMPLETE", 5: "QUEST_DONE",
+                6: "GUARD_AFTER_MAYOR", 7: "GUARD_GREETING",
+                8: "MONSTER_DEFEATED"}
+
+# Weapon attack bonuses (host-side mirror of src/rpg/items.c).
+ITEM_ATTACK_BONUS = {"SWORD": 3}
+HERO_BASE_ATTACK = 3
 DIRECTION_MAP = {0: "UP", 1: "DOWN", 2: "LEFT", 3: "RIGHT"}
 
 # Static per-actor semantics resolved from the snapshot's actor ids.
@@ -81,8 +88,8 @@ SCENARIO_IDS = {
 # Mirrors STATE_LOAD_DESC_* in src/debug/telemetry.h.  The host serializes
 # a scenario's initial_state JSON into this fixed-size byte descriptor and
 # writes it to g_scen_state_buf, then sets g_scen_load_state.
-STATE_LOAD_DESC_SIZE = 228
-STATE_LOAD_DESC_VERSION = 0x02
+STATE_LOAD_DESC_SIZE = 229
+STATE_LOAD_DESC_VERSION = 0x03
 STATE_LOAD_DESC_SCREEN_OFF = 1
 STATE_LOAD_DESC_SCENE_OFF = 2
 STATE_LOAD_DESC_PLAYER_X_OFF = 3
@@ -113,14 +120,16 @@ STATE_LOAD_DESC_DIALOGUE_ID_OFF = 224
 STATE_LOAD_DESC_START_BATTLE_OFF = 225
 STATE_LOAD_DESC_GAME_OVER_CHOICE_OFF = 226
 STATE_LOAD_DESC_FONT_TEST_OFF = 227
+STATE_LOAD_DESC_EQUIPMENT_OFF = 228
 
 SCENE_NAME_TO_ID = {v: k for k, v in SCENE_MAP.items()}
 SCREEN_NAME_TO_ID = {v: k for k, v in SCREEN_MAP.items()}
 DIRECTION_NAME_TO_ID = {v: k for k, v in DIRECTION_MAP.items()}
 STATE_FLAG_ID_MAP = {"ARRIVED_TOWN": 1, "MET_MAYOR": 2}
-VARIABLE_ID_MAP = {"CHAPTER": 1, "SLIMES_DEFEATED": 2}
+VARIABLE_ID_MAP = {"CHAPTER": 1, "SLIMES_DEFEATED": 2,
+                   "QUEST_MONSTER_HUNT": 3, "MONSTERS_REMAINING": 4}
 CHARACTER_ID_MAP = {"HERO": 1}
-ITEM_ID_MAP = {"POTION": 1, "BOMB": 2, "ETHER": 3}
+ITEM_ID_MAP = {"NONE": 0, "POTION": 1, "BOMB": 2, "ETHER": 3, "SWORD": 4}
 ACTOR_ID_MAP = {"SLIME_FIELD": 1, "SLIME_FOREST": 2, "BAT_FOREST": 3,
                 "SLIME_MOUNTAIN_PASS": 4, "BAT_CASTLE": 5}
 ACTOR_STATE_NAME_MAP = {"ALIVE": 0, "DEFEATED": 1}
@@ -242,6 +251,9 @@ def serialize_initial_state(initial_state):
     buf[STATE_LOAD_DESC_GAME_OVER_CHOICE_OFF] = initial_state.get("game_over_choice", 0)
     if initial_state.get("font_test"):
         buf[STATE_LOAD_DESC_FONT_TEST_OFF] = 1
+    equipment = initial_state.get("equipment") or {}
+    weapon = equipment.get("weapon", "NONE")
+    buf[STATE_LOAD_DESC_EQUIPMENT_OFF] = ITEM_ID_MAP.get(weapon, 0)
     return buf
 
 def decode_story_flags(flags_mask):
@@ -553,10 +565,10 @@ class EmulatorSession:
             return parsed
         return self.current_snapshot
 
-    # Extended RPG state snapshot: parses g_state_snap_buf (182 bytes,
+    # Extended RPG state snapshot: parses g_state_snap_buf (183 bytes,
     # layout in src/debug/telemetry.h STATE_SNAP_*).
-    STATE_SNAP_SIZE = 182
-    STATE_SNAP_VERSION = 2
+    STATE_SNAP_SIZE = 183
+    STATE_SNAP_VERSION = 3
     STATE_SNAP_FLAGS_OFF = 1
     STATE_SNAP_FLAGS_SIZE = 8
     STATE_SNAP_VARIABLES_OFF = 9
@@ -572,6 +584,7 @@ class EmulatorSession:
     STATE_SNAP_PROGRESSION_COUNT_OFF = 133
     STATE_SNAP_PROGRESSION_ENTRY_OFF = 134
     STATE_SNAP_PROGRESSION_ENTRY_SIZE = 6
+    STATE_SNAP_EQUIPMENT_OFF = 182
 
     def state_snapshot(self):
         """Read g_state_snap_buf and return the canonical GameState as a dict."""
@@ -658,6 +671,9 @@ class EmulatorSession:
                 "progress": progress,
             })
 
+        weapon_id = buf[self.STATE_SNAP_EQUIPMENT_OFF]
+        equipment = {"weapon": ITEM_ID_TO_NAME.get(weapon_id, "NONE")}
+
         return {
             "flags": flags,
             "variables": variables,
@@ -666,6 +682,7 @@ class EmulatorSession:
             "inventory": inventory,
             "world": world,
             "progression": progression,
+            "equipment": equipment,
         }
 
     # ── Debug actions (semantic harness operations) ──────────────────
@@ -677,6 +694,7 @@ class EmulatorSession:
     DBG_ACT_ADD_PROGRESS = 4
     DBG_ACT_BUY_ITEM = 5
     DBG_ACT_USE_ITEM = 6
+    DBG_ACT_EQUIP_ITEM = 7
 
     def debug_action(self, action, a0=0, a1=0, a2=0):
         """Run a debug action through the ROM's real mechanic functions."""

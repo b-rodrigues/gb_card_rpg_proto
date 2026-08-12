@@ -19,16 +19,38 @@
 typedef enum {
     EVENT_ID_NONE = 0,
     EVENT_ID_TOWN_ARRIVAL = 1,
-    EVENT_ID_MAYOR_INTRO = 2,
-    EVENT_ID_MAYOR_GREETING = 3,
-    EVENT_ID_GUARD_AFTER_MAYOR = 4,
-    EVENT_ID_GUARD_GREETING = 5
+    EVENT_ID_QUEST_START = 2,
+    EVENT_ID_QUEST_ACTIVE = 3,
+    EVENT_ID_QUEST_COMPLETE = 4,
+    EVENT_ID_QUEST_DONE = 5,
+    EVENT_ID_GUARD_AFTER_MAYOR = 6,
+    EVENT_ID_GUARD_GREETING = 7,
+    EVENT_ID_MONSTER_DEFEATED = 8
 } EventId;
 
 typedef enum {
-    EVENT_TRIGGER_INTERACT = 1,   /* player engages a specific actor */
-    EVENT_TRIGGER_MAP_ENTER = 2   /* player enters a scene */
+    EVENT_TRIGGER_INTERACT = 1,      /* player engages a specific actor */
+    EVENT_TRIGGER_MAP_ENTER = 2,     /* player enters a scene */
+    EVENT_TRIGGER_ACTOR_DEFEATED = 3 /* a hostile actor was defeated in battle */
 } EventTriggerType;
+
+/* Generic event condition.  A FLAG cond requires flag is/not set; a
+ * VARIABLE cond requires value >= threshold (at_least) or == threshold. */
+typedef enum {
+    EVENT_COND_NONE = 0,
+    EVENT_COND_FLAG = 1,
+    EVENT_COND_VARIABLE = 2
+} EventCondType;
+
+typedef struct {
+    EventCondType type;
+    uint16_t id;        /* StoryFlagId / VariableId */
+    int16_t value;      /* variable threshold */
+    bool flag_set;      /* FLAG: required state */
+    bool at_least;      /* VARIABLE: >= when true, == when false */
+} EventCond;
+
+#define MAX_EVENT_CONDS 3
 
 typedef enum {
     EVENT_ACTION_NONE = 0,
@@ -37,13 +59,14 @@ typedef enum {
     EVENT_ACTION_CLEAR_FLAG = 3,
     EVENT_ACTION_SET_VARIABLE = 4,
     EVENT_ACTION_ADD_VARIABLE = 5,
-    EVENT_ACTION_SCENE_CHANGE = 6
+    EVENT_ACTION_SCENE_CHANGE = 6,
+    EVENT_ACTION_ADD_ITEM = 7
 } EventActionType;
 
 typedef struct {
     EventActionType type;
-    uint8_t arg0;   /* DialogueId / StoryFlagId / VariableId / SceneId */
-    int16_t arg1;   /* value / spawn x / delta */
+    uint8_t arg0;   /* DialogueId / StoryFlagId / VariableId / SceneId / ItemId */
+    int16_t arg1;   /* value / spawn x / delta / quantity */
     int16_t arg2;   /* spawn y */
 } EventAction;
 
@@ -54,8 +77,8 @@ typedef struct {
     EventTriggerType trigger;
     EntityId actor;             /* INTERACT: which actor (0 = any) */
     MapId map;                  /* MAP_ENTER: which map (0 = any) */
-    StoryFlagId req_flag;       /* 0 = no flag condition */
-    bool req_flag_set;          /* required value when req_flag != 0 */
+    uint8_t cond_count;
+    EventCond conds[MAX_EVENT_CONDS];
     uint8_t action_count;
     EventAction actions[MAX_EVENT_ACTIONS];
 } EventDefinition;
@@ -70,5 +93,9 @@ ActorEngageResult event_engage_actor(Game *g, const WorldActorDefinition *actor)
 
 /* Resolve the first matching MAP_ENTER event for the map and run it. */
 void event_resolve_map_enter(Game *g, MapId to_map);
+
+/* Resolve the first matching ACTOR_DEFEATED event for the defeated actor and
+ * run its actions (e.g. quest progress counters). */
+void event_resolve_actor_defeated(Game *g, ActorId actor_id);
 
 #endif /* RPG_EVENT_H */

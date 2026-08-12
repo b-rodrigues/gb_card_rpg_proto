@@ -29,13 +29,27 @@ OBJS_DEBUG = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/debug/%.o,$(SRCS))
 # Emulator detection
 EMULATOR ?= $(shell command -v sameboy 2>/dev/null || command -v mgba-sdl 2>/dev/null || command -v mgba-qt 2>/dev/null || command -v mgba 2>/dev/null || echo "")
 
-.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot clean
+.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot lint clean
 
 all: $(TARGET)
 
 release: $(TARGET)
 
 debug: $(TARGET_DEBUG)
+
+# Compile-to-assembly warning pass.  -Wall cannot be part of the normal
+# build: sdcc's --use-stdout pipeline corrupts the .asm stream when warnings
+# are enabled (they leak into stdout).  Compiling with -S surfaces the same
+# warnings without invoking the assembler.
+lint: $(SRCS)
+	@ok=1; \
+	for f in $(SRCS); do \
+		out=$$($(CC) -S -Wf-Wall $(INCLUDES) -o /dev/null "$$f" 2>&1 || true); \
+		if echo "$$out" | grep -q "warning"; then \
+			echo "=== $$f ==="; echo "$$out" | grep "warning"; ok=0; \
+		fi; \
+	done; \
+	if [ "$$ok" = "1" ]; then echo "lint: no warnings"; else exit 1; fi
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)

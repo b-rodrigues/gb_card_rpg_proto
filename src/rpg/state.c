@@ -64,6 +64,8 @@ void game_state_reset(GameState *state)
         state->progression.entries[i].state.level = 0;
         state->progression.entries[i].state.progress = 0;
     }
+
+    state->equipment.weapon = ITEM_NONE;
 }
 
 void game_state_init(GameState *state)

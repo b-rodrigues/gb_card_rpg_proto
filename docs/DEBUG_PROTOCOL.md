@@ -493,6 +493,39 @@ dialogue + sets `MET_MAYOR`), `MAYOR_GREETING` (already met),
   `use_item` action still tests the item menu UI.
 * Assertions: `currency`, `progression_level`, `progression_progress`;
   `party_level` reads the `HERO_1` progression target.
+* Equipment: `GameState.equipment.weapon`; `item_equip` emits `ITEM_EQUIPPED`;
+  hero attack is derived (`game_hero_attack` = 3 + weapon bonus, SWORD +3).
+  Assertions: `attack`; semantic dump shows `EQUIPMENT`/`ATTACK`.
+
+### Quests (event-driven, no quest engine)
+
+Quest state and objectives are generic variables owned by the event table in
+`src/core/event.c`:
+
+* `QUEST_MONSTER_HUNT` = 0 (NOT_STARTED), 1 (ACTIVE), 2 (COMPLETE).
+* `MONSTERS_REMAINING` — decremented by the `MONSTER_DEFEATED` event whenever
+  a hostile actor is defeated while the quest is ACTIVE.
+
+The event engine supports generic conditions (flag is/not set, variable
+`>=`/`==`) and actions (dialogue, set/clear flag, set/add variable, give
+item, scene change).  The Mayor quest is expressed entirely as event data:
+
+* `QUEST_START` (interact MAYOR, quest NOT_STARTED) → MAYOR_INTRO dialogue,
+  set MET_MAYOR, quest=ACTIVE, MONSTERS_REMAINING=3.
+* `QUEST_ACTIVE` (ACTIVE && monsters>0) → "still working" dialogue.
+* `QUEST_COMPLETE` (ACTIVE && monsters==0) → reward dialogue + give SWORD +
+  quest=COMPLETE (given exactly once).
+* `QUEST_DONE` (COMPLETE) → already-rewarded dialogue.
+
+Scenario actions: `equip_item` (mechanic) and the quick-screen UI (START →
+SELECT tab-focus → arrows → A) are both testable.
+
+### Quick screen (tabbed)
+
+`SCREEN_ITEM` is the quick screen: header `HP:`/`G:`, tabs ITEM | EQUIP |
+STATUS.  START opens it in the overworld; SELECT in the overworld does
+nothing; SELECT in battle opens it on the ITEM tab.  SELECT inside focuses
+the tab row, LEFT/RIGHT move the tab, A confirms, B closes.
 
 ---
 

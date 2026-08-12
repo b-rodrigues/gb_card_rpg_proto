@@ -16,6 +16,7 @@ static void start_battle_from_world(Game *g)
     battle_start(&g->battle, actor_enemy_name(g->world.actors[idx].id),
                  g->state.party.members[0].hp,
                  g->state.party.members[0].max_hp,
+                 game_hero_attack(&g->state),
                  g->world.actors[idx].hp, g->world.actors[idx].max_hp);
     audio_play_music(MUSIC_BATTLE);
     telemetry_emit(EVENT_MUSIC_CHANGED, MUSIC_BATTLE, 0, 0, 0);
@@ -36,14 +37,11 @@ void overworld_screen_update(Game *g)
     if (input_pressed(INPUT_LEFT))  dx = -1;
     if (input_pressed(INPUT_RIGHT)) dx = 1;
 
-    if (input_pressed(INPUT_SELECT)) {
-        g->item_menu_index = 0;
-        screen_change(g, SCREEN_ITEM);
-        return;
-    }
-
     if (input_pressed(INPUT_START)) {
-        screen_change(g, SCREEN_STATUS);
+        g->item_menu_index = 0;
+        g->item_menu_tab = 0;
+        g->item_menu_tab_focus = 0;
+        screen_change(g, SCREEN_ITEM);
         return;
     }
 

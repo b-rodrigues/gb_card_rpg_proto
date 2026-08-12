@@ -2,11 +2,14 @@
 #include "telemetry.h"
 
 void battle_start(Battle *b, const char *enemy_name, uint8_t player_hp,
-                  uint8_t player_max_hp, uint8_t enemy_hp, uint8_t enemy_max_hp)
+                  uint8_t player_max_hp, uint8_t player_attack,
+                  uint8_t enemy_hp, uint8_t enemy_max_hp)
 {
     if (!b) return;
     combatant_init(&b->player, "Hero", player_hp, player_max_hp);
     combatant_init(&b->enemy, enemy_name ? enemy_name : "Enemy", enemy_hp, enemy_max_hp);
+    b->player.attack = player_attack;
+    b->enemy.attack = 2;
     b->turn = BATTLE_TURN_PLAYER;
     b->result = BATTLE_RESULT_NONE;
     b->delay_timer = 0;
@@ -21,7 +24,7 @@ void battle_execute_action(Battle *b, BattleAction action)
 
     if (action == BATTLE_ACTION_ATTACK) {
         telemetry_emit(EVENT_BATTLE_ACTION, BATTLE_ACTION_ATTACK, 0, 0, 0);
-        dmg = 3;
+        dmg = b->player.attack;
         combatant_take_damage(&b->enemy, dmg);
         telemetry_emit(EVENT_DAMAGE_DEALT, dmg, 0, 0, 0);
         

@@ -14,12 +14,12 @@ void battle_screen_update(Game *g)
             if (victory) {
                 g->world.player.hp = g->battle.player.hp;
                 g->state.party.members[0].hp = g->battle.player.hp;
-                world_on_battle_end(&g->world, &g->state, true);
+                world_on_battle_end(g, true);
                 audio_play_music(MUSIC_OVERWORLD);
                 telemetry_emit(EVENT_MUSIC_CHANGED, MUSIC_OVERWORLD, 0, 0, 0);
                 screen_change(g, SCREEN_OVERWORLD);
             } else {
-                world_on_battle_end(&g->world, &g->state, false);
+                world_on_battle_end(g, false);
                 g->game_over_choice = 0;
                 screen_change(g, SCREEN_GAME_OVER);
             }
@@ -30,6 +30,8 @@ void battle_screen_update(Game *g)
     if (g->battle.turn == BATTLE_TURN_PLAYER) {
         if (input_pressed(INPUT_SELECT)) {
             g->item_menu_index = 0;
+            g->item_menu_tab = 0;
+            g->item_menu_tab_focus = 0;
             screen_change(g, SCREEN_ITEM);
         } else if (input_pressed(INPUT_A)) {
             battle_execute_action(&g->battle, BATTLE_ACTION_ATTACK);

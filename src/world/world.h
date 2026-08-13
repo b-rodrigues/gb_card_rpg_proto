@@ -127,12 +127,12 @@ void world_change_map(World *w, MapId map_id, uint8_t spawn_x, uint8_t spawn_y,
                       const GameState *state);
 bool world_is_walkable(const World *w, uint8_t x, uint8_t y);
 
-/* Overworld camera: keep the player's sprite inside the
- * WORLD_VIEW_W x WORLD_VIEW_H view window, scrolling smoothly in pixels
- * (SCX/SCY) only when the player approaches the view edge, clamped to the
- * scene bounds (scenes smaller than the view never scroll).  Also derives
- * scroll_x/y (= camera_px/8) for the tilemap window and the snapshot.
- * Called once per overworld frame. */
+/* Overworld camera: keep the player centred in the WORLD_VIEW_W x
+ * WORLD_VIEW_H view, clamped at the scene bounds (scenes smaller than the
+ * view never scroll; near a scene edge the player moves off-centre while
+ * the camera stays at the boundary).  The camera glides smoothly in pixels
+ * (SCX/SCY); scroll_x/y (= camera_px/8) drive the tile window and the
+ * snapshot.  Called once per overworld frame. */
 void world_update_scroll(World *w);
 
 /* Animated movement: world_try_begin_move validates the target and starts

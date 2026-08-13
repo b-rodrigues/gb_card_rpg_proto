@@ -51,20 +51,19 @@ void world_update_scroll(World *w)
     player_px = world_player_px(w);
     player_py = world_player_py(w);
 
-    /* Follow the player's sprite: when its edge reaches the view edge, the
-     * camera glides 1px/frame with it (SCX/SCY smooth scroll).  All values
-     * fit in a byte for the current map sizes (view_px - 8 <= 255). */
-    if (player_px >= (uint8_t)(w->camera_px_x + WORLD_VIEW_W * 8 - 8)) {
-        w->camera_px_x = (uint8_t)(player_px - WORLD_VIEW_W * 8 + 8);
+    /* Player-centered camera: keep the player at the view centre, clamped
+     * at the scene edges (so near an edge the player moves off-centre while
+     * the camera stays at the boundary).  The half-view in pixels is
+     * VIEW*4; the subtraction is guarded so it never underflows a byte. */
+    if (player_px < (uint8_t)(WORLD_VIEW_W * 4)) {
+        w->camera_px_x = 0;
+    } else {
+        w->camera_px_x = (uint8_t)(player_px - WORLD_VIEW_W * 4);
     }
-    if (player_py >= (uint8_t)(w->camera_px_y + WORLD_VIEW_H * 8 - 8)) {
-        w->camera_px_y = (uint8_t)(player_py - WORLD_VIEW_H * 8 + 8);
-    }
-    if (player_px < w->camera_px_x) {
-        w->camera_px_x = player_px;
-    }
-    if (player_py < w->camera_px_y) {
-        w->camera_px_y = player_py;
+    if (player_py < (uint8_t)(WORLD_VIEW_H * 4)) {
+        w->camera_px_y = 0;
+    } else {
+        w->camera_px_y = (uint8_t)(player_py - WORLD_VIEW_H * 4);
     }
 
     /* Clamp the view window to the scene bounds (smaller scenes never

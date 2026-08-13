@@ -1,7 +1,7 @@
 {
   "name": "large_map_scroll",
   "test": true,
-  "description": "Walk south on the Field (20x18 tiles) below the 12-row overworld view window; the camera scrolls down (scroll_y advances past 0) while scroll_x stays 0, proving the large-map data model + world->render scroll offset",
+  "description": "Walk south on the Field (20x18 tiles) below the 12-row overworld view window; the player-centered camera keeps the player centred and scrolls down as they cross the map (scroll_y advances, clamped at the south edge) while scroll_x stays 0, proving the large-map data model + camera scroll",
   "scenario_id": "LARGE_MAP_SCROLL",
   "actions": [
     {
@@ -27,7 +27,7 @@
     {
       "type": "camera",
       "expected_x": 0,
-      "expected_y": 5
+      "expected_y": 6
     },
     {
       "type": "scroll_x",
@@ -35,7 +35,7 @@
     },
     {
       "type": "scroll_y",
-      "expected": 5
+      "expected": 6
     },
     {
       "type": "world_height",

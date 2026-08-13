@@ -1,13 +1,22 @@
 {
-  "name": "field_east_scroll",
+  "name": "camera_boundary_clamp",
   "test": true,
-  "description": "Walk east across the Field (32x18 tiles, wider than the 20-col overworld view); the player-centered camera keeps the player centred and scrolls right as they cross the map (scroll_x advances, clamped at the east edge), proving horizontal camera scroll on a large map",
-  "scenario_id": "FIELD_EAST_SCROLL",
+  "description": "Walk the player to the far SE corner of the Field (30,16); the player-centered camera clamps at the scene boundary (scroll 12,6 = width-20 and height-12 tiles) so it never scrolls past the map edge while the player continues to the corner",
+  "scenario_id": "CAMERA_BOUNDARY_CLAMP",
   "actions": [
     {
       "type": "hold",
       "button": "RIGHT",
-      "frames": 192
+      "frames": 16
+    },
+    {
+      "type": "wait",
+      "frames": 4
+    },
+    {
+      "type": "hold",
+      "button": "DOWN",
+      "frames": 72
     },
     {
       "type": "wait",
@@ -21,13 +30,13 @@
     },
     {
       "type": "player_position",
-      "expected_x": 26,
-      "expected_y": 7
+      "expected_x": 30,
+      "expected_y": 16
     },
     {
       "type": "camera",
       "expected_x": 12,
-      "expected_y": 1
+      "expected_y": 6
     },
     {
       "type": "scroll_x",
@@ -35,17 +44,13 @@
     },
     {
       "type": "scroll_y",
-      "expected": 1
-    },
-    {
-      "type": "world_width",
-      "expected": 32
+      "expected": 6
     }
   ],
   "initial_state": {
     "scene": "FIELD",
     "player": {
-      "x": 2,
+      "x": 28,
       "y": 7,
       "facing": "RIGHT"
     },

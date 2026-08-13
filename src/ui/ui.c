@@ -9,6 +9,14 @@
 
 char g_ui_screen_buf[18][21];
 
+#ifdef DEBUG_BUILD
+/* Mirror of the background tilemap ring (0x9800), written alongside every
+ * ring write, so the harness can assert the actual rendered map (mGBA's
+ * debugger cannot read VRAM).  DEBUG-only: 1 KB of WRAM the release does
+ * not carry. */
+uint8_t g_tilemap_mirror[32 * 32];
+#endif
+
 /* GBDK console .mode byte (defined in crt0.s _DATA). Bit 2 is M_NO_SCROLL. */
 extern uint8_t console_mode;
 
@@ -70,10 +78,13 @@ void ui_init(void)
      * Written directly (not via set_bkg_data) because set_bkg_data toggles
      * the LCD off/on internally, which under the release boot turns the LCD
      * on mid-init and can leave the display blank.  The LCD is still off
-     * here, so the writes are safe and harness-compatible. */
+     * here, so the writes are safe and harness-compatible.  VBK_REG is
+     * forced to 0 so the tile data lands in VRAM bank 0, not the CGB
+     * attribute bank. */
     {
         volatile uint8_t *vram = (volatile uint8_t *)(0x8000 + WORLD_TILE_BASE * 16);
         uint8_t i;
+        VBK_REG = 0;
         for (i = 0; i < sizeof(world_tiles); i++) {
             vram[i] = world_tiles[i];
         }
@@ -256,56 +267,92 @@ void ui_format_int(int16_t value, char *out)
     out[j] = '\0';
 }
 
-void ui_draw_world_map(const World *world)
+/* One world cell into the 32x32 background tilemap ring at the wrapped
+ * address (the PPU reads the background at SCX/SCY = the absolute camera
+ * pixel position, so the ring must hold the world tiles at (world & 31)).
+ * An actor's font char overlays its terrain tile; both stay in the ring so
+ * the cell is correct whenever it scrolls back into view.  The screen-
+ * anchored semantic g_ui_screen_buf (harness get_screen_buf) is filled for
+ * visible cells.  Written directly -- not through set_bkg_tiles -- to avoid
+ * pulling the GBDK .set_xy_* helpers into the non-bankable _HOME area. */
+static void ui_draw_world_cell(const World *world, uint8_t col, uint8_t row)
 {
-    uint8_t x, y;
     uint8_t t;
-    uint8_t wx;
-    uint8_t wy;
+    uint8_t tile_idx;
+    uint8_t sx;
+    uint8_t sy;
     const WorldActorDefinition *actor;
     volatile uint8_t *tilemap = (volatile uint8_t *)0x9800;
 
+    if (col >= world->width || row >= world->height) {
+        t = TILE_FLOOR;
+    } else {
+        t = world->map[row][col];
+    }
+
+    actor = actor_find_at(world, col, row);
+    if (actor) {
+        tile_idx = (uint8_t)(ibm_font + (uint8_t)actor->visual);
+    } else {
+        tile_idx = (uint8_t)(WORLD_TILE_BASE + g_tile_map[t]);
+    }
+    tilemap[(row & 31) * 32 + (col & 31)] = tile_idx;
+#ifdef DEBUG_BUILD
+    g_tilemap_mirror[(row & 31) * 32 + (col & 31)] = tile_idx;
+#endif
+
+    sx = (uint8_t)(col - world->scroll_x);
+    sy = (uint8_t)(row - world->scroll_y);
+    if (sx < WORLD_VIEW_W && sy < WORLD_VIEW_H) {
+        g_ui_screen_buf[sy][sx] = actor ? actor->visual : g_sem_map[t];
+    }
+}
+
+/* Draw every cell in [c0,c1) x [r0,r1) into the tilemap ring. */
+static void ui_draw_world_rect(const World *world, uint8_t c0, uint8_t c1,
+                               uint8_t r0, uint8_t r1)
+{
+    uint8_t col, row;
+    VBK_REG = 0;   /* the tilemap ring lives in VRAM bank 0 */
+    for (row = r0; row < r1; row++) {
+        for (col = c0; col < c1; col++) {
+            ui_draw_world_cell(world, col, row);
+        }
+    }
+}
+
+void ui_draw_world_map(const World *world)
+{
+    uint8_t y;
     if (!world) return;
 
-    /* Terrain as real GB tiles in the background tilemap (0x9800), drawn
-     * around the camera's tile origin.  SCX/SCY (ui_update_camera, every
-     * frame) shift the view smoothly; the extra column/row covers the
-     * sub-tile offset so no stale tiles show at the edges.  Written
-     * directly -- not through set_bkg_tiles -- to avoid pulling the GBDK
-     * .set_xy_* helpers into the non-bankable _HOME area.  The tileset
-     * lives at WORLD_TILE_BASE, clear of the console font.  The visible
-     * window also fills the semantic g_ui_screen_buf (harness get_screen_buf)
-     * and overlays actor visuals as font chars; the player is the OAM
-     * sprite, never painted here. */
-    for (y = 0; y < WORLD_VIEW_H + 1; y++) {
-        wy = (uint8_t)(world->scroll_y + y);
-        for (x = 0; x < WORLD_VIEW_W + 1; x++) {
-            wx = (uint8_t)(world->scroll_x + x);
-            if (wx >= world->width || wy >= world->height) {
-                t = TILE_FLOOR;
-            } else {
-                t = world->map[wy][wx];
-            }
-            tilemap[y * 32 + x] = (uint8_t)(WORLD_TILE_BASE + g_tile_map[t]);
-
-            if (y < WORLD_VIEW_H && x < WORLD_VIEW_W) {
-                actor = actor_find_at(world, wx, wy);
-                if (actor) {
-                    ui_put_char(x, y, actor->visual);
-                } else {
-                    g_ui_screen_buf[y][x] = g_sem_map[t];
-                }
-            }
-        }
-        if (y < WORLD_VIEW_H) {
-            g_ui_screen_buf[y][WORLD_VIEW_W] = '\0';
-        }
+    /* Full ring window around the camera: VIEW_W+1 columns x VIEW_H+1 rows
+     * (the extra column/row covers the SCX/SCY sub-tile offset so no stale
+     * tiles show at the display edges), then the semantic row terminators. */
+    ui_draw_world_rect(world, world->scroll_x,
+                       (uint8_t)(world->scroll_x + WORLD_VIEW_W + 1),
+                       world->scroll_y,
+                       (uint8_t)(world->scroll_y + WORLD_VIEW_H + 1));
+    for (y = 0; y < WORLD_VIEW_H; y++) {
+        g_ui_screen_buf[y][WORLD_VIEW_W] = '\0';
     }
 
     /* Sprite in camera-relative screen coordinates: the BG scrolls under
      * it via SCX/SCY, so the OAM position is (world px - camera px). */
     ui_sprite_move((uint8_t)(world_player_px(world) - world->camera_px_x),
                    (uint8_t)(world_player_py(world) - world->camera_px_y));
+}
+
+/* Redraw when the camera crosses a tile boundary.  Currently a full-window
+ * ring redraw (correct with the wrapped addressing, and cheap at current
+ * view sizes); the ring could later be maintained incrementally by drawing
+ * only the entering columns/rows -- prev_sx/prev_sy keep that call site
+ * stable. */
+void ui_draw_world_scroll(const World *world, uint8_t prev_sx, uint8_t prev_sy)
+{
+    (void)prev_sx;
+    (void)prev_sy;
+    ui_draw_world_map(world);
 }
 
 void ui_update_camera(const World *world)

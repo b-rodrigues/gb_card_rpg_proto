@@ -135,11 +135,11 @@ void overworld_screen_render(Game *g)
         return;
     }
 
-    /* Camera crossed a tile boundary: redraw the terrain tile window at the
-     * new scroll offset without a full-screen clear. */
+    /* Camera crossed a tile boundary: redraw only the tilemap-ring columns
+     * /rows that entered the window, then refill the semantic view. */
     if (g->world.scroll_x != s_prev_scroll_x ||
         g->world.scroll_y != s_prev_scroll_y) {
-        ui_draw_world_map(&g->world);
+        ui_draw_world_scroll(&g->world, s_prev_scroll_x, s_prev_scroll_y);
         s_prev_scroll_x = g->world.scroll_x;
         s_prev_scroll_y = g->world.scroll_y;
         rc->prev_player_x = px;

@@ -217,12 +217,6 @@ WorldMoveResult world_update_move(World *w, const GameState *state)
     return MOVE_RESULT_MOVED;
 }
 
-bool world_is_moving(const World *w)
-{
-    if (!w) return false;
-    return w->move_state == MOVE_STATE_MOVING;
-}
-
 uint8_t world_player_px(const World *w)
 {
     uint8_t px;

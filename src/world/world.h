@@ -144,7 +144,6 @@ void world_update_scroll(World *w);
 WorldMoveResult world_try_begin_move(World *w, int8_t dx, int8_t dy,
                                      const GameState *state);
 WorldMoveResult world_update_move(World *w, const GameState *state);
-bool world_is_moving(const World *w);
 
 /* Renderer pixel position (tile*8 plus the sub-tile walk progress) of the
  * player sprite.  Valid whenever the player is not animating a move. */

@@ -27,6 +27,11 @@ void ui_draw_world_full(const World *world);
 void ui_update_player_position(const World *world, uint8_t old_px, uint8_t old_py, uint8_t new_px, uint8_t new_py);
 void ui_draw_text_line(uint8_t x, uint8_t y, const char *text, uint8_t max_chars);
 
+/* Incremental overworld redraw when the camera crosses a tile boundary:
+ * writes only the columns/rows that entered the window into the background
+ * tilemap ring (prev_sx/prev_sy = the previous scroll tile origin). */
+void ui_draw_world_scroll(const World *world, uint8_t prev_sx, uint8_t prev_sy);
+
 /* Set SCX/SCY from the overworld camera pixel position.  Called every
  * overworld frame so the background glides smoothly between tile redraws. */
 void ui_update_camera(const World *world);

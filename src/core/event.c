@@ -19,6 +19,9 @@
 static const EventDefinition *g_events = NULL;
 static uint8_t g_event_count = 0;
 static uint8_t g_event_bank = 0;
+/* Single-flight scratch row (not reentrant): a nested event lookup mid-row
+ * would silently corrupt the outer row.  Safe today because scene_load()
+ * does not synchronously re-enter event resolution; keep that invariant. */
 static EventDefinition g_event_scratch;
 
 /* banked_copy() takes a uint8_t byte count; a larger row cannot be staged. */

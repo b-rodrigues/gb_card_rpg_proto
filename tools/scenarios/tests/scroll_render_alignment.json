@@ -1,0 +1,73 @@
+{
+  "name": "scroll_render_alignment",
+  "test": true,
+  "description": "Walk east on the Field to (26,7); the player-centred camera scrolls to camera_px=(96,8) and SCX/SCY track it, while the background tilemap ring holds the correct world tiles at wrapped addresses (east wall at world col 31, floor at 12) -- verifies the SCX/SCY-vs-tilemap-ring alignment the harness cannot see via VRAM",
+  "scenario_id": "SCROLL_RENDER_ALIGNMENT",
+  "actions": [
+    {
+      "type": "hold",
+      "button": "RIGHT",
+      "frames": 192
+    },
+    {
+      "type": "wait",
+      "frames": 8
+    }
+  ],
+  "assertions": [
+    {
+      "type": "game_state",
+      "expected": "OVERWORLD"
+    },
+    {
+      "type": "player_position",
+      "expected_x": 26,
+      "expected_y": 7
+    },
+    {
+      "type": "camera",
+      "expected_x": 12,
+      "expected_y": 1
+    },
+    {
+      "type": "camera_px_x",
+      "expected": 96
+    },
+    {
+      "type": "camera_px_y",
+      "expected": 8
+    },
+    {
+      "type": "scx",
+      "expected": 96
+    },
+    {
+      "type": "scy",
+      "expected": 8
+    },
+    {
+      "type": "tilemap_cell",
+      "row": 1,
+      "col": 31,
+      "expected": 129
+    },
+    {
+      "type": "tilemap_cell",
+      "row": 2,
+      "col": 12,
+      "expected": 128
+    }
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 2,
+      "y": 7,
+      "facing": "RIGHT"
+    },
+    "seed": 1000,
+    "flags": {
+      "ARRIVED_TOWN": true
+    }
+  }
+}

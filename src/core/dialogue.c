@@ -18,6 +18,10 @@ static const DialogueDefinition *g_dialogues = NULL;
 static uint8_t g_dialogue_count = 0;
 static uint8_t g_dialogue_bank = 0;
 
+/* Single-flight WRAM staging (not reentrant): a nested banked row/text
+ * lookup would silently corrupt the outer one.  Safe today because only one
+ * dialogue is ever active and scene_load() does not re-enter dialogue
+ * resolution; keep that invariant. */
 static DialogueDefinition g_dialogue_scratch;
 static char g_dlg_speaker[12];
 static char g_dlg_lines[MAX_DIALOGUE_LINES][21];

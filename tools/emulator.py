@@ -109,7 +109,8 @@ SCENARIO_IDS = {
     "GAME_OVER_BOOT": 18, "THANKS_BOOT": 19, "FOREST_BOOT": 20,
     "MOUNTAIN_PASS_BOOT": 21, "CASTLE_BOOT": 22, "TOWN_BOOT": 23,
     "ACTOR_COLLISION_BLOCKING": 24, "ACTOR_SHOPKEEPER": 25, "ACTOR_BAT": 26,
-    "LARGE_MAP_SCROLL": 27, "FIELD_EAST_SCROLL": 28, "CAMERA_BOUNDARY_CLAMP": 29
+    "LARGE_MAP_SCROLL": 27, "FIELD_EAST_SCROLL": 28, "CAMERA_BOUNDARY_CLAMP": 29,
+    "SCROLL_RENDER_ALIGNMENT": 30
 }
 
 # ── Declarative initial-state descriptor ─────────────────────────────
@@ -736,10 +737,10 @@ class EmulatorSession:
             return parsed
         return self.current_snapshot
 
-    # Extended RPG state snapshot: parses g_state_snap_buf (187 bytes,
+    # Extended RPG state snapshot: parses g_state_snap_buf (189 bytes,
     # layout in src/debug/telemetry.h STATE_SNAP_*).
-    STATE_SNAP_SIZE = 187
-    STATE_SNAP_VERSION = 4
+    STATE_SNAP_SIZE = 189
+    STATE_SNAP_VERSION = 5
     STATE_SNAP_FLAGS_OFF = 1
     STATE_SNAP_FLAGS_SIZE = 8
     STATE_SNAP_VARIABLES_OFF = 9
@@ -760,6 +761,8 @@ class EmulatorSession:
     STATE_SNAP_SCROLL_Y_OFF = 184
     STATE_SNAP_WORLD_WIDTH_OFF = 185
     STATE_SNAP_WORLD_HEIGHT_OFF = 186
+    STATE_SNAP_CAMERA_PX_X_OFF = 187
+    STATE_SNAP_CAMERA_PX_Y_OFF = 188
 
     def state_snapshot(self):
         """Read g_state_snap_buf and return the canonical GameState as a dict."""
@@ -862,6 +865,8 @@ class EmulatorSession:
             "scroll_y": buf[self.STATE_SNAP_SCROLL_Y_OFF],
             "world_width": buf[self.STATE_SNAP_WORLD_WIDTH_OFF],
             "world_height": buf[self.STATE_SNAP_WORLD_HEIGHT_OFF],
+            "camera_px_x": buf[self.STATE_SNAP_CAMERA_PX_X_OFF],
+            "camera_px_y": buf[self.STATE_SNAP_CAMERA_PX_Y_OFF],
         }
 
     # ── Debug actions (semantic harness operations) ──────────────────
@@ -917,6 +922,14 @@ class EmulatorSession:
                 "battle": info.get("battle", "NONE"),
             })
         return actors
+
+    def get_tilemap_mirror(self):
+        """Read the g_tilemap_mirror ring (DEBUG build; mGBA cannot read VRAM,
+        so the ROM mirrors each background-tilemap write into WRAM).  Indexed
+        by (world_row & 31) * 32 + (world_col & 31); values are tile indices
+        (WORLD_TILE_BASE + tileset index, or ibm_font + char for actors)."""
+        addr = self.get_symbol("g_tilemap_mirror")
+        return [self._memread(addr + i) for i in range(32 * 32)]
 
     def get_screen_buf(self):
         """Read 18×20 characters from g_ui_screen_buf."""

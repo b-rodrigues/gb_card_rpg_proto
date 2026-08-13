@@ -47,6 +47,12 @@ static const palette_color_t cgb_palette[4] = {
 #define PLAYER_SPRITE_NUM 0
 #define PLAYER_SPRITE_TILE_ID 102
 
+/* Map TileType (0..3) -> tileset tile index and ASCII semantic char. */
+static const uint8_t g_tile_map[4] = {
+    WORLD_TILE_FLOOR, WORLD_TILE_WALL, WORLD_TILE_EXIT, WORLD_TILE_BUILDING
+};
+static const char g_sem_map[4] = { '.', '#', '>', 'B' };
+
 void ui_init(void)
 {
     /* Turn the LCD off before loading the font so that display_off() inside
@@ -90,8 +96,33 @@ void ui_init(void)
     }
 
     SHOW_BKG;
+
+    /* HUD window layer: the window uses tilemap 0x9C00 (LCDC bit 6) so the
+     * SCX/SCY-scrolled BG map (0x9800) is separate from the fixed HUD.
+     * WX=7 puts the window at the display left edge; the window stays
+     * disabled until ui_hud_show() (overworld) enables it, and
+     * ui_hud_hide() disables it on every other screen. */
+    LCDC_REG |= 0x40;   /* window tilemap base 0x9C00 */
+    WX_REG = 7;
+    WY_REG = 96;
+
     ui_sprite_init();
     DISPLAY_ON;
+}
+
+/* Show the HUD window at the bottom of the display (the overworld only).
+ * The window is always enabled while the HUD is visible; its tilemap
+ * (0x9C00) holds the HUD. */
+void ui_hud_show(void)
+{
+    SHOW_WIN;
+    WY_REG = 96;
+}
+
+/* Hide the HUD window (every screen but the overworld). */
+void ui_hud_hide(void)
+{
+    HIDE_WIN;
 }
 
 /* Load the player sprite tile and enable the OAM sprite.  Called from
@@ -231,65 +262,97 @@ void ui_draw_world_map(const World *world)
     uint8_t t;
     uint8_t wx;
     uint8_t wy;
-    char tile_ch;
     const WorldActorDefinition *actor;
-    const SceneExit *ex;
     volatile uint8_t *tilemap = (volatile uint8_t *)0x9800;
 
     if (!world) return;
 
-    /* Terrain as real GB tiles in the background tilemap (0x9800, 32 tiles
-     * per row with 20 visible), windowed by the overworld camera
-     * (World.scroll_x/y).  The tilemap is written directly -- not through
-     * set_bkg_tiles -- to avoid pulling the GBDK .set_xy_* helpers into the
-     * non-bankable _HOME area (they pushed _HOME past 0x8000).  The tileset
-     * lives at WORLD_TILE_BASE, clear of the console font, so dialogue/
-     * battle/menu text (putchar) can coexist in the same tilemap below the
-     * view window. */
-    for (y = 0; y < WORLD_VIEW_H; y++) {
+    /* Terrain as real GB tiles in the background tilemap (0x9800), drawn
+     * around the camera's tile origin.  SCX/SCY (ui_update_camera, every
+     * frame) shift the view smoothly; the extra column/row covers the
+     * sub-tile offset so no stale tiles show at the edges.  Written
+     * directly -- not through set_bkg_tiles -- to avoid pulling the GBDK
+     * .set_xy_* helpers into the non-bankable _HOME area.  The tileset
+     * lives at WORLD_TILE_BASE, clear of the console font.  The visible
+     * window also fills the semantic g_ui_screen_buf (harness get_screen_buf)
+     * and overlays actor visuals as font chars; the player is the OAM
+     * sprite, never painted here. */
+    for (y = 0; y < WORLD_VIEW_H + 1; y++) {
         wy = (uint8_t)(world->scroll_y + y);
-        for (x = 0; x < WORLD_VIEW_W; x++) {
+        for (x = 0; x < WORLD_VIEW_W + 1; x++) {
             wx = (uint8_t)(world->scroll_x + x);
             if (wx >= world->width || wy >= world->height) {
-                tilemap[y * 32 + x] = (uint8_t)(WORLD_TILE_BASE + WORLD_TILE_FLOOR);
-                continue;
-            }
-            t = world->map[wy][wx];
-            if (t == TILE_WALL)      tilemap[y * 32 + x] = (uint8_t)(WORLD_TILE_BASE + WORLD_TILE_WALL);
-            else if (t == TILE_BUILDING) tilemap[y * 32 + x] = (uint8_t)(WORLD_TILE_BASE + WORLD_TILE_BUILDING);
-            else if (t == TILE_EXIT) tilemap[y * 32 + x] = (uint8_t)(WORLD_TILE_BASE + WORLD_TILE_EXIT);
-            else                     tilemap[y * 32 + x] = (uint8_t)(WORLD_TILE_BASE + WORLD_TILE_FLOOR);
-        }
-    }
-
-    /* Semantic ASCII view (g_ui_screen_buf, read by the harness
-     * get_screen_buf) + actor visuals overlaid as font chars.  The player
-     * itself is the OAM sprite, never painted here. */
-    for (y = 0; y < WORLD_VIEW_H; y++) {
-        wy = (uint8_t)(world->scroll_y + y);
-        for (x = 0; x < WORLD_VIEW_W; x++) {
-            wx = (uint8_t)(world->scroll_x + x);
-            actor = actor_find_at(world, wx, wy);
-            if (actor) {
-                tile_ch = actor->visual;
-                ui_put_char(x, y, tile_ch);
-            } else if (wx >= world->width || wy >= world->height) {
-                g_ui_screen_buf[y][x] = '.';
+                t = TILE_FLOOR;
             } else {
                 t = world->map[wy][wx];
-                if (t == TILE_WALL) tile_ch = '#';
-                else if (t == TILE_BUILDING) tile_ch = 'B';
-                else if (t == TILE_EXIT) {
-                    ex = scene_exit_at(scene_definition_for_map(world->map_id), wx, wy);
-                    tile_ch = ex ? ex->tile_char : '.';
-                } else tile_ch = '.';
-                g_ui_screen_buf[y][x] = tile_ch;
+            }
+            tilemap[y * 32 + x] = (uint8_t)(WORLD_TILE_BASE + g_tile_map[t]);
+
+            if (y < WORLD_VIEW_H && x < WORLD_VIEW_W) {
+                actor = actor_find_at(world, wx, wy);
+                if (actor) {
+                    ui_put_char(x, y, actor->visual);
+                } else {
+                    g_ui_screen_buf[y][x] = g_sem_map[t];
+                }
             }
         }
-        g_ui_screen_buf[y][WORLD_VIEW_W] = '\0';
+        if (y < WORLD_VIEW_H) {
+            g_ui_screen_buf[y][WORLD_VIEW_W] = '\0';
+        }
     }
 
-    ui_sprite_move(world_player_px(world), world_player_py(world));
+    /* Sprite in camera-relative screen coordinates: the BG scrolls under
+     * it via SCX/SCY, so the OAM position is (world px - camera px). */
+    ui_sprite_move((uint8_t)(world_player_px(world) - world->camera_px_x),
+                   (uint8_t)(world_player_py(world) - world->camera_px_y));
+}
+
+void ui_update_camera(const World *world)
+{
+    if (!world) return;
+    SCX_REG = world->camera_px_x;
+    SCY_REG = world->camera_px_y;
+}
+
+/* Write one char to the HUD window tilemap (0x9C00) row `y` (0-5, displayed
+ * at screen rows 12-17) and mirror it into the semantic g_ui_screen_buf.
+ * The tile index is the console font base + the char code (the console's
+ * putchar does the same for the background).  Callers pass in-range
+ * coordinates (x < 20, y < 6). */
+static void ui_hud_put_char(uint8_t x, uint8_t y, char ch)
+{
+    ((volatile uint8_t *)0x9C00)[y * 32 + x] = (uint8_t)(ibm_font + (uint8_t)ch);
+    g_ui_screen_buf[12 + y][x] = ch;
+}
+
+static void ui_hud_text_line(uint8_t y, const char *text, uint8_t max_chars)
+{
+    uint8_t i = 0;
+    char ch;
+    while (text && text[i] != '\0' && i < max_chars) {
+        ch = text[i];
+        ui_hud_put_char(i, y, ch);
+        i++;
+    }
+    while (i < max_chars) {
+        ui_hud_put_char(i, y, ' ');
+        i++;
+    }
+}
+
+/* Draw a value right-aligned in a 2-wide field (space padded) into the HUD
+ * window row `y`. */
+static void ui_hud_num2(uint8_t x, uint8_t y, uint8_t val)
+{
+    char c;
+    if (val >= 10) {
+        c = '0' + (val / 10);
+    } else {
+        c = ' ';
+    }
+    ui_hud_put_char(x, y, c);
+    ui_hud_put_char(x + 1, y, '0' + (val % 10));
 }
 
 void ui_draw_overworld_hud(const World *world)
@@ -297,6 +360,11 @@ void ui_draw_overworld_hud(const World *world)
     const char *label;
 
     if (!world) return;
+
+    /* The HUD lives in the WINDOW layer (0x9C00, VRAM bank 0).  Force the
+     * VRAM bank select to 0 first so the tilemap writes land in bank 0 (not
+     * the CGB attribute bank). */
+    VBK_REG = 0;
 
     switch (world->map_id) {
         case MAP_TOWN:          label = "MAP: TOWN | HP:";  break;
@@ -306,15 +374,17 @@ void ui_draw_overworld_hud(const World *world)
         default:                label = "MAP: FIELD| HP:";  break;
     }
 
-    ui_draw_text_line(0, 12, "====================", 20);
-    ui_draw_text_line(0, 13, label, 15);
-    ui_draw_num2(15, 13, world->player.hp);
-    ui_put_char(17, 13, '/');
-    ui_draw_num2(18, 13, world->player.max_hp);
-    ui_draw_text_line(0, 14, "", 20);
-    ui_draw_text_line(0, 15, "", 20);
-    ui_draw_text_line(0, 16, "", 20);
-    ui_draw_text_line(0, 17, " [D-PAD] MOVE HERO", 20);
+    /* The HUD lives in the WINDOW layer (0x9C00), so the SCX/SCY-scrolled
+     * background map never carries it.  Window row y -> screen row 12+y. */
+    ui_hud_text_line(0, "====================", 20);
+    ui_hud_text_line(1, label, 15);
+    ui_hud_num2(15, 1, world->player.hp);
+    ui_hud_put_char(17, 1, '/');
+    ui_hud_num2(18, 1, world->player.max_hp);
+    ui_hud_text_line(2, "", 20);
+    ui_hud_text_line(3, "", 20);
+    ui_hud_text_line(4, "", 20);
+    ui_hud_text_line(5, " [D-PAD] MOVE HERO", 20);
 }
 
 void ui_draw_world_full(const World *world)
@@ -323,6 +393,7 @@ void ui_draw_world_full(const World *world)
     ui_clear_screen();
     ui_draw_world_map(world);
     ui_draw_overworld_hud(world);
+    ui_hud_show();
 }
 
 void ui_update_player_position(const World *world, uint8_t old_px, uint8_t old_py, uint8_t new_px, uint8_t new_py)

@@ -28,6 +28,8 @@ void world_load_map(World *w, MapId map_id, const GameState *state)
      * brings the player into view (and clamps) on the next overworld frame. */
     w->scroll_x = 0;
     w->scroll_y = 0;
+    w->camera_px_x = 0;
+    w->camera_px_y = 0;
 
     /* Scene data determines the terrain and the exits. */
     scene_load_tiles(w, map_id);
@@ -39,38 +41,46 @@ void world_load_map(World *w, MapId map_id, const GameState *state)
 
 void world_update_scroll(World *w)
 {
+    uint8_t player_px;
+    uint8_t player_py;
     uint8_t max_x;
     uint8_t max_y;
 
     if (!w) return;
 
-    /* Clamp bound: the view window must stay inside the scene.  A scene
-     * smaller than the view never scrolls (max = 0). */
-    max_x = w->width > WORLD_VIEW_W ? (uint8_t)(w->width - WORLD_VIEW_W) : 0;
-    max_y = w->height > WORLD_VIEW_H ? (uint8_t)(w->height - WORLD_VIEW_H) : 0;
+    player_px = world_player_px(w);
+    player_py = world_player_py(w);
 
-    /* Keep the player inside the view window, scrolling only when the
-     * player crosses the window edge (the camera does not center; it stays
-     * put while the player is within the current view). */
-    if (w->player.position.x < w->scroll_x) {
-        w->scroll_x = w->player.position.x;
+    /* Follow the player's sprite: when its edge reaches the view edge, the
+     * camera glides 1px/frame with it (SCX/SCY smooth scroll).  All values
+     * fit in a byte for the current map sizes (view_px - 8 <= 255). */
+    if (player_px >= (uint8_t)(w->camera_px_x + WORLD_VIEW_W * 8 - 8)) {
+        w->camera_px_x = (uint8_t)(player_px - WORLD_VIEW_W * 8 + 8);
     }
-    if (w->player.position.y < w->scroll_y) {
-        w->scroll_y = w->player.position.y;
+    if (player_py >= (uint8_t)(w->camera_px_y + WORLD_VIEW_H * 8 - 8)) {
+        w->camera_px_y = (uint8_t)(player_py - WORLD_VIEW_H * 8 + 8);
     }
-    if (w->player.position.x >= (uint8_t)(w->scroll_x + WORLD_VIEW_W)) {
-        w->scroll_x = (uint8_t)(w->player.position.x - WORLD_VIEW_W + 1);
+    if (player_px < w->camera_px_x) {
+        w->camera_px_x = player_px;
     }
-    if (w->player.position.y >= (uint8_t)(w->scroll_y + WORLD_VIEW_H)) {
-        w->scroll_y = (uint8_t)(w->player.position.y - WORLD_VIEW_H + 1);
+    if (player_py < w->camera_px_y) {
+        w->camera_px_y = player_py;
     }
 
-    if (w->scroll_x > max_x) {
-        w->scroll_x = max_x;
+    /* Clamp the view window to the scene bounds (smaller scenes never
+     * scroll). */
+    max_x = w->width > WORLD_VIEW_W ? (uint8_t)((w->width - WORLD_VIEW_W) * 8) : 0;
+    max_y = w->height > WORLD_VIEW_H ? (uint8_t)((w->height - WORLD_VIEW_H) * 8) : 0;
+    if (w->camera_px_x > max_x) {
+        w->camera_px_x = max_x;
     }
-    if (w->scroll_y > max_y) {
-        w->scroll_y = max_y;
+    if (w->camera_px_y > max_y) {
+        w->camera_px_y = max_y;
     }
+
+    /* Derived tile camera for the renderer window and the snapshot. */
+    w->scroll_x = (uint8_t)(w->camera_px_x >> 3);
+    w->scroll_y = (uint8_t)(w->camera_px_y >> 3);
 }
 
 void world_init(World *w, const GameState *state)

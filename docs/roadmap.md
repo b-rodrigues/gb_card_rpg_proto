@@ -27,15 +27,18 @@ testable, save/load works, and the memory budget is understood.
 
 ### NEXT
 
-- **Camera / scroll — B1 large-map data model DONE**: scenes are
-  parameterized (`SceneDefinition.width/height`, buffer caps 40x24), the
-  overworld has a `World.scroll_x/scroll_y` camera (`world_update_scroll`
-  follows the player, clamped to scene bounds; exposed in the extended
-  snapshot as `scroll_x`/`scroll_y`/`world_width`/`world_height`).  FIELD is
-  now 32x18 (wider than the 20-col view) so both axes scroll; covered by
-  `large_map_scroll` + `field_east_scroll`.  B2+ (world tiles renderer via
-  `set_bkg_data`/`set_bkg_tiles`, SCX/SCY camera, player-centered camera)
-  still pending.
+- **Camera / scroll — B1 + B2 DONE**: scenes are parameterized, the
+  overworld has a pixel camera (`World.camera_px_x/y`, `world_update_scroll`
+  follows the player smoothly and clamps to scene bounds; exposed in the
+  snapshot as `scroll_x/y` = camera_px/8).  FIELD is 32x18; covered by
+  `large_map_scroll` + `field_east_scroll`.  B2 rendered the terrain as real
+  GB tiles (`src/gfx/world_tiles.h`) into the 0x9800 tilemap.
+- **Camera / scroll — B3 DONE**: the overworld background scrolls smoothly
+  with SCX/SCY (set every frame from the pixel camera; the tile window is
+  redrawn only when the camera crosses a tile boundary).  The HUD moved to
+  the WINDOW layer (0x9C00, `ui_hud_show/hide`, toggled in screen_change) so
+  it stays fixed under the scroll; HUD tiles use the console font base
+  (`ibm_font + ch`).  B4 (player-centered camera) still pending.
 - Graphics pipeline (tile/sprite renderer, DMG+CGB, screen rewiring, asset
   converter + validation) — spec'd in `docs/graphics.md`; the `sprites`
   branch has landed the player OAM sprite + the `png2gb.py` PNG→tileset

@@ -27,6 +27,15 @@ void ui_draw_world_full(const World *world);
 void ui_update_player_position(const World *world, uint8_t old_px, uint8_t old_py, uint8_t new_px, uint8_t new_py);
 void ui_draw_text_line(uint8_t x, uint8_t y, const char *text, uint8_t max_chars);
 
+/* Set SCX/SCY from the overworld camera pixel position.  Called every
+ * overworld frame so the background glides smoothly between tile redraws. */
+void ui_update_camera(const World *world);
+
+/* HUD window layer (0x9C00): fixed at the bottom of the overworld display,
+ * off-screen elsewhere (the SCX/SCY-scrolled BG map must not carry the HUD). */
+void ui_hud_show(void);
+void ui_hud_hide(void);
+
 /* Write value as a decimal string into out (at least 7 bytes).  Avoids the
  * stdio/console chain so _HOME stays under 0x8000. */
 void ui_format_int(int16_t value, char *out);

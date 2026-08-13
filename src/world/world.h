@@ -96,12 +96,16 @@ typedef struct {
     WorldActorRuntime actors[MAX_WORLD_ACTORS];
     uint8_t map[WORLD_HEIGHT][WORLD_WIDTH];
 
-    /* Overworld camera: top-left tile of the WORLD_VIEW_W x WORLD_VIEW_H
-     * view window into the scene.  world_update_scroll() keeps the player
-     * inside the window each frame (scrolling only when the player crosses
-     * the view edge) and clamps to the scene bounds, so a scene larger than
-     * the view scrolls and a smaller scene never shifts.  Runtime only,
-     * never persistent. */
+    /* Overworld camera in PIXELS (top-left of the view window).  The camera
+     * follows the player's pixel position smoothly (world_update_scroll);
+     * SCX/SCY are set from these each frame and the tilemap window is drawn
+     * around scroll_x/y (= camera_px/8).  Runtime only, never persistent. */
+    uint8_t camera_px_x;
+    uint8_t camera_px_y;
+
+    /* Overworld camera tile origin (camera_px/8), the top-left tile of the
+     * view window into the scene.  Derived by world_update_scroll and
+     * exposed to the snapshot as scroll_x/scroll_y. */
     uint8_t scroll_x;
     uint8_t scroll_y;
 
@@ -123,11 +127,12 @@ void world_change_map(World *w, MapId map_id, uint8_t spawn_x, uint8_t spawn_y,
                       const GameState *state);
 bool world_is_walkable(const World *w, uint8_t x, uint8_t y);
 
-/* Overworld camera: keep the player inside the WORLD_VIEW_W x WORLD_VIEW_H
- * view window, scrolling only when the player crosses the view edge, and
- * clamp the scroll to the scene bounds (scenes smaller than the view never
- * scroll).  Called once per overworld frame; the renderer windows the scene
- * by (scroll_x, scroll_y). */
+/* Overworld camera: keep the player's sprite inside the
+ * WORLD_VIEW_W x WORLD_VIEW_H view window, scrolling smoothly in pixels
+ * (SCX/SCY) only when the player approaches the view edge, clamped to the
+ * scene bounds (scenes smaller than the view never scroll).  Also derives
+ * scroll_x/y (= camera_px/8) for the tilemap window and the snapshot.
+ * Called once per overworld frame. */
 void world_update_scroll(World *w);
 
 /* Animated movement: world_try_begin_move validates the target and starts

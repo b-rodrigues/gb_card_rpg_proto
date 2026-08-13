@@ -109,6 +109,13 @@ void overworld_screen_render(Game *g)
     if (!g) return;
     rc = &g->render_cache;
 
+    /* SCX/SCY every frame (the camera glides sub-tile between redraws);
+     * the sprite is positioned camera-relative because the BG scrolls under
+     * it. */
+    ui_update_camera(&g->world);
+    px = (uint8_t)(world_player_px(&g->world) - g->world.camera_px_x);
+    py = (uint8_t)(world_player_py(&g->world) - g->world.camera_px_y);
+
     /* Map transition, cache reset, or return from Battle/Dialogue */
     if (!rc->valid || rc->prev_screen != SCREEN_OVERWORLD ||
         g->world.map_id != rc->prev_map_id) {
@@ -120,30 +127,28 @@ void overworld_screen_render(Game *g)
         rc->prev_map_id = g->world.map_id;
         s_prev_scroll_x = g->world.scroll_x;
         s_prev_scroll_y = g->world.scroll_y;
-        rc->prev_player_x = world_player_px(&g->world);
-        rc->prev_player_y = world_player_py(&g->world);
+        rc->prev_player_x = px;
+        rc->prev_player_y = py;
         rc->prev_dialogue_active = false;
         rc->prev_dialogue_line = 255;
         rc->prev_dialogue_id = DIALOGUE_ID_NONE;
         return;
     }
 
-    /* Camera moved (player crossed the view edge): redraw the terrain tile
-     * window at the new scroll offset without a full-screen clear. */
+    /* Camera crossed a tile boundary: redraw the terrain tile window at the
+     * new scroll offset without a full-screen clear. */
     if (g->world.scroll_x != s_prev_scroll_x ||
         g->world.scroll_y != s_prev_scroll_y) {
         ui_draw_world_map(&g->world);
         s_prev_scroll_x = g->world.scroll_x;
         s_prev_scroll_y = g->world.scroll_y;
-        rc->prev_player_x = world_player_px(&g->world);
-        rc->prev_player_y = world_player_py(&g->world);
+        rc->prev_player_x = px;
+        rc->prev_player_y = py;
     }
 
     /* Incremental overworld player movement (NO full screen clear): the
-     * sprite glides 1px/frame between tiles while the tile position only
-     * commits at the end of the walk. */
-    px = world_player_px(&g->world);
-    py = world_player_py(&g->world);
+     * sprite glides 1px/frame in camera-relative screen coordinates while
+     * the tile position only commits at the end of the walk. */
     if (px != rc->prev_player_x || py != rc->prev_player_y) {
         ui_update_player_position(&g->world, rc->prev_player_x, rc->prev_player_y,
                                   px, py);

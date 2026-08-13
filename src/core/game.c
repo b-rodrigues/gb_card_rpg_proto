@@ -94,4 +94,8 @@ void game_render(Game *g)
 {
     if (!g) return;
     screen_render(g);
+    /* Commit the OAM sprite at the frame boundary (right before
+     * vsync/VBlank) so every displayed frame has the sprite in the correct
+     * state for the current screen. */
+    ui_sprite_commit();
 }

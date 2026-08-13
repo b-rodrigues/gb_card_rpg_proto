@@ -219,4 +219,11 @@ void debug_state_snapshot(void)
     }
 
     b[STATE_SNAP_EQUIPMENT_OFF] = (uint8_t)st->equipment.weapon;
+
+    /* Runtime overworld camera + scene dims (not part of the saveable
+     * GameState; the host asserts scroll for the camera/scroll milestone). */
+    b[STATE_SNAP_SCROLL_X_OFF]        = g_game.world.scroll_x;
+    b[STATE_SNAP_SCROLL_Y_OFF]        = g_game.world.scroll_y;
+    b[STATE_SNAP_WORLD_WIDTH_OFF]     = g_game.world.width;
+    b[STATE_SNAP_WORLD_HEIGHT_OFF]    = g_game.world.height;
 }

@@ -41,7 +41,7 @@
   "initial_state": {
     "scene": "FIELD",
     "player": {
-      "x": 17,
+      "x": 30,
       "y": 7,
       "facing": "DOWN"
     },

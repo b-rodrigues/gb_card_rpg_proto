@@ -26,7 +26,8 @@ VALID_ASSERTION_TYPES = {
     "event_occurred", "event_not_occurred", "dialogue_active", "dialogue_line", "dialogue_id",
     "screen_row", "screen_row_not_contains", "actor_at",
     "flag", "variable", "inventory", "party_hp", "party_level", "actor_state",
-    "currency", "progression_level", "progression_progress", "attack"
+    "currency", "progression_level", "progression_progress", "attack",
+    "camera", "scroll_x", "scroll_y", "world_width", "world_height"
 }
 
 VALID_ENTITY_IDS = set(ENTITY_ID_MAP.values())
@@ -280,6 +281,35 @@ def run_scenario(scenario):
             actual = snap.get("player_facing", "UNKNOWN")
             passed = (actual == expected)
 
+        elif a_type == "camera":
+            exp_x = a.get("expected_x")
+            exp_y = a.get("expected_y")
+            act_x = state_snap.get("scroll_x")
+            act_y = state_snap.get("scroll_y")
+            actual = f"({act_x},{act_y})"
+            expected = f"({exp_x},{exp_y})"
+            passed = (act_x == exp_x and act_y == exp_y)
+
+        elif a_type == "scroll_x":
+            actual = state_snap.get("scroll_x")
+            passed = (actual == int(expected))
+            actual = f"scroll_x={actual}"
+
+        elif a_type == "scroll_y":
+            actual = state_snap.get("scroll_y")
+            passed = (actual == int(expected))
+            actual = f"scroll_y={actual}"
+
+        elif a_type == "world_width":
+            actual = state_snap.get("world_width")
+            passed = (actual == int(expected))
+            actual = f"world_width={actual}"
+
+        elif a_type == "world_height":
+            actual = state_snap.get("world_height")
+            passed = (actual == int(expected))
+            actual = f"world_height={actual}"
+
         elif a_type == "music_track":
             actual = snap.get("music_track", "UNKNOWN")
             passed = (actual == expected)
@@ -493,6 +523,10 @@ def format_state(snap, state_snap):
     lines.append(f"SCENE={scene}")
     lines.append("PLAYER=({},{}) FACING={}".format(
         snap.get("player_x"), snap.get("player_y"), snap.get("player_facing")))
+    if state_snap:
+        lines.append("CAMERA=({},{}) WORLD={}x{}".format(
+            state_snap.get("scroll_x"), state_snap.get("scroll_y"),
+            state_snap.get("world_width"), state_snap.get("world_height")))
 
     flags = sorted((state_snap or {}).get("flags", []))
     lines.append("FLAGS: " + (" ".join(flags) if flags else "(none)"))

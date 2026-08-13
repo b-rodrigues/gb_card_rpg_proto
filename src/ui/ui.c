@@ -201,11 +201,23 @@ void ui_draw_world_map(const World *world)
 {
     uint8_t x, y;
     uint8_t t;
+    uint8_t wx;
+    uint8_t wy;
     char tile_ch;
     const WorldActorDefinition *actor;
     const SceneExit *ex;
+    uint8_t draw_w;
+    uint8_t draw_h;
 
     if (!world) return;
+
+    /* The overworld camera windows the WORLD_VIEW_W x WORLD_VIEW_H view out
+     * of the scene at (world->scroll_x, world->scroll_y), so scenes larger
+     * than the view scroll and scenes smaller than the view never shift.
+     * (The full SCX/SCY hardware camera renderer replaces this in the
+     * scrolling milestone.) */
+    draw_w = WORLD_VIEW_W;
+    draw_h = WORLD_VIEW_H;
 
     /* The player is no longer painted into the background at all (see
      * ui_sprite_move): background tiles are drawn for every cell, including
@@ -213,17 +225,19 @@ void ui_draw_world_map(const World *world)
      * This is the actual BG-tilemap / OAM-sprite split a real Game Boy
      * renderer uses; it just happens that the "tilemap" here is still the
      * ASCII console font. */
-    for (y = 0; y < WORLD_VIEW_HEIGHT; y++) {
-        for (x = 0; x < WORLD_WIDTH; x++) {
-            actor = actor_find_at(world, x, y);
+    for (y = 0; y < draw_h; y++) {
+        wy = (uint8_t)(world->scroll_y + y);
+        for (x = 0; x < draw_w; x++) {
+            wx = (uint8_t)(world->scroll_x + x);
+            actor = actor_find_at(world, wx, wy);
             if (actor) {
                 tile_ch = actor->visual;
             } else {
-                t = world->map[y][x];
+                t = world->map[wy][wx];
                 if (t == TILE_WALL) tile_ch = '#';
                 else if (t == TILE_BUILDING) tile_ch = 'B';
                 else if (t == TILE_EXIT) {
-                    ex = scene_exit_at(scene_definition_for_map(world->map_id), x, y);
+                    ex = scene_exit_at(scene_definition_for_map(world->map_id), wx, wy);
                     tile_ch = ex ? ex->tile_char : '.';
                 } else tile_ch = '.';
             }

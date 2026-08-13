@@ -4,7 +4,7 @@
 /* ── Scene data ──────────────────────────────────────────────────── */
 
 static const SceneExit g_field_exits[] = {
-    { 18, 7,  2, 7,  SCENE_TOWN,          '>' },   /* east wall -> Town */
+    { 31, 7, 2, 7,  SCENE_TOWN,          '>' },   /* east wall -> Town */
     { 12, 0, 12, 10, SCENE_FOREST,        '>' }    /* north wall -> Forest */
 };
 
@@ -26,16 +26,20 @@ static const SceneExit g_castle_exits[] = {
     { 12, 11, 12, 1, SCENE_MOUNTAIN_PASS, '<' }     /* south wall -> Mountain Pass */
 };
 
+/* Scenes may be larger than the WORLD_VIEW_W x WORLD_VIEW_H overworld
+ * camera window: FIELD is 32 wide so the camera scrolls horizontally, the
+ * rest are 20 wide (the legacy screen width).  All are 18 rows tall (the
+ * camera scrolls vertically below the 12-row window). */
 static const SceneDefinition g_scenes[] = {
-    { MAP_FIELD,         MUSIC_OVERWORLD,
+    { MAP_FIELD,         MUSIC_OVERWORLD, 32, 18,
         g_field_exits, (uint8_t)(sizeof(g_field_exits)/sizeof(g_field_exits[0])) },
-    { MAP_TOWN,          MUSIC_OVERWORLD,
+    { MAP_TOWN,          MUSIC_OVERWORLD, 20, 18,
         g_town_exits, (uint8_t)(sizeof(g_town_exits)/sizeof(g_town_exits[0])) },
-    { MAP_FOREST,        MUSIC_OVERWORLD,
+    { MAP_FOREST,        MUSIC_OVERWORLD, 20, 18,
         g_forest_exits, (uint8_t)(sizeof(g_forest_exits)/sizeof(g_forest_exits[0])) },
-    { MAP_MOUNTAIN_PASS, MUSIC_OVERWORLD,
+    { MAP_MOUNTAIN_PASS, MUSIC_OVERWORLD, 20, 18,
         g_mountain_pass_exits, (uint8_t)(sizeof(g_mountain_pass_exits)/sizeof(g_mountain_pass_exits[0])) },
-    { MAP_CASTLE,        MUSIC_OVERWORLD,
+    { MAP_CASTLE,        MUSIC_OVERWORLD, 20, 18,
         g_castle_exits, (uint8_t)(sizeof(g_castle_exits)/sizeof(g_castle_exits[0])) }
 };
 
@@ -95,8 +99,8 @@ static void scene_fill_terrain(World *w, MapId map_id)
         }
 
         case MAP_MOUNTAIN_PASS:
-            for (y = 0; y < WORLD_HEIGHT; y++) {
-                for (x = 0; x < WORLD_WIDTH; x++) {
+            for (y = 0; y < w->height; y++) {
+                for (x = 0; x < w->width; x++) {
                     if (x <= 3 || x >= 16) {
                         w->map[y][x] = TILE_WALL;
                     } else if (y % 4 == 2 && (x == 9 || x == 10)) {
@@ -131,9 +135,9 @@ void scene_load_tiles(World *w, MapId map_id)
     def = scene_definition_for_map(map_id);
     if (!def) return;
 
-    for (y = 0; y < WORLD_HEIGHT; y++) {
-        for (x = 0; x < WORLD_WIDTH; x++) {
-            if (y == 0 || y == WORLD_HEIGHT - 1 || x == 0 || x == WORLD_WIDTH - 1) {
+    for (y = 0; y < w->height; y++) {
+        for (x = 0; x < w->width; x++) {
+            if (y == 0 || y == w->height - 1 || x == 0 || x == w->width - 1) {
                 w->map[y][x] = TILE_WALL;
             } else {
                 w->map[y][x] = TILE_FLOOR;

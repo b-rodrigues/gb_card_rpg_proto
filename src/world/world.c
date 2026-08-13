@@ -8,16 +8,26 @@
 
 void world_load_map(World *w, MapId map_id, const GameState *state)
 {
+    const SceneDefinition *def;
+
     if (!w) return;
 
-    w->width = WORLD_WIDTH;
-    w->height = WORLD_HEIGHT;
+    /* Scene size comes from the scene definition; it may be smaller than
+     * the WORLD_WIDTH/HEIGHT buffer caps.  The overworld camera clamps its
+     * view window to width/height. */
+    def = scene_definition_for_map(map_id);
+    w->width = def ? def->width : WORLD_WIDTH;
+    w->height = def ? def->height : WORLD_HEIGHT;
     w->map_id = map_id;
     w->encounter_actor_index = NO_ACTOR_INDEX;
     w->map_changed = false;
     w->move_state = MOVE_STATE_IDLE;
     w->move_progress = 0;
     w->move_outcome = MOVE_OUTCOME_NONE;
+    /* New scene: start the camera at the scene origin; world_update_scroll
+     * brings the player into view (and clamps) on the next overworld frame. */
+    w->scroll_x = 0;
+    w->scroll_y = 0;
 
     /* Scene data determines the terrain and the exits. */
     scene_load_tiles(w, map_id);
@@ -25,6 +35,42 @@ void world_load_map(World *w, MapId map_id, const GameState *state)
     /* Scene data determines which hostile actors are spawned.  Actors
      * whose ActorId is DEFEATED in state are not re-spawned. */
     actor_load_scene(w, map_id, state);
+}
+
+void world_update_scroll(World *w)
+{
+    uint8_t max_x;
+    uint8_t max_y;
+
+    if (!w) return;
+
+    /* Clamp bound: the view window must stay inside the scene.  A scene
+     * smaller than the view never scrolls (max = 0). */
+    max_x = w->width > WORLD_VIEW_W ? (uint8_t)(w->width - WORLD_VIEW_W) : 0;
+    max_y = w->height > WORLD_VIEW_H ? (uint8_t)(w->height - WORLD_VIEW_H) : 0;
+
+    /* Keep the player inside the view window, scrolling only when the
+     * player crosses the window edge (the camera does not center; it stays
+     * put while the player is within the current view). */
+    if (w->player.position.x < w->scroll_x) {
+        w->scroll_x = w->player.position.x;
+    }
+    if (w->player.position.y < w->scroll_y) {
+        w->scroll_y = w->player.position.y;
+    }
+    if (w->player.position.x >= (uint8_t)(w->scroll_x + WORLD_VIEW_W)) {
+        w->scroll_x = (uint8_t)(w->player.position.x - WORLD_VIEW_W + 1);
+    }
+    if (w->player.position.y >= (uint8_t)(w->scroll_y + WORLD_VIEW_H)) {
+        w->scroll_y = (uint8_t)(w->player.position.y - WORLD_VIEW_H + 1);
+    }
+
+    if (w->scroll_x > max_x) {
+        w->scroll_x = max_x;
+    }
+    if (w->scroll_y > max_y) {
+        w->scroll_y = max_y;
+    }
 }
 
 void world_init(World *w, const GameState *state)
@@ -51,7 +97,7 @@ bool world_is_walkable(const World *w, uint8_t x, uint8_t y)
 {
     uint8_t tile;
     if (!w) return false;
-    if (x >= WORLD_WIDTH || y >= WORLD_HEIGHT) return false;
+    if (x >= w->width || y >= w->height) return false;
     tile = w->map[y][x];
     if (tile == TILE_WALL || tile == TILE_BUILDING) {
         return false;

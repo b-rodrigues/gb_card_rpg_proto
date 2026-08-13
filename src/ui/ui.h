@@ -6,8 +6,6 @@
 #include "dialogue.h"
 #include <stdint.h>
 
-#define WORLD_VIEW_HEIGHT 12
-
 extern char g_ui_screen_buf[18][21];
 
 void ui_init(void);

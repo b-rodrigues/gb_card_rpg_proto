@@ -20,10 +20,14 @@ typedef struct {
 
 /* Data-driven scene definition.  Terrain generation is dispatched inside
  * scene_load_tiles() by map_id (a direct switch, avoiding banked function
- * pointers); exit placement is applied automatically from the exits table. */
+ * pointers); exit placement is applied automatically from the exits table.
+ * width/height set the scene's tile bounds (<= WORLD_WIDTH/HEIGHT); the
+ * overworld camera clamps its view window to them. */
 typedef struct {
     MapId map_id;
     MusicTrack music;
+    uint8_t width;
+    uint8_t height;
     const SceneExit *exits;
     uint8_t exit_count;
 } SceneDefinition;

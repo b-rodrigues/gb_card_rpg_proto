@@ -27,6 +27,15 @@ testable, save/load works, and the memory budget is understood.
 
 ### NEXT
 
+- **Camera / scroll — B1 large-map data model DONE**: scenes are
+  parameterized (`SceneDefinition.width/height`, buffer caps 40x24), the
+  overworld has a `World.scroll_x/scroll_y` camera (`world_update_scroll`
+  follows the player, clamped to scene bounds; exposed in the extended
+  snapshot as `scroll_x`/`scroll_y`/`world_width`/`world_height`).  FIELD is
+  now 32x18 (wider than the 20-col view) so both axes scroll; covered by
+  `large_map_scroll` + `field_east_scroll`.  B2+ (world tiles renderer via
+  `set_bkg_data`/`set_bkg_tiles`, SCX/SCY camera, player-centered camera)
+  still pending.
 - Graphics pipeline (tile/sprite renderer, DMG+CGB, screen rewiring, asset
   converter + validation) — spec'd in `docs/graphics.md`; the `sprites`
   branch has landed the player OAM sprite + the `png2gb.py` PNG→tileset

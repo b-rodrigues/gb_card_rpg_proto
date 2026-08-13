@@ -108,7 +108,8 @@ SCENARIO_IDS = {
     "OVERWORLD_BOOT": 15, "DIALOGUE_BOOT": 16, "BATTLE_BOOT": 17,
     "GAME_OVER_BOOT": 18, "THANKS_BOOT": 19, "FOREST_BOOT": 20,
     "MOUNTAIN_PASS_BOOT": 21, "CASTLE_BOOT": 22, "TOWN_BOOT": 23,
-    "ACTOR_COLLISION_BLOCKING": 24, "ACTOR_SHOPKEEPER": 25, "ACTOR_BAT": 26
+    "ACTOR_COLLISION_BLOCKING": 24, "ACTOR_SHOPKEEPER": 25, "ACTOR_BAT": 26,
+    "LARGE_MAP_SCROLL": 27, "FIELD_EAST_SCROLL": 28
 }
 
 # ── Declarative initial-state descriptor ─────────────────────────────
@@ -735,10 +736,10 @@ class EmulatorSession:
             return parsed
         return self.current_snapshot
 
-    # Extended RPG state snapshot: parses g_state_snap_buf (183 bytes,
+    # Extended RPG state snapshot: parses g_state_snap_buf (187 bytes,
     # layout in src/debug/telemetry.h STATE_SNAP_*).
-    STATE_SNAP_SIZE = 183
-    STATE_SNAP_VERSION = 3
+    STATE_SNAP_SIZE = 187
+    STATE_SNAP_VERSION = 4
     STATE_SNAP_FLAGS_OFF = 1
     STATE_SNAP_FLAGS_SIZE = 8
     STATE_SNAP_VARIABLES_OFF = 9
@@ -755,6 +756,10 @@ class EmulatorSession:
     STATE_SNAP_PROGRESSION_ENTRY_OFF = 134
     STATE_SNAP_PROGRESSION_ENTRY_SIZE = 6
     STATE_SNAP_EQUIPMENT_OFF = 182
+    STATE_SNAP_SCROLL_X_OFF = 183
+    STATE_SNAP_SCROLL_Y_OFF = 184
+    STATE_SNAP_WORLD_WIDTH_OFF = 185
+    STATE_SNAP_WORLD_HEIGHT_OFF = 186
 
     def state_snapshot(self):
         """Read g_state_snap_buf and return the canonical GameState as a dict."""
@@ -853,6 +858,10 @@ class EmulatorSession:
             "world": world,
             "progression": progression,
             "equipment": equipment,
+            "scroll_x": buf[self.STATE_SNAP_SCROLL_X_OFF],
+            "scroll_y": buf[self.STATE_SNAP_SCROLL_Y_OFF],
+            "world_width": buf[self.STATE_SNAP_WORLD_WIDTH_OFF],
+            "world_height": buf[self.STATE_SNAP_WORLD_HEIGHT_OFF],
         }
 
     # ── Debug actions (semantic harness operations) ──────────────────

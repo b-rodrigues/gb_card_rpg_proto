@@ -38,6 +38,10 @@ void overworld_screen_update(Game *g)
      * those before reading fresh input. */
     move_res = world_update_move(&g->world, &g->state);
 
+    /* Keep the camera on the player: scroll the view window when the player
+     * crosses its edge, clamped to the scene bounds. */
+    world_update_scroll(&g->world);
+
     if (input_pressed(INPUT_START)) {
         g->item_menu_index = 0;
         g->item_menu_tab = 0;

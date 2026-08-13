@@ -29,7 +29,7 @@ OBJS_DEBUG = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/debug/%.o,$(SRCS))
 # Emulator detection
 EMULATOR ?= $(shell command -v sameboy 2>/dev/null || command -v mgba-sdl 2>/dev/null || command -v mgba-qt 2>/dev/null || command -v mgba 2>/dev/null || echo "")
 
-.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot lint memmap clean
+.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot lint memmap verify-oam gfx clean
 
 all: $(TARGET)
 
@@ -41,7 +41,7 @@ debug: $(TARGET_DEBUG)
 # build: sdcc's --use-stdout pipeline corrupts the .asm stream when warnings
 # are enabled (they leak into stdout).  Compiling with -S surfaces the same
 # warnings without invoking the assembler.
-lint: $(SRCS)
+lint: gfx $(SRCS)
 	@ok=1; \
 	for f in $(SRCS); do \
 		out=$$($(CC) -S -Wf-Wall $(INCLUDES) -o /dev/null "$$f" 2>&1 || true); \
@@ -50,6 +50,16 @@ lint: $(SRCS)
 		fi; \
 	done; \
 	if [ "$$ok" = "1" ]; then echo "lint: no warnings"; else exit 1; fi
+
+# Regenerate GB tile data headers from PNG assets (docs/graphics.md pipeline).
+# Deterministic: rerunning produces byte-identical output.  Requires Pillow,
+# which the Nix dev shell provides.
+GFX_OUT_DIR = $(SRC_DIR)/gfx
+
+gfx:
+	@mkdir -p $(GFX_OUT_DIR)
+	@python3 tools/png2gb.py assets/player_demo.png --name player_sprite_tile \
+		-o $(GFX_OUT_DIR)/player_sprite_tile.h
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -65,11 +75,11 @@ $(BUILD_DIR)/debug/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 $(GB_LITE) $(SM83_LITE): $(OBJS) $(OBJS_DEBUG) | $(BUILD_DIR)
 	python3 tools/make_lite_libs.py $(BUILD_DIR)
 
-$(TARGET): $(OBJS) build/crt0.o $(GB_LITE) $(SM83_LITE) | $(BUILD_DIR)
+$(TARGET): gfx $(OBJS) build/crt0.o $(GB_LITE) $(SM83_LITE) | $(BUILD_DIR)
 	$(CC) -no-crt -Wm-yc -Wl-yt0x19 -Wl-yo8 -o $@ build/crt0.o $(OBJS) $(GB_LITE) $(SM83_LITE)
 	@$(RGBFIX) -C -m 0x1b -r 2 -t "GBCARDRPG" $@ 2>/dev/null || true
 
-$(TARGET_DEBUG): $(OBJS_DEBUG) build/crt0.o $(GB_LITE) $(SM83_LITE) | $(BUILD_DIR)
+$(TARGET_DEBUG): gfx $(OBJS_DEBUG) build/crt0.o $(GB_LITE) $(SM83_LITE) | $(BUILD_DIR)
 	$(CC) -no-crt -Wm-yc -Wl-yt0x19 -Wl-yo8 -Wl-m -Wl-j -Wl-y -o $@ build/crt0.o $(OBJS_DEBUG) $(GB_LITE) $(SM83_LITE)
 	@python3 tools/make_sym.py $(BUILD_DIR)/rpg_card_proto_debug.noi $(BUILD_DIR)/rpg_card_proto_debug.sym
 	@$(RGBFIX) -C -m 0x1b -r 2 -t "GBCARDRPG" $@ 2>/dev/null || true
@@ -116,6 +126,11 @@ roundtrip: debug
 
 screenshot: $(TARGET)
 	@bash tools/screenshot.sh $(BUILD_DIR)/screenshot.png $(TARGET)
+
+# Verify the player sprite's real-OAM transition-hide across screen changes
+# and scene (map) changes via the mGBA debugger (see tools/verify_oam.py).
+verify-oam: debug
+	@python3 tools/verify_oam.py
 
 # Print a reproducible memory budget (code/WRAM usage, _HOME headroom vs the
 # 0x8000 ceiling).  Exits non-zero if a documented invariant is violated.

@@ -59,5 +59,11 @@ int main(void)
         if (!g_harness_mode) {
             vsync();
         }
+        /* DMA shadow OAM to real OAM during VBlank (after vsync) so every
+         * displayed frame has the sprite in the correct state.  Transitions
+         * force the hide earlier (ui_sprite_begin_transition in game_render)
+         * so the sprite is gone before the new screen's redraw wipes the
+         * display. */
+        ui_sprite_commit();
     }
 }

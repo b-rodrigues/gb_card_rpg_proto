@@ -59,6 +59,14 @@ clear_loop:
         inc     a
         ld      (__current_bank), a
 
+        ; Shadow OAM lives at the base of WRAM; refresh_OAM() DMAs it to real
+        ; OAM (0xFE00).  The WRAM clear above zeroed __shadow_OAM_base, so set
+        ; it explicitly to 0xC000 (high byte = DMA source).
+        xor     a
+        ld      (__shadow_OAM_base), a       ; low byte 0x00
+        ld      a, #0xC0
+        ld      (__shadow_OAM_base + 1), a   ; high byte 0xC0
+
         ; Copy the RAM-resident VBlank ISR into WRAM (always mapped,
         ; independent of ROM banking).  IE is enabled here; IME is enabled
         ; later by main() -> enable_interrupts().
@@ -108,6 +116,20 @@ vsync_wait:
         .globl  .call_hl
 .call_hl:
         jp      (hl)
+
+        ; refresh_OAM() copies shadow OAM (WRAM base 0xC000) to real OAM
+        ; (0xFE00) via OAM DMA.  GBDK's stock crt0 (which defines this) is
+        ; not linked (-no-crt), so we provide the C API here.  Must stay in
+        ; bank 0 so the RAM-resident ISR's baked-in call target is mapped.
+        .globl  _refresh_OAM
+_refresh_OAM:
+        ld      a, #0xC0                    ; shadow OAM lives at 0xC000
+        ldh     (0xFF46), a                  ; initiate OAM DMA
+        ld      a, #0x28                     ; ~40 * 4 cycles
+refresh_oam_wait:
+        dec     a
+        jr      nz, refresh_oam_wait
+        ret
 
         .globl  .reset
         .globl  .remove_int

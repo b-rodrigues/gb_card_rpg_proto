@@ -211,6 +211,15 @@ static void scenario_load_state(void)
     }
 
     game_render_reset(&g_game);
+
+    /* Boot-to-dialogue: the world was not drawn by an overworld render, so
+     * the dialogue screen must establish it behind the box itself.  Poke
+     * prev_screen (rather than g_game.prev_screen, which item-menu close
+     * navigation reads) so dialogue_screen_render() does not skip its
+     * ui_draw_world_full() on the first frame. */
+    if (dialogue_id != DIALOGUE_ID_NONE) {
+        g_game.render_cache.prev_screen = SCREEN_DIALOGUE;
+    }
     debug_snapshot();
 }
 

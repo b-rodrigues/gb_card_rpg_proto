@@ -62,11 +62,41 @@ Any sprite state change around a transition must therefore be written to
 
 * `game_render()` calls `ui_sprite_begin_transition()` (forces real OAM Y=0,
   preserves shadow position) before `screen_render()` whenever a full redraw
-  is about to run (`render_cache` invalid or screen changed).
+  is about to run.
 * `ui_sprite_commit()` (shadow OAM → real OAM DMA) runs once per frame in
   `main.c` **after `vsync()`**, i.e. during VBlank, so each displayed frame
   shows exactly the intended sprite state and the transition hide never
   reveals the sprite at a stale position over the wipe.
+
+There are exactly three hide triggers, and nothing else:
+
+1. render cache invalid (`rc->valid == false`) — screen change / boot /
+   restart (a `game_render_reset()`);
+2. screen change detected mid-transition (`rc->prev_screen != g->screen`);
+3. map change (`g->world.map_id != rc->prev_map_id`) — a gate crossing goes
+   through `world_change_map()` without a reset, so the overworld renderer
+   wipes based on this mismatch alone.
+
+`game_render_reset()` must therefore initialize `prev_map_id` to the current
+map (`g->world.map_id`) and `prev_screen` to the screen being left, **never**
+magic `255` sentinels.  A `255` `prev_map_id` makes every non-overworld frame
+(battle/dialogue/menu) look like a map change, re-running the hide every
+frame — on real hardware the reveal only happens during VBlank, so the sprite
+is invisible for the whole fight/discussion.  Steady frames on those screens
+must never re-hide.  This regression is caught by `make verify-oam` (break
+at `ui_sprite_begin_transition` and assert it never fires on steady battle
+frames); see AGENTS.md §52.15-52.17.
+
+### Dialogue overlay rule
+
+A dialogue started from the overworld draws **only its box** over the
+overworld's last full redraw (the box covers the HUD rows); it must NOT call
+`ui_draw_world_full()` — that would wipe the map the player just saw.
+`dialogue_screen_render()` skips the world draw when `rc->prev_screen ==
+SCREEN_OVERWORLD`.  A dialogue that is NOT preceded by the overworld
+(scenario boot) must force the world draw via `render_cache.prev_screen =
+SCREEN_DIALOGUE` (done in `scenarios.c`); never poke `g_game.prev_screen`,
+which item-menu close navigation reads.
 
 ## Screens to rewire
 

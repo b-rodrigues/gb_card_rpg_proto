@@ -21,6 +21,14 @@ screen.
 5. **Save/load roundtrip** (`save_load_roundtrip` scenario): SAVE, mutate,
    LOAD, assert state identical.  Also `make roundtrip SCENARIO=<name>` for
    the host-side descriptor lossless check.
+6. **Hardware-fidelity OAM checks** (`make verify-oam`): drives the debug ROM
+   through real transitions and asserts real OAM (`0xFE00`) state at VBlank
+   pauses, plus breakpoint-based execution checks for VBlank-timed rendering
+   bugs the harness cannot see (the harness skips vsync, so a hide→commit
+   cycle completes within one frame and OAM reads always show the revealed
+   state — AGENTS.md §52.15).  Each section establishes its own scenario
+   state and is negative-tested (AGENTS.md §52.16).  Run in CI after the
+   harness.
 
 ## Scenario anatomy
 

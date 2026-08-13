@@ -2009,6 +2009,63 @@ Rules:
 * If a new feature needs a big scratch buffer, put it in a `static`
   (WRAM or banked) buffer, never on the stack.
 
+## 52.15 Harness vsync-skip blinds OAM reads to VBlank-timed rendering bugs
+
+The harness runs with `g_harness_mode`, which skips `vsync()` (and the audio
+ISR).  The sprite transition hide→commit cycle
+(`ui_sprite_begin_transition()` in `game_render()`, `ui_sprite_commit()`
+after `vsync()` in `main.c`) is therefore **entirely inside one frame** under
+the harness: real/shadow OAM reads at any VBlank pause always show the
+*revealed* state.  A bug that only breaks the VBlank-timed reveal is
+invisible to every harness OAM/semantic read.
+
+This bit the per-frame sprite re-hide: `game_render_reset()` initialized
+`prev_map_id` to a `255` sentinel, so every non-overworld frame looked like a
+map change and `game_render()` re-ran `ui_sprite_begin_transition()` every
+frame.  On real hardware (vsync ON) the reveal only happened during VBlank,
+leaving the sprite hidden for the whole fight/discussion; the harness could
+not see it.
+
+Rules:
+
+* VBlank-timed rendering must be validated with **execution** checks
+  (`make verify-oam`, mGBA breakpoints), not state reads: assert that
+  `ui_sprite_begin_transition` does NOT fire on steady battle frames, that
+  the dialogue render does NOT reach `ui_draw_world_full`, etc.
+* Initialize transition-relevant render-cache sentinels to the current
+  runtime value (e.g. `prev_map_id = g->world.map_id`), never a magic `255`
+  that collides with "everything changed".
+
+## 52.16 Regression checks must reach the bug's state, and be negative-tested
+
+A debugger check that does not reproduce the bug's state passes on the buggy
+ROM.  The steady-battle-frame check originally ran from boot (fresh session,
+scenario never loaded); `ui_sprite_begin_transition` correctly never fires on
+title frames, so it passed 5/5 on the buggy ROM and looked green.
+
+Rules:
+
+* A check must first drive the ROM to the exact state the bug needs (load
+  the scenario, walk into the encounter, wait out the transition wipe)
+  before arming breakpoints or reading OAM.
+* Validate every new check with a **negative test**: temporarily restore the
+  bug, confirm the check FAILS, then restore the fix and confirm it passes.
+  A check that cannot fail on the bug is not a check.
+* Confirm a breakpoint was actually armed (parse the `break` response for
+  `Added breakpoint`) instead of silently continuing when it was not.
+
+## 52.17 mGBA debugger `frame` pause parity
+
+Where `frame` pauses (a VBlank wait point, the `game_render` breakpoint that
+`connect()` arms, or a just-armed breakpoint) is parity/timing dependent
+across runs (boot timing shifts).  Design breakpoint checks against the main
+loop order instead: `game_render()` runs before `vsync()`, so from a
+`game_render`-entry pause the first `frame` reliably reaches any code inside
+`game_render` (e.g. the begin_transition hide) before the VBlank stop.
+`connect()` also leaves the `game_render` and canary breakpoints armed, so
+run checks that arm their own breakpoints in separate sessions (one per
+section) to avoid cross-pauses.
+
 ---
 
 # 53. State Ownership

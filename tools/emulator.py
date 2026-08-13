@@ -642,6 +642,26 @@ class EmulatorSession:
         time.sleep(0.005)
         self.step(1)
 
+    def hold(self, button, frames):
+        """Hold a button down for N frames.
+
+        The ROM consumes g_inp_mask once per frame (edge-triggered, see
+        AGENTS.md 52.10), so a single press() only registers for one frame.
+        A hold rewrites g_inp_mask before every stepped frame, keeping
+        input_held() true throughout -- the overworld's hold-to-move path.
+        The mask is cleared on the last frame, so the button releases after
+        exactly ``frames`` frames of held input.
+        """
+        btn_upper = button.upper()
+        if btn_upper not in self.button_masks:
+            raise ValueError(f"Unknown button '{button}'")
+        mask = self.button_masks[btn_upper]
+        addr = self.get_symbol("g_inp_mask")
+        for i in range(frames):
+            self._memwrite(addr, mask)
+            time.sleep(0.005)
+            self.step(1)
+
     # ── Scenario loading ────────────────────────────────────────────
 
     def load_scenario(self, scenario):

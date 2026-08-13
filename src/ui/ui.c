@@ -81,16 +81,17 @@ void ui_sprite_init(void)
     hide_sprite(PLAYER_SPRITE_NUM);
 }
 
-/* Position the player sprite over background tile (map_x, map_y).
- * Hardware OAM coordinates are offset +8/+16 from the visible tile grid
- * (GBDK's move_sprite takes raw OAM coordinates, not screen tiles); a
- * valid position (y >= 16) also un-hides the sprite.  Only shadow OAM is
- * written here; ui_sprite_commit() (called once at the end of every frame)
- * DMAs it to real OAM at the frame boundary, so the displayed sprite is
- * always in the correct state for the current screen. */
-void ui_sprite_move(uint8_t map_x, uint8_t map_y)
+/* Position the player sprite at pixel coordinate (px, py), where a tile at
+ * (tx, ty) is at (tx*8, ty*8).  Hardware OAM coordinates are offset +8/+16
+ * from the visible pixel grid (GBDK's move_sprite takes raw OAM
+ * coordinates, not screen tiles); a valid position (y >= 16) also un-hides
+ * the sprite.  Only shadow OAM is written here; ui_sprite_commit() (called
+ * once at the end of every frame) DMAs it to real OAM at the frame boundary,
+ * so the displayed sprite is always in the correct state for the current
+ * screen. */
+void ui_sprite_move(uint8_t px, uint8_t py)
 {
-    move_sprite(PLAYER_SPRITE_NUM, (uint8_t)(map_x * 8 + 8), (uint8_t)(map_y * 8 + 16));
+    move_sprite(PLAYER_SPRITE_NUM, (uint8_t)(px + 8), (uint8_t)(py + 16));
 }
 
 /* Hide the player sprite (OAM Y = 0).  Called on transitions away from the
@@ -232,7 +233,7 @@ void ui_draw_world_map(const World *world)
         }
     }
 
-    ui_sprite_move(world->player.position.x, world->player.position.y);
+    ui_sprite_move(world_player_px(world), world_player_py(world));
 }
 
 void ui_draw_overworld_hud(const World *world)
@@ -268,17 +269,17 @@ void ui_draw_world_full(const World *world)
     ui_draw_overworld_hud(world);
 }
 
-void ui_update_player_position(const World *world, uint8_t old_x, uint8_t old_y, uint8_t new_x, uint8_t new_y)
+void ui_update_player_position(const World *world, uint8_t old_px, uint8_t old_py, uint8_t new_px, uint8_t new_py)
 {
     /* The background never encodes the player (see ui_draw_world_map), so
-     * there is nothing to erase/redraw at old_x/old_y any more -- moving
-     * the OAM sprite is the whole update.  old_x/old_y are kept in the
+     * there is nothing to erase/redraw at old_px/old_py any more -- moving
+     * the OAM sprite is the whole update.  old_px/old_py are kept in the
      * signature so callers (RenderCache in overworld_screen.c) don't need
      * to change. */
-    (void)old_x;
-    (void)old_y;
+    (void)old_px;
+    (void)old_py;
     if (!world) return;
-    ui_sprite_move(new_x, new_y);
+    ui_sprite_move(new_px, new_py);
 }
 
 static void ui_put_char(uint8_t x, uint8_t y, char ch)

@@ -15,6 +15,9 @@ void world_load_map(World *w, MapId map_id, const GameState *state)
     w->map_id = map_id;
     w->encounter_actor_index = NO_ACTOR_INDEX;
     w->map_changed = false;
+    w->move_state = MOVE_STATE_IDLE;
+    w->move_progress = 0;
+    w->move_outcome = MOVE_OUTCOME_NONE;
 
     /* Scene data determines the terrain and the exits. */
     scene_load_tiles(w, map_id);
@@ -56,24 +59,26 @@ bool world_is_walkable(const World *w, uint8_t x, uint8_t y)
     return true;
 }
 
-WorldMoveResult world_move_player(World *w, int8_t dx, int8_t dy,
-                                  const GameState *state)
+WorldMoveResult world_try_begin_move(World *w, int8_t dx, int8_t dy,
+                                     const GameState *state)
 {
-    uint8_t old_x, old_y;
     uint8_t target_x, target_y;
     uint8_t target_tile;
     uint8_t hostile_slot;
+    uint8_t outcome;
     const WorldActorDefinition *actor;
 
     if (!w) return MOVE_RESULT_NONE;
+    if (w->move_state == MOVE_STATE_MOVING) return MOVE_RESULT_NONE;
+    (void)state;   /* only world_update_move resolves the exit at commit */
 
     if (dy < 0) w->player.facing = DIRECTION_UP;
     else if (dy > 0) w->player.facing = DIRECTION_DOWN;
     else if (dx < 0) w->player.facing = DIRECTION_LEFT;
     else if (dx > 0) w->player.facing = DIRECTION_RIGHT;
 
-    target_x = (uint8_t)((int16_t)w->player.position.x + dx);
-    target_y = (uint8_t)((int16_t)w->player.position.y + dy);
+    target_x = (uint8_t)(w->player.position.x + dx);
+    target_y = (uint8_t)(w->player.position.y + dy);
 
     if (!world_is_walkable(w, target_x, target_y)) {
         return MOVE_RESULT_BLOCKED;
@@ -81,43 +86,118 @@ WorldMoveResult world_move_player(World *w, int8_t dx, int8_t dy,
 
     target_tile = w->map[target_y][target_x];
 
-    /* Generic scene exit: the scene definition owns destination + spawn. */
-    if (target_tile == TILE_EXIT) {
-        const SceneDefinition *def = scene_definition_for_map(w->map_id);
-        const SceneExit *ex = scene_exit_at(def, target_x, target_y);
-        if (ex) {
-            world_change_map(w, scene_id_to_map(ex->target_scene),
-                             ex->spawn_x, ex->spawn_y, state);
-            return MOVE_RESULT_MAP_CHANGED;
-        }
-    }
-
     /* Generic hostile World Actor collision: record which slot was hit so
-     * the battle system can read the right HP. */
+     * the battle system can read the right HP.  Resolved at move commit. */
     hostile_slot = actor_find_hostile_slot(w, target_x, target_y);
     if (hostile_slot != NO_ACTOR_INDEX) {
-        telemetry_emit(EVENT_ACTOR_COLLISION, target_x, target_y,
-                       (uint8_t)w->actors[hostile_slot].id, 0);
-        telemetry_emit(EVENT_ENCOUNTER_STARTED,
-                       (uint8_t)w->actors[hostile_slot].id, 0, 0, 0);
+        outcome = MOVE_OUTCOME_ENCOUNTER;
         w->encounter_actor_index = hostile_slot;
-        return MOVE_RESULT_ENCOUNTER;
+    } else {
+        /* Generic friendly World Actor collision (static definitions). */
+        actor = actor_find_at(w, target_x, target_y);
+        if (actor) {
+            telemetry_emit(EVENT_ACTOR_COLLISION, target_x, target_y,
+                           (uint8_t)actor->id, 0);
+            return MOVE_RESULT_BLOCKED;
+        }
+        outcome = (target_tile == TILE_EXIT) ? MOVE_OUTCOME_EXIT
+                                             : MOVE_OUTCOME_NORMAL;
     }
 
-    /* Generic friendly World Actor collision (static definitions). */
-    actor = actor_find_at(w, target_x, target_y);
-    if (actor) {
-        telemetry_emit(EVENT_ACTOR_COLLISION, target_x, target_y,
-                       (uint8_t)actor->id, 0);
-        return MOVE_RESULT_BLOCKED;
-    }
-
-    old_x = w->player.position.x;
-    old_y = w->player.position.y;
-    w->player.position.x = target_x;
-    w->player.position.y = target_y;
-    telemetry_emit(EVENT_PLAYER_MOVED, old_x, old_y, target_x, target_y);
+    w->move_target_x = target_x;
+    w->move_target_y = target_y;
+    w->move_progress = 0;
+    w->move_outcome = outcome;
+    w->move_state = MOVE_STATE_MOVING;
     return MOVE_RESULT_MOVED;
+}
+
+WorldMoveResult world_update_move(World *w, const GameState *state)
+{
+    uint8_t target_x, target_y;
+
+    if (!w) return MOVE_RESULT_NONE;
+    if (w->move_state != MOVE_STATE_MOVING) return MOVE_RESULT_NONE;
+
+    w->move_progress++;
+    if (w->move_progress >= MOVE_FRAMES) {
+        /* Commit: resolve the move's outcome against the target tile. */
+        target_x = w->move_target_x;
+        target_y = w->move_target_y;
+        w->move_progress = 0;
+        w->move_state = MOVE_STATE_IDLE;
+
+        if (w->move_outcome == MOVE_OUTCOME_EXIT) {
+            /* Generic scene exit: the scene definition owns destination +
+             * spawn.  Like the legacy instant move, the player never commits
+             * PLAYER_MOVED onto the gate; the map changes instead. */
+            const SceneDefinition *def = scene_definition_for_map(w->map_id);
+            const SceneExit *ex = scene_exit_at(def, target_x, target_y);
+            if (ex) {
+                world_change_map(w, scene_id_to_map(ex->target_scene),
+                                 ex->spawn_x, ex->spawn_y, state);
+                return MOVE_RESULT_MAP_CHANGED;
+            }
+            return MOVE_RESULT_BLOCKED;
+        } else if (w->move_outcome == MOVE_OUTCOME_ENCOUNTER) {
+            /* The player does not occupy the enemy tile; battle starts from
+             * the pre-move position (matches the legacy instant behavior).
+             * The hostile slot was persisted by world_try_begin_move. */
+            if (w->encounter_actor_index != NO_ACTOR_INDEX) {
+                telemetry_emit(EVENT_ACTOR_COLLISION, target_x, target_y,
+                               (uint8_t)w->actors[w->encounter_actor_index].id, 0);
+                telemetry_emit(EVENT_ENCOUNTER_STARTED,
+                               (uint8_t)w->actors[w->encounter_actor_index].id, 0, 0, 0);
+                return MOVE_RESULT_ENCOUNTER;
+            }
+            return MOVE_RESULT_BLOCKED;
+        } else {
+            telemetry_emit(EVENT_PLAYER_MOVED, w->player.position.x,
+                           w->player.position.y, target_x, target_y);
+            w->player.position.x = target_x;
+            w->player.position.y = target_y;
+            return MOVE_RESULT_MOVED;
+        }
+    }
+    return MOVE_RESULT_MOVED;
+}
+
+bool world_is_moving(const World *w)
+{
+    if (!w) return false;
+    return w->move_state == MOVE_STATE_MOVING;
+}
+
+uint8_t world_player_px(const World *w)
+{
+    uint8_t px;
+    uint8_t base;
+    uint8_t progress;
+    if (!w) return 0;
+    px = (uint8_t)(w->player.position.x * 8);
+    if (w->move_state == MOVE_STATE_MOVING) {
+        base = w->player.position.x;
+        progress = w->move_progress;
+        if (w->move_target_x > base) px = (uint8_t)(px + progress);
+        else if (w->move_target_x < base) px = (uint8_t)(px - progress);
+    }
+    return px;
+}
+
+uint8_t world_player_py(const World *w)
+{
+    uint8_t py;
+    uint8_t base;
+    uint8_t progress;
+    if (!w) return 0;
+    py = (uint8_t)(w->player.position.y * 8);
+    if (w->move_state == MOVE_STATE_MOVING) {
+        base = w->player.position.y;
+        progress = w->move_progress;
+        if (w->move_target_y > base) py = (uint8_t)(py + progress);
+        else if (w->move_target_y < base) py = (uint8_t)(py - progress);
+    }
+    return py;
 }
 
 void world_on_battle_end(Game *g, bool victory)
@@ -172,6 +252,12 @@ void world_set_player_pos(World *w, uint8_t x, uint8_t y)
     if (!w) return;
     w->player.position.x = x;
     w->player.position.y = y;
+    /* Teleports cancel any in-flight move animation (and its pending
+     * encounter commit). */
+    w->move_state = MOVE_STATE_IDLE;
+    w->move_progress = 0;
+    w->move_outcome = MOVE_OUTCOME_NONE;
+    w->encounter_actor_index = NO_ACTOR_INDEX;
 }
 
 void world_set_actor_pos(World *w, EntityId id, uint8_t x, uint8_t y)

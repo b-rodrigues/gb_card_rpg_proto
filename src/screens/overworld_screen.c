@@ -7,6 +7,12 @@
 #include "audio.h"
 #include "content.h"
 
+/* Last drawn overworld camera offset, for redrawing the terrain tile window
+ * when the camera scrolls (a file-static rather than a RenderCache field so
+ * the Game struct layout stays untouched). */
+static uint8_t s_prev_scroll_x;
+static uint8_t s_prev_scroll_y;
+
 static void start_battle_from_world(Game *g)
 {
     uint8_t idx = g->world.encounter_actor_index;
@@ -112,12 +118,25 @@ void overworld_screen_render(Game *g)
         rc->valid = true;
         rc->prev_screen = SCREEN_OVERWORLD;
         rc->prev_map_id = g->world.map_id;
+        s_prev_scroll_x = g->world.scroll_x;
+        s_prev_scroll_y = g->world.scroll_y;
         rc->prev_player_x = world_player_px(&g->world);
         rc->prev_player_y = world_player_py(&g->world);
         rc->prev_dialogue_active = false;
         rc->prev_dialogue_line = 255;
         rc->prev_dialogue_id = DIALOGUE_ID_NONE;
         return;
+    }
+
+    /* Camera moved (player crossed the view edge): redraw the terrain tile
+     * window at the new scroll offset without a full-screen clear. */
+    if (g->world.scroll_x != s_prev_scroll_x ||
+        g->world.scroll_y != s_prev_scroll_y) {
+        ui_draw_world_map(&g->world);
+        s_prev_scroll_x = g->world.scroll_x;
+        s_prev_scroll_y = g->world.scroll_y;
+        rc->prev_player_x = world_player_px(&g->world);
+        rc->prev_player_y = world_player_py(&g->world);
     }
 
     /* Incremental overworld player movement (NO full screen clear): the

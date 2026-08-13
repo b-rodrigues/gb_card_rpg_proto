@@ -60,6 +60,8 @@ gfx:
 	@mkdir -p $(GFX_OUT_DIR)
 	@python3 tools/png2gb.py assets/player_demo.png --name player_sprite_tile \
 		-o $(GFX_OUT_DIR)/player_sprite_tile.h
+	@python3 tools/png2gb.py assets/world_tiles.png --name world_tiles \
+		-o $(GFX_OUT_DIR)/world_tiles.h
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)

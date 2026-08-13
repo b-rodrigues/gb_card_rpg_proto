@@ -174,6 +174,95 @@ _wait_vbl_done:
 _vsync:
         jp      .vsync
 
+; ── Banked-content copy trampoline ─────────────────────────────────
+; Copies `n` bytes from a banked ROM source to a WRAM destination while
+; running entirely from WRAM, so the MBC5 bank switch (rROMB0 at 0x2000)
+; is safe regardless of which ROM bank the fixed-bank caller currently
+; maps.  A bank switch executed from switchable ROM (0x4000+) unmaps the
+; very instruction stream doing the switch; WRAM is always mapped.  The
+; body is copied from ROM to the linker-allocated _g_banked_tramp buffer
+; (WRAM) by _banked_copy_init (see §52.11/§35: like the VBlank ISR, it must
+; be RAM-resident because the harness skips CRT0; game_init calls the init
+; so it runs in both real boot and harness boot paths).
+;
+; No-arg entry: the C wrapper banked_copy() (src/core/banked.c) stores the
+; four arguments into _DATA globals (g_bank_copy_bank/dst/src/n) before
+; calling, so this trampoline never parses SDCC's stack layout.  The bank
+; register is always restored to the project's home bank 1 before returning.
+;
+; Home bank is 1, NOT 0: the project links with -yo8, so the fixed-bank
+; _CODE/_HOME area spans file 0x0000-0x7FFF and the second half (file
+; 0x4000-0x7FFF, containing the SDCC runtime helpers and library code) is
+; reached at CPU 0x4000-0x7FFF with ROMB=1 (crt0.s init stores
+; __current_bank = 1).  Bank 0 (file 0x0000-0x3FFF) only covers the fixed
+; region; with ROMB=0, CPU 0x4000+ reads bank 0's first half (file
+; 0x0000-0x3FFF) and every fixed-bank call above 0x4000 executes garbage.
+        .globl  _g_bank_copy_bank
+        .globl  _g_bank_copy_dst
+        .globl  _g_bank_copy_src
+        .globl  _g_bank_copy_n
+_banked_copy_tramp:
+        xor     a
+        ld      (0x3000), a          ; MBC5 ROM bank high byte = 0
+        ld      a, (_g_bank_copy_bank)
+        ld      (0x2000), a          ; select ROM bank
+        ld      hl, #_g_bank_copy_src
+        ld      a, (hl)
+        inc     hl
+        ld      h, (hl)
+        ld      l, a                ; hl = g_bank_copy_src
+        ld      d, h
+        ld      e, l                ; de = src
+        ld      hl, #_g_bank_copy_dst
+        ld      a, (hl)
+        inc     hl
+        ld      h, (hl)
+        ld      l, a                ; hl = dst
+        ld      a, (_g_bank_copy_n)
+        ld      c, a
+ banked_copy_loop:
+        ld      a, (de)             ; read src byte
+        ld      (hl), a             ; write dst byte
+        inc     de
+        inc     hl
+        dec     c
+        jr      nz, banked_copy_loop
+        ld      a, #0x01
+        ld      (0x2000), a          ; restore home bank 1 (see below)
+        ld      (__current_bank), a
+        ret
+ _banked_copy_tramp_end:
+
+; ROM stub for the C wrapper (src/core/banked.c): jumps into the WRAM
+; trampoline.  The trampoline's WRAM home is the linker-allocated C buffer
+; _g_banked_tramp (src/core/banked.c), so its address is resolved by the
+; linker rather than hardcoded.  Runs from the fixed bank and switches
+; nothing, so it is safe regardless of the caller's address.
+        .globl  _g_banked_tramp
+        .globl  _banked_copy_run
+_banked_copy_run:
+        ld      hl, #_g_banked_tramp
+        jp      (hl)
+
+; Copies the trampoline body from ROM into the _g_banked_tramp buffer.
+; Called once from game_init() so both real hardware and the harness have it
+; resident before any banked content is read.
+        .globl  _banked_copy_init
+_banked_copy_init:
+        ld      hl, #_banked_copy_tramp
+        ld      de, #_g_banked_tramp
+        ld      bc, #(_banked_copy_tramp_end - _banked_copy_tramp)
+banked_copy_init_loop:
+        ld      a, (hl)
+        inc     hl
+        ld      (de), a
+        inc     de
+        dec     bc
+        ld      a, b
+        or      c
+        jr      nz, banked_copy_init_loop
+        ret
+
         .area   _HOME
 
         .area   _DATA

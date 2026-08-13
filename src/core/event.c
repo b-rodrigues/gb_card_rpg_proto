@@ -4,18 +4,41 @@
 #include "screen.h"
 #include "rpg/inventory.h"
 #include "rpg/currency.h"
+#include "banked.h"
 
 /* ── Event engine ──────────────────────────────────────────────────
  * The engine matches events against a table registered by the game layer
  * (event_init, called from src/game/events.c).  First match wins; for
- * INTERACT events more specific conditions must precede the fallback. */
+ * INTERACT events more specific conditions must precede the fallback.
+ *
+ * The table may live in a banked ROM region (see game_ids.h
+ * GAME_CONTENT_BANK): every row is copied into a WRAM scratch copy before
+ * it is read, so callers never touch banked data and the bank register is
+ * always restored to 0.  event_get_row() returns the scratch copy; a
+ * returned pointer is only valid until the next row access. */
 static const EventDefinition *g_events = NULL;
 static uint8_t g_event_count = 0;
+static uint8_t g_event_bank = 0;
+static EventDefinition g_event_scratch;
 
-void event_init(const EventDefinition *table, uint8_t count)
+/* banked_copy() takes a uint8_t byte count; a larger row cannot be staged. */
+typedef char event_def_fits_banked_copy[sizeof(EventDefinition) <= 255 ? 1 : -1];
+
+void event_init(const EventDefinition *table, uint8_t count, uint8_t bank)
 {
     g_events = table;
     g_event_count = count;
+    g_event_bank = bank;
+}
+
+static const EventDefinition *event_get_row(uint8_t i)
+{
+    if (g_event_bank == 0) {
+        return &g_events[i];
+    }
+    banked_copy(g_event_bank, &g_event_scratch, &g_events[i],
+                sizeof(EventDefinition));
+    return &g_event_scratch;
 }
 
 static bool event_condition_met(const GameState *state, const EventCond *cond)
@@ -93,7 +116,7 @@ static const EventDefinition *event_first_match(Game *g, EventTriggerType trigge
     uint8_t i;
     if (!g_events) return NULL;
     for (i = 0; i < g_event_count; i++) {
-        const EventDefinition *def = &g_events[i];
+        const EventDefinition *def = event_get_row(i);
         if (def->trigger != trigger) continue;
         if (actor != ENTITY_ID_NONE && def->actor != ENTITY_ID_NONE && def->actor != actor) continue;
         if (map != EVENT_MAP_ANY && def->map != EVENT_MAP_ANY && def->map != map) continue;
@@ -147,7 +170,7 @@ void event_resolve_actor_defeated(Game *g, ActorId actor_id, EntityId entity_id)
     (void)actor_id;
 
     for (i = 0; i < g_event_count; i++) {
-        const EventDefinition *def = &g_events[i];
+        const EventDefinition *def = event_get_row(i);
         if (def->trigger != EVENT_TRIGGER_ACTOR_DEFEATED) continue;
         if (def->actor != ENTITY_ID_NONE && def->actor != entity_id) continue;
         if (!event_conds_met(&g->state, def)) continue;

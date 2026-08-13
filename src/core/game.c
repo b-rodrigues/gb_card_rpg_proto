@@ -9,6 +9,7 @@
 #include "rpg/progression.h"
 #include "rpg/party.h"
 #include "rpg/items.h"
+#include "banked.h"
 
 void game_render_reset(Game *g)
 {
@@ -40,6 +41,10 @@ void game_render_reset(Game *g)
 void game_init(Game *g)
 {
     if (!g) return;
+    /* Install the WRAM banked-copy trampoline before any banked content
+     * (event/dialogue tables) can be read.  Runs here rather than in CRT0
+     * init because the harness jumps straight to main(). */
+    banked_copy_init();
     g->frame = 0;
     g->game_over_choice = 0;
     g->shop_id = 1;

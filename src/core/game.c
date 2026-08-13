@@ -102,8 +102,14 @@ void game_render(Game *g)
      * several display sweeps (blank then top-to-bottom redraw), and the
      * sprite must not float over the wipe at a stale position.  The
      * frame-boundary commit (ui_sprite_commit in main.c, after vsync)
-     * reveals it at the new screen's position once the redraw is done. */
-    if (!rc->valid || rc->prev_screen != g->screen) {
+     * reveals it at the new screen's position once the redraw is done.
+     *
+     * Map changes are the third trigger: a gate crossing goes through
+     * world_change_map() without a screen change and without resetting the
+     * render cache, so overworld_screen_render() wipes the display based
+     * only on the map_id mismatch.  The condition mirrors that branch. */
+    if (!rc->valid || rc->prev_screen != g->screen ||
+        g->world.map_id != rc->prev_map_id) {
         ui_sprite_begin_transition();
     }
     screen_render(g);

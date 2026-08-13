@@ -135,8 +135,9 @@ void overworld_screen_render(Game *g)
         return;
     }
 
-    /* Camera crossed a tile boundary: redraw only the tilemap-ring columns
-     * /rows that entered the window, then refill the semantic view. */
+    /* Camera crossed a tile boundary: redraw the tilemap-ring window around
+     * the new scroll origin (a full-window redraw -- correct with the
+     * wrapped (world & 31) ring addressing). */
     if (g->world.scroll_x != s_prev_scroll_x ||
         g->world.scroll_y != s_prev_scroll_y) {
         ui_draw_world_scroll(&g->world, s_prev_scroll_x, s_prev_scroll_y);

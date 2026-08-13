@@ -20,6 +20,7 @@ void ui_clear_screen(void);
 void ui_sprite_init(void);
 void ui_sprite_move(uint8_t map_x, uint8_t map_y);
 void ui_sprite_hide(void);
+void ui_sprite_begin_transition(void);
 void ui_sprite_commit(void);
 
 void ui_draw_world_map(const World *world);

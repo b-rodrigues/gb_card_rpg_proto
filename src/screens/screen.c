@@ -55,10 +55,14 @@ void screen_change(Game *g, ScreenId screen)
     if (g->screen == screen) return;
 
     /* The player sprite only belongs on the overworld (and behind the
-     * dialogue box, which redraws the world); hide it everywhere else so it
-     * does not float over battle/menu screens. */
+     * dialogue box, which redraws the world): hide it for every other
+     * screen.  All transitions also mark the next commit as a transition
+     * frame so the sprite disappears during the screen swap and reappears
+     * at the new screen's position on the following frame. */
     if (screen != SCREEN_OVERWORLD && screen != SCREEN_DIALOGUE) {
         ui_sprite_hide();
+    } else {
+        ui_sprite_begin_transition();
     }
 
     old_screen = g->screen;

@@ -32,6 +32,11 @@ static const palette_color_t cgb_palette[4] = {
 #define PLAYER_SPRITE_NUM 0
 #define PLAYER_SPRITE_TILE_ID 0
 
+/* Set when a screen change happens; the next ui_sprite_commit() forces the
+ * sprite hidden for one frame so it is not displayed at a stale position
+ * during the transition, then the new screen's position appears. */
+static uint8_t s_sprite_transition_pending = 0;
+
 void ui_init(void)
 {
     /* Turn the LCD off before loading the font so that display_off() inside
@@ -94,18 +99,43 @@ void ui_sprite_move(uint8_t map_x, uint8_t map_y)
 }
 
 /* Hide the player sprite (OAM Y = 0).  Called on transitions away from the
- * overworld so the blob does not float over battle/menu screens. */
+ * overworld so the blob does not float over battle/menu screens; also marks
+ * the next commit as a transition frame so the sprite is not displayed at a
+ * stale position during the screen swap. */
 void ui_sprite_hide(void)
 {
     hide_sprite(PLAYER_SPRITE_NUM);
+    s_sprite_transition_pending = 1;
+}
+
+/* Mark the next commit as a transition frame (for world/dialogue targets
+ * that reposition the sprite instead of hiding it): the sprite is hidden for
+ * one frame so it disappears during the screen swap and reappears at the new
+ * screen's position on the following frame. */
+void ui_sprite_begin_transition(void)
+{
+    s_sprite_transition_pending = 1;
 }
 
 /* DMA shadow OAM to real OAM.  Called once per frame at the end of
  * game_render() (right before vsync/VBlank) so every displayed frame has the
  * sprite in the correct state -- avoids mid-frame stale positions during
- * screen transitions. */
+ * screen transitions.  On a transition frame the sprite is forced hidden
+ * (shadow y saved/restored) so it is not visible over the wrong screen. */
 void ui_sprite_commit(void)
 {
+    OAM_item_t *spr;
+    uint8_t sy;
+
+    if (s_sprite_transition_pending) {
+        s_sprite_transition_pending = 0;
+        spr = &shadow_OAM[PLAYER_SPRITE_NUM];
+        sy = spr->y;
+        spr->y = 0;             /* hidden during the transition frame */
+        refresh_OAM();
+        spr->y = sy;            /* restore so the next frame positions it */
+        return;
+    }
     refresh_OAM();
 }
 

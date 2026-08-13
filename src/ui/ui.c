@@ -84,10 +84,13 @@ void ui_sprite_init(void)
 /* Position the player sprite over background tile (map_x, map_y).
  * Hardware OAM coordinates are offset +8/+16 from the visible tile grid
  * (GBDK's move_sprite takes raw OAM coordinates, not screen tiles); a
- * valid position (y >= 16) also un-hides the sprite. */
+ * valid position (y >= 16) also un-hides the sprite.  refresh_OAM() DMA-copies
+ * shadow OAM to real OAM so the sprite is visible immediately (the custom
+ * VBlank ISR also does this every frame on the real boot path). */
 void ui_sprite_move(uint8_t map_x, uint8_t map_y)
 {
     move_sprite(PLAYER_SPRITE_NUM, (uint8_t)(map_x * 8 + 8), (uint8_t)(map_y * 8 + 16));
+    refresh_OAM();
 }
 
 /* Hide the player sprite (OAM Y = 0).  Called on transitions away from the
@@ -95,6 +98,7 @@ void ui_sprite_move(uint8_t map_x, uint8_t map_y)
 void ui_sprite_hide(void)
 {
     hide_sprite(PLAYER_SPRITE_NUM);
+    refresh_OAM();
 }
 
 void ui_clear_screen(void)
@@ -292,12 +296,17 @@ void ui_draw_battle_full(const Battle *battle)
     ui_draw_text_line(9, 5, battle->enemy.name ? battle->enemy.name : "ENEMY", 8);
     ui_draw_hp_row(6, battle->enemy.hp, battle->enemy.max_hp);
 
-    ui_draw_text_line(0, 9, "  HERO:  HERO [@]", 20);
+    ui_draw_text_line(0, 9, "  HERO:", 7);
     ui_draw_hp_row(10, battle->player.hp, battle->player.max_hp);
 
     ui_draw_text_line(0, 13, "--------------------", 20);
 
     ui_update_battle(battle);
+
+    /* Show the real hero sprite on the battle screen (text row 8, col 2),
+     * un-hiding it from the screen_change() hide on the way in. */
+    move_sprite(PLAYER_SPRITE_NUM, 24, 80);
+    refresh_OAM();
 }
 
 void ui_update_battle(const Battle *battle)

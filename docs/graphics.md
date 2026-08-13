@@ -31,16 +31,24 @@ violated) rather than silently emitting broken graphics.
 Implemented:
 
 * `tools/png2gb.py` — PNG → GB 2bpp tileset (tile-alignment, palette-limit,
-  unsupported-color validation; exact canonical-shade matching, no lossy
-  snapping).  Single-image → tileset only; tilemap/OAM/dedup are TODO.
+  sprite-size, unsupported-color, tile-count validation; exact canonical-shade
+  matching, no lossy snapping).  Three modes:
+  * default: image → tileset byte array;
+  * `--tilemap`: multi-tile image → **deduped** tileset + row-major tilemap
+    (duplicate 8x8 tiles are emitted once and referenced by index);
+  * `--sprite 8|16`: 8-wide frame sheet → tiles + OAM frame defs (contiguous
+    tile ids so 8x16 sprites keep id/id+1).
+  `--selftest` runs deterministic byte-exact regression checks (dedup,
+  tilemap indices, sprite/OAM layout, validation rules); wired as
+  `make gfx-selftest`.
 * `make gfx` — regenerates `src/gfx/*.h` from `assets/*.png`
   (deterministic output; a CI step fails if the committed headers drift from
   the source assets).
 * `assets/player_demo.png` → `src/gfx/player_sprite_tile.h`, included by
   `src/ui/ui.c` (byte-identical to the previously hand-authored tile).
 
-TODO: tilemaps, OAM sprite definitions, duplicate-tile dedup, and the
-renderer rewiring below.
+TODO: the renderer rewiring below (terrain already renders as real GB tiles;
+battle/menu/dialogue/ending screens still draw through the console font).
 
 ## Renderer requirements (DMG + CGB)
 

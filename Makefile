@@ -29,7 +29,7 @@ OBJS_DEBUG = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/debug/%.o,$(SRCS))
 # Emulator detection
 EMULATOR ?= $(shell command -v sameboy 2>/dev/null || command -v mgba-sdl 2>/dev/null || command -v mgba-qt 2>/dev/null || command -v mgba 2>/dev/null || echo "")
 
-.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot lint memmap verify-oam gfx clean
+.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot lint memmap verify-oam gfx gfx-selftest clean
 
 all: $(TARGET)
 
@@ -62,6 +62,12 @@ gfx:
 		-o $(GFX_OUT_DIR)/player_sprite_tile.h
 	@python3 tools/png2gb.py assets/world_tiles.png --name world_tiles \
 		-o $(GFX_OUT_DIR)/world_tiles.h
+
+# Host-side regression tests for the PNG -> GB converter (duplicate-tile
+# detection, dedup/tilemap, sprite/OAM, validation rules).  Runs from the
+# Nix dev shell; deterministic and byte-exact.
+gfx-selftest:
+	@python3 tools/png2gb.py --selftest
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)

@@ -295,35 +295,3 @@ void world_on_battle_fled(Game *g)
         w->actors[idx].hp = g->battle.enemy.hp;
     }
 }
-
-void world_set_player_pos(World *w, uint8_t x, uint8_t y)
-{
-    if (!w) return;
-    w->player.position.x = x;
-    w->player.position.y = y;
-    /* Teleports cancel any in-flight move animation (and its pending
-     * encounter commit). */
-    w->move_state = MOVE_STATE_IDLE;
-    w->move_progress = 0;
-    w->move_outcome = MOVE_OUTCOME_NONE;
-    w->encounter_actor_index = NO_ACTOR_INDEX;
-}
-
-void world_set_actor_pos(World *w, EntityId id, uint8_t x, uint8_t y)
-{
-    uint8_t i;
-    if (!w) return;
-    for (i = 0; i < MAX_WORLD_ACTORS; i++) {
-        if (w->actors[i].active && w->actors[i].id == id) {
-            w->actors[i].x = x;
-            w->actors[i].y = y;
-            return;
-        }
-    }
-}
-
-void world_set_player_facing(World *w, Direction facing)
-{
-    if (!w) return;
-    w->player.facing = facing;
-}

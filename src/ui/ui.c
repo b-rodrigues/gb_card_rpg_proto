@@ -343,16 +343,74 @@ void ui_draw_world_map(const World *world)
                    (uint8_t)(world_player_py(world) - world->camera_px_y));
 }
 
-/* Redraw when the camera crosses a tile boundary.  Currently a full-window
- * ring redraw (correct with the wrapped addressing, and cheap at current
- * view sizes); the ring could later be maintained incrementally by drawing
- * only the entering columns/rows -- prev_sx/prev_sy keep that call site
- * stable. */
+/* Refill the semantic view from the tilemap ring mirror (DEBUG-only).  The
+ * ring/mirror is the ground truth of what is rendered; decoding it back to
+ * ASCII chars is unambiguous because terrain tiles are >= WORLD_TILE_BASE
+ * and actor tiles are ibm_font + visual (< WORLD_TILE_BASE).  Called after
+ * the entering-edge ring draw in ui_draw_world_scroll. */
+#ifdef DEBUG_BUILD
+static void ui_refill_semantic(const World *world)
+{
+    uint8_t x, y, col, row, tile;
+
+    for (y = 0; y < WORLD_VIEW_H; y++) {
+        for (x = 0; x < WORLD_VIEW_W; x++) {
+            col = (uint8_t)(world->scroll_x + x);
+            row = (uint8_t)(world->scroll_y + y);
+            tile = g_tilemap_mirror[(row & 31) * 32 + (col & 31)];
+            if (tile >= WORLD_TILE_BASE) {
+                g_ui_screen_buf[y][x] = g_sem_map[tile - WORLD_TILE_BASE];
+            } else {
+                g_ui_screen_buf[y][x] = (char)(tile - ibm_font);
+            }
+        }
+    }
+}
+#endif
+
+/* Redraw when the camera crosses a tile boundary.  Incremental: only the
+ * tilemap-ring column/row that entered the window is drawn (the ring holds
+ * world tiles at wrapped (world & 31) addresses, so cells still in view are
+ * already correct), then the semantic view is refilled from the mirror.
+ * prev_sx/prev_sy are the previous scroll tile origin.  Falls back to a
+ * full-window redraw on a diagonal or multi-tile scroll (debug teleports). */
 void ui_draw_world_scroll(const World *world, uint8_t prev_sx, uint8_t prev_sy)
 {
-    (void)prev_sx;
-    (void)prev_sy;
-    ui_draw_world_map(world);
+    int8_t dx, dy;
+    uint8_t c0, c1, r0, r1;
+
+    if (!world) return;
+    dx = (int8_t)(world->scroll_x - prev_sx);
+    dy = (int8_t)(world->scroll_y - prev_sy);
+    if (dx == 0 && dy == 0) return;
+
+    /* A diagonal or multi-tile scroll cannot be expressed as one entering
+     * edge; redraw the window in full. */
+    if ((dx != 0 && dy != 0) || dx < -1 || dx > 1 || dy < -1 || dy > 1) {
+        ui_draw_world_map(world);
+        return;
+    }
+
+    /* The ring covers [scroll_x, scroll_x+VIEW_W] x [scroll_y, scroll_y+VIEW_H].
+     * The entering edge is the new offset column/row when the camera moved
+     * right/down, or the new left/top column/row when it moved left/up. */
+    c0 = world->scroll_x;
+    c1 = (uint8_t)(world->scroll_x + WORLD_VIEW_W + 1);
+    r0 = world->scroll_y;
+    r1 = (uint8_t)(world->scroll_y + WORLD_VIEW_H + 1);
+    if (dx > 0) c0 = (uint8_t)(world->scroll_x + WORLD_VIEW_W);
+    else if (dx < 0) c1 = (uint8_t)(world->scroll_x + 1);
+    if (dy > 0) r0 = (uint8_t)(world->scroll_y + WORLD_VIEW_H);
+    else if (dy < 0) r1 = (uint8_t)(world->scroll_y + 1);
+    ui_draw_world_rect(world, c0, c1, r0, r1);
+
+#ifdef DEBUG_BUILD
+    ui_refill_semantic(world);
+#endif
+
+    /* Sprite stays camera-relative (the BG scrolls under it). */
+    ui_sprite_move((uint8_t)(world_player_px(world) - world->camera_px_x),
+                   (uint8_t)(world_player_py(world) - world->camera_px_y));
 }
 
 void ui_update_camera(const World *world)

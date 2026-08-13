@@ -27,12 +27,11 @@ void ui_draw_world_full(const World *world);
 void ui_update_player_position(const World *world, uint8_t old_px, uint8_t old_py, uint8_t new_px, uint8_t new_py);
 void ui_draw_text_line(uint8_t x, uint8_t y, const char *text, uint8_t max_chars);
 
-/* Overworld redraw when the camera crosses a tile boundary.  Currently a
- * full-window ring redraw: the VIEW_W+1 x VIEW_H+1 window around the new
- * scroll origin is redrawn into the 32x32 background tilemap ring (correct
- * with the wrapped (world & 31) addressing).  prev_sx/prev_sy (the previous
- * scroll tile origin) are reserved so the call site stays stable if this is
- * later reduced to drawing only the entering column/row. */
+/* Overworld redraw when the camera crosses a tile boundary.  Incremental:
+ * only the tilemap-ring column/row that entered the window is drawn (the
+ * ring holds world tiles at wrapped (world & 31) addresses, so cells still
+ * in view stay correct), then the DEBUG semantic view is refilled from the
+ * ring mirror.  prev_sx/prev_sy are the previous scroll tile origin. */
 void ui_draw_world_scroll(const World *world, uint8_t prev_sx, uint8_t prev_sy);
 
 /* Set SCX/SCY from the overworld camera pixel position.  Called every

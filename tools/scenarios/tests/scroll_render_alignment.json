@@ -56,6 +56,16 @@
       "row": 2,
       "col": 12,
       "expected": 128
+    },
+    {
+      "type": "screen_row",
+      "row": 0,
+      "expected": "...................#"
+    },
+    {
+      "type": "screen_row",
+      "row": 1,
+      "expected": "...................#"
     }
   ],
   "initial_state": {

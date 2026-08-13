@@ -156,8 +156,5 @@ void world_on_battle_end(Game *g, bool victory);
  * the hero ran (written back into the runtime actor); no reward, defeat or
  * quest progress is applied. */
 void world_on_battle_fled(Game *g);
-void world_set_player_pos(World *w, uint8_t x, uint8_t y);
-void world_set_actor_pos(World *w, EntityId id, uint8_t x, uint8_t y);
-void world_set_player_facing(World *w, Direction facing);
 
 #endif /* WORLD_H */

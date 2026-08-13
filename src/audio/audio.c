@@ -119,13 +119,6 @@ void audio_play_music(MusicTrack track)
     note_index = 0;
 }
 
-void audio_stop_music(void)
-{
-    current_track = MUSIC_NONE;
-    NR12_REG = 0x00;
-    NR14_REG = 0x80;
-}
-
 void audio_update(void)
 {
     uint8_t tempo;

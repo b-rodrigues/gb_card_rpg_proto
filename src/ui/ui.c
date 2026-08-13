@@ -30,7 +30,7 @@ static const palette_color_t cgb_palette[4] = {
 #include "gfx/player_sprite_tile.h"
 
 #define PLAYER_SPRITE_NUM 0
-#define PLAYER_SPRITE_TILE_ID 0
+#define PLAYER_SPRITE_TILE_ID 102
 
 void ui_init(void)
 {

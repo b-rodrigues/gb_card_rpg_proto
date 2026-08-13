@@ -161,7 +161,6 @@ vbl_isr:
         push    de
         push    hl
         call    _audio_update
-        call    _refresh_OAM    ; sync shadow OAM -> real OAM every frame
         pop     hl
         pop     de
         pop     bc

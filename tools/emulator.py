@@ -447,7 +447,14 @@ class EmulatorSession:
         flags = fcntl.fcntl(self.master, fcntl.F_GETFL)
         fcntl.fcntl(self.master, fcntl.F_SETFL, flags | os.O_NONBLOCK)
 
-        cmd = ['xvfb-run', '--auto-servernum', 'mgba', '-d', self.rom_path]
+        # Headless/CI-safe launch: disable audio/video clock throttling.  With
+        # audioSync on, mGBA paces the core to the audio clock; on a headless
+        # runner with no sound device the audio callback never fires at the
+        # expected rate, so after `c` the core stalls before game_render and
+        # the frame-sync breakpoint never hits.
+        cmd = ['xvfb-run', '--auto-servernum', 'mgba',
+               '-C', 'audioSync=false', '-C', 'videoSync=false',
+               '-d', self.rom_path]
         self.proc = subprocess.Popen(cmd, stdin=slave, stdout=slave, stderr=slave,
                                      close_fds=True, start_new_session=True)
         os.close(slave)

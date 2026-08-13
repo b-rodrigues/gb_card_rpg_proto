@@ -416,6 +416,26 @@ class EmulatorSession:
                 time.sleep(0.05)
         return False
 
+    def _read_registers(self):
+        """Send 'status' and return the decoded register dump ('' if the
+        debugger did not answer).  mGBA's CLI prints registers on `status`
+        (and on breakpoint/step output), not on a standalone `r`."""
+        return self._cmd('status', timeout=3.0).decode(errors='ignore')
+
+    def _read_pc(self):
+        """Return the current PC as an int, or None."""
+        m = re.search(r'PC:\s*([0-9A-Fa-f]+)', self._read_registers())
+        return int(m.group(1), 16) if m else None
+
+    def _debugger_responsive(self, attempts=5):
+        """Probe that the debugger answers commands (a register dump with a
+        PC line).  CI runners can be slow; retry briefly before giving up."""
+        for _ in range(attempts):
+            if 'PC:' in self._read_registers():
+                return True
+            time.sleep(0.2)
+        return False
+
     def connect(self):
         if not os.path.exists(self.rom_path):
             raise FileNotFoundError(f"ROM not found: {self.rom_path}")
@@ -438,41 +458,80 @@ class EmulatorSession:
             raise RuntimeError("connect: mGBA debugger prompt not seen")
         self._drain()
 
+        # Confirm the debugger actually answers commands before relying on it.
+        responsive = self._debugger_responsive()
+        if not responsive:
+            raise RuntimeError("connect: mGBA debugger not responsive (no register dump)")
+
         game_render_addr = self.get_symbol("game_render")
         main_addr = self.get_symbol("main")
 
-        # Enable harness mode before main() runs
-        self._memwrite(self.get_symbol("g_harness_mode"), 0x01)
+        # Enable harness mode before main() runs, and verify it applied.  If
+        # the write is dropped the ROM runs the normal boot (audio_init +
+        # enable_interrupts), which can hang a headless CI runner before
+        # game_render is ever reached.
+        hm_addr = self.get_symbol("g_harness_mode")
+        harness_ok = False
+        for _ in range(5):
+            self._memwrite(hm_addr, 0x01)
+            if self._memread(hm_addr) == 0x01:
+                harness_ok = True
+                break
+            time.sleep(0.1)
+        if not harness_ok:
+            raise RuntimeError("connect: could not set g_harness_mode=1 (readback failed)")
 
-        # Jump to main (bypasses CRT0 blocking calls: display_off, DMA)
-        self._set_pc(main_addr)
+        # Jump to main (bypasses CRT0 blocking calls: display_off, DMA) and
+        # verify PC actually moved there.
+        pc_ok = False
+        pc_val = None
+        for _ in range(5):
+            self._set_pc(main_addr)
+            pc_val = self._read_pc()
+            if pc_val == main_addr:
+                pc_ok = True
+                break
+            time.sleep(0.1)
+        if not pc_ok:
+            raise RuntimeError(
+                f"connect: could not set PC to main 0x{main_addr:04X} "
+                f"(readback pc=0x{pc_val:04X if pc_val is not None else '????'})"
+            )
 
-        # Verify we landed at main via breadcrumb (tolerate None if memory read fails)
+        # Set frame-sync breakpoint and run to first frame.  The game_render
+        # breakpoint is re-issued every attempt; a one-shot canary breakpoint
+        # at main distinguishes "booted to main then hung" from "CPU never
+        # executed".  Every attempt's output is kept for diagnostics.
         boot_phase_addr = self.get_symbol("g_boot_phase")
-        boot_phase = self._memread(boot_phase_addr)
-
-        # Set frame-sync breakpoint and run to first frame.  The breakpoint
-        # is re-issued on every attempt: if the first `break` raced anything
-        # it may have been dropped, and `c` without a registered breakpoint
-        # can never hit it.
         hit = False
-        last_out = b''
-        for _ in range(8):
-            self._cmd(f'break 0x{game_render_addr:04X}')
+        any_hit = False
+        attempts_log = []
+        for attempt in range(8):
+            brk = self._cmd(f'break 0x{game_render_addr:04X}')
+            attempts_log.append(b'break: ' + brk)
+            if attempt == 0:
+                attempts_log.append(b'canary: ' + self._cmd(f'break 0x{main_addr:04X}'))
             self._send('c')
             out = self._read_until(timeout=10.0)
-            last_out = out
+            attempts_log.append(out)
             if b'Hit breakpoint' in out:
-                hit = True
-                break
-            # Not hit — the emulator may have raced ahead or paused elsewhere.
-            # Re-sync to main and retry.
+                any_hit = True
+                if f'{game_render_addr:04X}'.encode() in out:
+                    hit = True
+                    break
+            # Not game_render: the canary (main) fired or the emulator raced
+            # ahead.  Re-sync to main and retry.
             self._set_pc(main_addr)
             time.sleep(0.1)
         if not hit:
-            tail = last_out.decode(errors='replace')[-200:] if last_out else "(no output)"
+            tail = attempts_log[-1].decode(errors='replace')[-200:] if attempts_log else "(no output)"
+            main_canary = (attempts_log and
+                           f'{main_addr:04X}'.encode() in attempts_log[1])
             raise RuntimeError(
-                f"connect: game_render breakpoint not hit (debugger output tail: {tail!r})"
+                f"connect: game_render breakpoint not hit "
+                f"(responsive={responsive}, harness_mode={self._memread(hm_addr)}, "
+                f"pc_set={pc_ok}, any_breakpoint_hit={any_hit}, "
+                f"main_canary_hit={main_canary}, last_output_tail={tail!r})"
             )
 
         # First breakpoint may fire inside game_init() inner game_render().

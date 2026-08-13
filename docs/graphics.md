@@ -53,6 +53,21 @@ renderer rewiring below.
   vsync; `ui_init` turns the LCD off before `font_load`) — AGENTS.md §52.6.
 * Keep incremental redraws for player movement / HUD (AGENTS.md §36).
 
+### Sprite transition-hide timing rule
+
+A full-screen redraw (clear + redraw, ~360 per-char `putchar` writes) takes
+several display sweeps — the screen visibly blanks and redraws top-to-bottom.
+Any sprite state change around a transition must therefore be written to
+**real OAM before the redraw starts**, not at the end of the frame:
+
+* `game_render()` calls `ui_sprite_begin_transition()` (forces real OAM Y=0,
+  preserves shadow position) before `screen_render()` whenever a full redraw
+  is about to run (`render_cache` invalid or screen changed).
+* `ui_sprite_commit()` (shadow OAM → real OAM DMA) runs once per frame in
+  `main.c` **after `vsync()`**, i.e. during VBlank, so each displayed frame
+  shows exactly the intended sprite state and the transition hide never
+  reveals the sprite at a stale position over the wipe.
+
 ## Screens to rewire
 
 overworld (tileset + animated player + NPC/enemy sprites), battle (enemy

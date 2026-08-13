@@ -56,13 +56,11 @@ void screen_change(Game *g, ScreenId screen)
 
     /* The player sprite only belongs on the overworld (and behind the
      * dialogue box, which redraws the world): hide it for every other
-     * screen.  All transitions also mark the next commit as a transition
-     * frame so the sprite disappears during the screen swap and reappears
-     * at the new screen's position on the following frame. */
+     * screen.  The transition wipe hide for world/dialogue targets is
+     * handled centrally in game_render() (any full redraw calls
+     * ui_sprite_begin_transition() before the redraw runs). */
     if (screen != SCREEN_OVERWORLD && screen != SCREEN_DIALOGUE) {
         ui_sprite_hide();
-    } else {
-        ui_sprite_begin_transition();
     }
 
     old_screen = g->screen;

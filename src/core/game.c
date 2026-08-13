@@ -92,10 +92,19 @@ void game_update(Game *g)
 
 void game_render(Game *g)
 {
+    RenderCache *rc;
+
     if (!g) return;
+    rc = &g->render_cache;
+
+    /* Any frame that performs a full redraw (screen change, map change,
+     * boot/restart) hides the sprite in real OAM first: the redraw takes
+     * several display sweeps (blank then top-to-bottom redraw), and the
+     * sprite must not float over the wipe at a stale position.  The
+     * frame-boundary commit (ui_sprite_commit in main.c, after vsync)
+     * reveals it at the new screen's position once the redraw is done. */
+    if (!rc->valid || rc->prev_screen != g->screen) {
+        ui_sprite_begin_transition();
+    }
     screen_render(g);
-    /* Commit the OAM sprite at the frame boundary (right before
-     * vsync/VBlank) so every displayed frame has the sprite in the correct
-     * state for the current screen. */
-    ui_sprite_commit();
 }

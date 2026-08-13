@@ -23,9 +23,18 @@ void dialogue_screen_render(Game *g)
     if (!g) return;
     rc = &g->render_cache;
 
-    /* On first entering dialogue, draw the world behind the box, then the box. */
+    /* On first entering dialogue, draw the world behind the box, then the
+     * box.  Dialogues start from the overworld, whose last full redraw
+     * already left the map on the display (rc->prev_screen ==
+     * SCREEN_OVERWORLD after game_render_reset), so redrawing it here
+     * would be a needless full-screen wipe; the box simply draws over the
+     * HUD region.  Only a dialogue that is not preceded by the overworld
+     * (scenario boot, forced via render_cache in scenarios.c) establishes
+     * the world itself. */
     if (!rc->valid || rc->prev_screen != SCREEN_DIALOGUE) {
-        ui_draw_world_full(&g->world);
+        if (rc->prev_screen != SCREEN_OVERWORLD) {
+            ui_draw_world_full(&g->world);
+        }
         ui_draw_dialogue(&g->dialogue);
         telemetry_emit(EVENT_RENDER_DIALOGUE, (uint8_t)g->dialogue.id,
                        g->dialogue.current_line, 0, 0);

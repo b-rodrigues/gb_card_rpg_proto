@@ -13,12 +13,26 @@ state at deterministic pauses:
   Battle transition  (first_encounter): overworld (80,112) -> hidden before
                      the battle redraw -> still hidden mid-wipe ->
                      battle (88,128) -> hidden on item screen -> reappears.
+  Steady battle frame: the sprite must NOT be re-hidden every frame (the
+                     old prev_map_id=255 reset sentinel re-ran the hide on
+                     every non-overworld frame, keeping the sprite hidden
+                     for the whole fight on real hardware).  Detected by
+                     breakpoint, since the harness's vsync-skip hides the
+                     symptom from OAM reads.
   Scene transition   (town_arrival):    FIELD (17,7) -> gate -> TOWN (2,7);
                      overworld (72,144) -> hidden mid-wipe -> (72,24).
+  Dialogue entry     (mayor): the dialogue must NOT wipe the world behind
+                     the box (the map is already on screen from the
+                     overworld).  Detected by breakpoint at ui_draw_world_full
+                     (must not fire); the sprite stays visible behind the box.
 
 Reads happen at VBlank (mGBA `frame` command) so OAM is accessible; shadow
 OAM (0xC000) is always readable and used when a real-OAM read hits mGBA's
 OAM access-restriction artifact (returns 0xFF).
+
+Each section runs in its own EmulatorSession so the extra breakpoints armed
+by the checks (begin_transition, ui_draw_world_full) cannot contaminate the
+next section's frame stepping.
 
 Run inside the Nix dev shell:
     make verify-oam
@@ -115,6 +129,85 @@ def verify_battle_transition(sess):
     sess.step(1)
 
 
+def verify_steady_battle_frame(sess):
+    """Regression check: on steady battle frames the sprite must NOT be
+    re-hidden.  The old prev_map_id=255 reset sentinel made every battle
+    frame look like a map change, so game_render() re-ran
+    ui_sprite_begin_transition() every frame.  On real hardware (vsync)
+    that kept the sprite hidden for the whole fight -- it only flashed in
+    during VBlank, and the user saw it appear at battle exit.  The harness
+    cannot see this from OAM reads (vsync skipped: the hide+commit cycle
+    completes within one frame, so reads at VBlank always show the reveal).
+
+    Detect it by breakpoint instead.  Arm a break at ui_sprite_begin_transition
+    and run frames: with the bug the function executes once per frame, so
+    `frame` pauses at it; a fixed ROM never reaches it.  Several frames are
+    checked because the current pause may be mid-frame (the initial VBlank
+    pause point varies)."""
+    print("== Steady battle frame: no per-frame sprite re-hide ==")
+    # Establish a real steady battle frame first: without the scenario setup
+    # this check runs from the boot/title state, where begin_transition
+    # correctly never fires per frame, so the buggy ROM would pass.
+    sess.load_scenario(load_scenario(sess, "first_encounter.json"))
+    sess.step(1)
+    oam_at_vblank(sess)
+    sess.step(1)
+    sess.press("RIGHT")
+    oam_at_vblank(sess)
+    sess.step(1)
+    oam_at_vblank(sess)
+    sess.step(1)
+
+    bt = sess.get_symbol("ui_sprite_begin_transition")
+    brk = sess._cmd(f"break 0x{bt:04X}")
+    if b"Added breakpoint" not in brk:
+        raise RuntimeError(f"begin_transition break not armed: {brk!r}")
+    paused_at_bt = None
+    for i in range(3):
+        sess._cmd("frame", timeout=5.0)
+        pc = sess._read_pc()
+        if pc == bt:
+            paused_at_bt = i + 1
+            break
+    check("steady battle frame: no spurious re-hide over 3 frames",
+          "begin_transition never reached",
+          "paused at ui_sprite_begin_transition (0x%04X)" % bt if paused_at_bt
+          else "begin_transition never reached")
+
+
+def verify_dialogue_transition(sess):
+    """Dialogue must not wipe the world behind the box (the map is already
+    on screen from the overworld) and the sprite must stay visible behind
+    the box.  The Mayor sits at (10,5); the scenario boots the player at
+    (9,5) facing RIGHT, so a single A press engages him and starts the
+    dialogue within that frame.  Arm a breakpoint at ui_draw_world_full
+    before the press: the dialogue-entry render must NOT reach it."""
+    print("== Dialogue entry (mayor): box over the world, no wipe ==")
+    initial = load_scenario(sess, "mayor_dialogue.json")["initial_state"]
+    sess.load_scenario(initial)
+    sess.step(1)
+
+    gr_addr = sess.get_symbol("game_render")
+    full_addr = sess.get_symbol("ui_draw_world_full")
+    sess._cmd(f"break 0x{full_addr:04X}")
+
+    sess.press("A")
+    pc = sess._read_pc()
+    check("dialogue entry: world NOT redrawn behind the box", gr_addr, pc)
+
+    snap = sess.snapshot()
+    check("dialogue entry: dialogue is active", True, snap.get("dialogue_active"))
+
+    # Sprite stays visible behind the box at the player's position (9,5)
+    # -> OAM y=5*8+16=56, x=9*8+8=80.
+    sess.step(1)
+    got = oam_at_vblank(sess)
+    if got[0] == 255:
+        got = shadow_oam(sess)
+        print("  (real OAM read restricted; using shadow=committed DMA state)")
+    check("dialogue steady: sprite visible behind box", (56, 80), got)
+
+
 def verify_scene_transition(sess):
     print("== Scene transition (town_arrival: FIELD gate -> TOWN) ==")
     initial = load_scenario(sess, "town_arrival.json")["initial_state"]
@@ -139,18 +232,23 @@ def verify_scene_transition(sess):
 
 
 def main():
-    sess = EmulatorSession(rom_path=ROM)
-    try:
-        sess.connect()
-    except Exception as e:
-        print(f"CONNECT FAILED: {e}")
-        return 1
-
-    try:
-        verify_battle_transition(sess)
-        verify_scene_transition(sess)
-    finally:
-        sess.disconnect()
+    # Each section uses its own session so the extra breakpoints armed by
+    # the checks (begin_transition, ui_draw_world_full) never contaminate
+    # another section's frame stepping or VBlank reads.
+    for label, fn in (("battle", verify_battle_transition),
+                      ("battle steady frame", verify_steady_battle_frame),
+                      ("scene", verify_scene_transition),
+                      ("dialogue", verify_dialogue_transition)):
+        sess = EmulatorSession(rom_path=ROM)
+        try:
+            sess.connect()
+        except Exception as e:
+            print(f"CONNECT FAILED ({label}): {e}")
+            return 1
+        try:
+            fn(sess)
+        finally:
+            sess.disconnect()
 
     if failures:
         print(f"\nOAM VERIFICATION FAILED: {failures}")

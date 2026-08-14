@@ -25,6 +25,13 @@ static void ui_draw_num2(uint8_t x, uint8_t y, uint8_t val);
 
 static font_t ibm_font;
 
+/* Real first tile of the loaded console font.  ibm_font is a GBDK font
+ * *handle* (a RAM pointer to a {first_tile, font_ptr} entry, value 0xCD74),
+ * not a tile base: using it directly (ibm_font + ch) renders tiles at
+ * 0x74+ch, i.e. unloaded VRAM.  Cached from the handle at ui_init; the IBM
+ * font's first_tile is 0. */
+static uint8_t ui_font_tile_base;
+
 static const palette_color_t cgb_palette[4] = {
     RGB8(255, 255, 255),
     RGB8(170, 170, 170),
@@ -75,6 +82,11 @@ extern const uint8_t ui_frame_tiles[];
 extern const uint8_t enemy_slime[];
 extern const uint8_t enemy_bat[];
 extern const uint8_t enemy_boss[];
+extern const uint8_t npc_mayor[];
+extern const uint8_t npc_guard[];
+extern const uint8_t npc_shopkeeper[];
+extern const uint8_t npc_merchant[];
+extern const uint8_t npc_amulet[];
 
 /* WRAM staging for the battle-background tilemap (renderers read this;
  * banked data is copied out once at boot). */
@@ -98,6 +110,11 @@ void ui_gfx_load(void)
     ui_gfx_load_tiles(UI_ENEMY_SLIME_TILE, enemy_slime, 1);
     ui_gfx_load_tiles(UI_ENEMY_BAT_TILE, enemy_bat, 1);
     ui_gfx_load_tiles(UI_ENEMY_BOSS_TILE_BASE, enemy_boss, 4);
+    ui_gfx_load_tiles((uint8_t)(UI_NPC_TILE_BASE + 0), npc_mayor, 1);
+    ui_gfx_load_tiles((uint8_t)(UI_NPC_TILE_BASE + 1), npc_guard, 1);
+    ui_gfx_load_tiles((uint8_t)(UI_NPC_TILE_BASE + 2), npc_shopkeeper, 1);
+    ui_gfx_load_tiles((uint8_t)(UI_NPC_TILE_BASE + 3), npc_merchant, 1);
+    ui_gfx_load_tiles((uint8_t)(UI_NPC_TILE_BASE + 4), npc_amulet, 1);
     VBK_REG = 0;
     banked_copy(GAME_CONTENT_BANK, g_battle_bg_map, (const void *)battle_bg_map, 8);
 }
@@ -134,6 +151,7 @@ void ui_init(void)
     font_init();
     ibm_font = font_load(font_ibm);
     font_set(ibm_font);
+    ui_font_tile_base = ((pmfont_handle)ibm_font)->first_tile;
 
     /* Load the overworld terrain tileset into VRAM at WORLD_TILE_BASE.
      * Written directly (not via set_bkg_data) because set_bkg_data toggles
@@ -305,8 +323,8 @@ void ui_clear_screen(void)
     uint8_t x, y;
     for (y = 0; y < 18; y++) {
         for (x = 0; x < 20; x++) {
-            gotoxy(x, y);
-            putchar(' ');
+            ((volatile uint8_t *)0x9C00)[y * 32 + x] =
+                (uint8_t)(ui_font_tile_base + (uint8_t)' ');
             g_ui_screen_buf[y][x] = ' ';
         }
         g_ui_screen_buf[y][20] = '\0';
@@ -317,21 +335,13 @@ void ui_draw_text_line(uint8_t x, uint8_t y, const char *text, uint8_t max_chars
 {
     uint8_t i = 0;
     char ch;
-    gotoxy(x, y);
-    if (text) {
-        while (text[i] != '\0' && i < max_chars) {
-            ch = text[i];
-            putchar((int)ch);
-            if (y < 18 && (x + i) < 20) {
-                g_ui_screen_buf[y][x + i] = ch;
-            }
-            i++;
-        }
-    }
+    if (y >= 18) return;
     while (i < max_chars) {
-        putchar(' ');
-        if (y < 18 && (x + i) < 20) {
-            g_ui_screen_buf[y][x + i] = ' ';
+        ch = (text && text[i] != '\0') ? text[i] : ' ';
+        if ((x + i) < 20) {
+            ((volatile uint8_t *)0x9C00)[y * 32 + x + i] =
+                (uint8_t)(ui_font_tile_base + (uint8_t)ch);
+            g_ui_screen_buf[y][x + i] = ch;
         }
         i++;
     }
@@ -370,18 +380,25 @@ void ui_format_int(int16_t value, char *out)
 /* One world cell into the 32x32 background tilemap ring at the wrapped
  * address (the PPU reads the background at SCX/SCY = the absolute camera
  * pixel position, so the ring must hold the world tiles at (world & 31)).
- * An actor's font char overlays its terrain tile; both stay in the ring so
- * the cell is correct whenever it scrolls back into view.  The screen-
- * anchored semantic g_ui_screen_buf (harness get_screen_buf) is filled for
- * visible cells.  Written directly -- not through set_bkg_tiles -- to avoid
- * pulling the GBDK .set_xy_* helpers into the non-bankable _HOME area. */
+ * A real-tile actor draws its tile id (and the sub-tiles of a multi-tile
+ * footprint like the 2x2 boss); every other actor falls back to its ASCII
+ * visual via the console font; terrain uses the overworld tileset.  All stay
+ * in the ring so the cell is correct whenever it scrolls back into view.
+ * The screen-anchored semantic g_ui_screen_buf (harness get_screen_buf) is
+ * filled for visible cells with the actor's ASCII visual at its anchor cell
+ * only -- a multi-tile footprint's cover cells show the terrain (actors are
+ * single-cell entities).  Written directly -- not through set_bkg_tiles -- to
+ * avoid pulling the GBDK .set_xy_* helpers into the non-bankable _HOME area. */
 static void ui_draw_world_cell(const World *world, uint8_t col, uint8_t row)
 {
     uint8_t t;
     uint8_t tile_idx;
     uint8_t sx;
     uint8_t sy;
-    const WorldActorDefinition *actor;
+    const WorldActorDefinition *foot;
+    uint8_t ax;
+    uint8_t ay;
+    uint8_t sub;
     volatile uint8_t *tilemap = (volatile uint8_t *)0x9800;
 
     if (col >= world->width || row >= world->height) {
@@ -390,9 +407,21 @@ static void ui_draw_world_cell(const World *world, uint8_t col, uint8_t row)
         t = world->map[row][col];
     }
 
-    actor = actor_find_at(world, col, row);
-    if (actor) {
-        tile_idx = (uint8_t)(ibm_font + (uint8_t)actor->visual);
+    foot = actor_find_footprint(world, col, row, &ax, &ay);
+    if (foot && foot->tile_w != 0 && foot->tile_h != 0) {
+        /* Multi-tile footprint (the 2x2 boss): the sub-tile is row-major,
+         * anchor at (ax,ay).  tile_w is only ever 1 or 2, so the generic
+         * multiply is avoided (a runtime multiply would pull the SDCC mul
+         * helpers into the fixed bank). */
+        sub = (uint8_t)(col - ax);
+        if (foot->tile_w == 2) {
+            sub += (uint8_t)((row - ay) << 1);
+        } else {
+            sub += (uint8_t)(row - ay);
+        }
+        tile_idx = (uint8_t)(foot->tile + sub);
+    } else if (foot) {
+        tile_idx = (uint8_t)(ui_font_tile_base + (uint8_t)foot->visual);
     } else {
         tile_idx = (uint8_t)(WORLD_TILE_BASE + g_tile_map[t]);
     }
@@ -404,7 +433,13 @@ static void ui_draw_world_cell(const World *world, uint8_t col, uint8_t row)
     sx = (uint8_t)(col - world->scroll_x);
     sy = (uint8_t)(row - world->scroll_y);
     if (sx < WORLD_VIEW_W && sy < WORLD_VIEW_H) {
-        g_ui_screen_buf[sy][sx] = actor ? actor->visual : g_sem_map[t];
+        /* Semantic layer: a single-cell entity's visual at its anchor cell
+         * only; a multi-tile footprint's cover cells show the terrain. */
+        if (foot && ax == col && ay == row) {
+            g_ui_screen_buf[sy][sx] = (char)foot->visual;
+        } else {
+            g_ui_screen_buf[sy][sx] = g_sem_map[t];
+        }
     }
 }
 
@@ -443,26 +478,25 @@ void ui_draw_world_map(const World *world)
                    (uint8_t)(world_player_py(world) - world->camera_px_y));
 }
 
-/* Refill the semantic view from the tilemap ring mirror (DEBUG-only).  The
- * ring/mirror is the ground truth of what is rendered; decoding it back to
- * ASCII chars is unambiguous because terrain tiles are >= WORLD_TILE_BASE
- * and actor tiles are ibm_font + visual (< WORLD_TILE_BASE).  Called after
- * the entering-edge ring draw in ui_draw_world_scroll. */
+/* Refill the semantic view from the world (DEBUG-only).  The screen-anchored
+ * buffer is decoded straight from the world + actors after the entering-edge
+ * ring draw in ui_draw_world_scroll: world truth, and far cheaper in code
+ * than decoding the ring mirror (the mirror stays assertable on its own via
+ * tilemap_cell).  A multi-tile footprint's cover cells show the underlying
+ * terrain -- actors are single-cell entities. */
 #ifdef DEBUG_BUILD
 static void ui_refill_semantic(const World *world)
 {
-    uint8_t x, y, col, row, tile;
+    uint8_t x, y, col, row;
+    const WorldActorDefinition *actor;
 
     for (y = 0; y < WORLD_VIEW_H; y++) {
         for (x = 0; x < WORLD_VIEW_W; x++) {
             col = (uint8_t)(world->scroll_x + x);
             row = (uint8_t)(world->scroll_y + y);
-            tile = g_tilemap_mirror[(row & 31) * 32 + (col & 31)];
-            if (tile >= WORLD_TILE_BASE) {
-                g_ui_screen_buf[y][x] = g_sem_map[tile - WORLD_TILE_BASE];
-            } else {
-                g_ui_screen_buf[y][x] = (char)(tile - ibm_font);
-            }
+            actor = actor_find_at(world, col, row);
+            g_ui_screen_buf[y][x] = actor ? (char)actor->visual
+                                          : g_sem_map[world->map[row][col]];
         }
     }
 }
@@ -527,7 +561,7 @@ void ui_update_camera(const World *world)
  * coordinates (x < 20, y < 6). */
 static void ui_hud_put_char(uint8_t x, uint8_t y, char ch)
 {
-    ((volatile uint8_t *)0x9C00)[y * 32 + x] = (uint8_t)(ibm_font + (uint8_t)ch);
+    ((volatile uint8_t *)0x9C00)[y * 32 + x] = (uint8_t)(ui_font_tile_base + (uint8_t)ch);
     g_ui_screen_buf[12 + y][x] = ch;
 }
 
@@ -616,9 +650,9 @@ void ui_update_player_position(const World *world, uint8_t old_px, uint8_t old_p
 
 static void ui_put_char(uint8_t x, uint8_t y, char ch)
 {
-    gotoxy(x, y);
-    putchar((int)ch);
     if (y < 18 && x < 20) {
+        ((volatile uint8_t *)0x9C00)[y * 32 + x] =
+            (uint8_t)(ui_font_tile_base + (uint8_t)ch);
         g_ui_screen_buf[y][x] = ch;
     }
 }
@@ -732,37 +766,21 @@ void ui_draw_dialogue(const DialogueState *dialogue)
     /* Dialogue box occupies dedicated modal overlay region: rows 12-17 (6 rows, 20 columns) */
     ui_draw_text_line(0, 12, "+------------------+", 20);
 
-    gotoxy(0, 13);
-    putchar('|');
-    g_ui_screen_buf[13][0] = '|';
+    ui_put_char(0, 13, '|');
     ui_draw_text_line(1, 13, dialogue->speaker ? dialogue->speaker : "", 18);
-    gotoxy(19, 13);
-    putchar('|');
-    g_ui_screen_buf[13][19] = '|';
+    ui_put_char(19, 13, '|');
 
-    gotoxy(0, 14);
-    putchar('|');
-    g_ui_screen_buf[14][0] = '|';
+    ui_put_char(0, 14, '|');
     ui_draw_text_line(1, 14, dialogue->lines[dialogue->current_line], 18);
-    gotoxy(19, 14);
-    putchar('|');
-    g_ui_screen_buf[14][19] = '|';
+    ui_put_char(19, 14, '|');
 
-    gotoxy(0, 15);
-    putchar('|');
-    g_ui_screen_buf[15][0] = '|';
+    ui_put_char(0, 15, '|');
     ui_draw_text_line(1, 15, "", 18);
-    gotoxy(19, 15);
-    putchar('|');
-    g_ui_screen_buf[15][19] = '|';
+    ui_put_char(19, 15, '|');
 
-    gotoxy(0, 16);
-    putchar('|');
-    g_ui_screen_buf[16][0] = '|';
+    ui_put_char(0, 16, '|');
     ui_draw_text_line(1, 16, " [A] CONTINUE", 18);
-    gotoxy(19, 16);
-    putchar('|');
-    g_ui_screen_buf[16][19] = '|';
+    ui_put_char(19, 16, '|');
 
     ui_draw_text_line(0, 17, "+------------------+", 20);
 }

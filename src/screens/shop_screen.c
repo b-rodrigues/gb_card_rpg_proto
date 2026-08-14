@@ -38,20 +38,20 @@ static void shop_draw(Game *g)
 
     menu_draw_frame(&frame);
 
-    y = menu_row(&frame, 0);
+    y = (uint8_t)(frame.top_row + 0);
     ui_draw_text_line(0, y, "GOLD:", 5);
     ui_draw_text_line(5, y, gold_str, 14);
 
     if (!def) {
         menu_draw_content(&frame, 2, "(nothing)");
-        y = menu_row(&frame, 4);
+        y = (uint8_t)(frame.top_row + 4);
         ui_draw_text_line(0, y, "[B] Leave", 20);
         return;
     }
 
     for (i = 0; i < def->count; i++) {
         const ItemDefinition *item = item_get_def(def->items[i]);
-        y = menu_row(&frame, 1 + i);
+        y = (uint8_t)(frame.top_row + 1 + i);
         ui_draw_text_line(0, y, (g->item_menu_index == i) ? ">" : " ", 1);
         ui_format_int((int16_t)(item ? item->price : 0), price_str);
         ui_draw_text_line(1, y, item ? item->name : "?", 8);
@@ -59,7 +59,7 @@ static void shop_draw(Game *g)
         ui_draw_text_line(14, y, "G", 1);
     }
 
-    y = menu_row(&frame, 3 + def->count);
+    y = (uint8_t)(frame.top_row + 3 + def->count);
     ui_draw_text_line(0, y, "[A] Buy  [B] Leave", 20);
 
     switch (g->shop_message) {

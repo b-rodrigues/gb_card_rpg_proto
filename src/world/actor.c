@@ -18,7 +18,7 @@ void actor_register_tables(const WorldActorTable *tables, uint8_t count)
     g_actor_table_count = count;
 }
 
-static const WorldActorDefinition *actor_defs_for_map(MapId map_id, uint8_t *count)
+const WorldActorDefinition *actor_defs_for_map(MapId map_id, uint8_t *count)
 {
     uint8_t i;
     if (!g_actor_tables) {
@@ -104,6 +104,44 @@ const WorldActorDefinition *actor_find_at(const World *world, uint8_t x, uint8_t
     return NULL;
 }
 
+const WorldActorDefinition *actor_find_footprint(const World *world, uint8_t x, uint8_t y,
+                                                 uint8_t *anchor_x, uint8_t *anchor_y)
+{
+    const WorldActorDefinition *defs;
+    uint8_t count, i, slot, w, h, spawned;
+
+    if (!world) return NULL;
+    defs = actor_defs_for_map(world->map_id, &count);
+
+    /* One pass over the definitions.  Hostile actors spawn into runtime
+     * slots at their definition position and never move, so the definition
+     * carries the authoritative footprint; a hostile renders only while it
+     * is actually spawned (active slot with the same ActorId), which covers
+     * conditional spawns like the 2x2 boss. */
+    for (i = 0; i < count; i++) {
+        if (defs[i].flags & ACTOR_FLAG_HOSTILE) {
+            spawned = 0;
+            for (slot = 0; slot < MAX_WORLD_ACTORS; slot++) {
+                if (world->actors[slot].active &&
+                    world->actors[slot].actor_id == defs[i].actor_id) {
+                    spawned = 1;
+                    break;
+                }
+            }
+            if (!spawned) continue;
+        }
+        w = (defs[i].tile_w != 0) ? defs[i].tile_w : 1;
+        h = (defs[i].tile_h != 0) ? defs[i].tile_h : 1;
+        if (x >= defs[i].x && x < (uint8_t)(defs[i].x + w) &&
+            y >= defs[i].y && y < (uint8_t)(defs[i].y + h)) {
+            if (anchor_x) *anchor_x = defs[i].x;
+            if (anchor_y) *anchor_y = defs[i].y;
+            return &defs[i];
+        }
+    }
+    return NULL;
+}
+
 ActorEngageResult actor_engage(const WorldActorDefinition *actor, DialogueState *dialogue)
 {
     if (!actor) return ENGAGE_NONE;
@@ -153,36 +191,4 @@ void actor_load_scene(World *world, MapId map_id, const GameState *state)
             slot++;
         }
     }
-}
-
-uint8_t actor_write_snapshot(const World *world, uint8_t *out, uint8_t max_actors)
-{
-    const WorldActorDefinition *defs;
-    uint8_t count, i, n = 0;
-    uint8_t slot;
-
-    if (!world || !out || max_actors == 0) return 0;
-    defs = actor_defs_for_map(world->map_id, &count);
-
-    /* hostile runtime actors */
-    for (slot = 0; slot < MAX_WORLD_ACTORS && n < max_actors; slot++) {
-        if (world->actors[slot].active) {
-            out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 0] = (uint8_t)world->actors[slot].id;
-            out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 1] = world->actors[slot].x;
-            out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 2] = world->actors[slot].y;
-            out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 3] = world->actors[slot].facing;
-            n++;
-        }
-    }
-
-    /* friendly static definitions */
-    for (i = 0; i < count && n < max_actors; i++) {
-        if (defs[i].flags & ACTOR_FLAG_HOSTILE) continue;
-        out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 0] = (uint8_t)defs[i].id;
-        out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 1] = defs[i].x;
-        out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 2] = defs[i].y;
-        out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 3] = defs[i].facing;
-        n++;
-    }
-    return n;
 }

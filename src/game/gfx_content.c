@@ -14,3 +14,8 @@
 #include "gfx/enemy_slime.h"
 #include "gfx/enemy_bat.h"
 #include "gfx/enemy_boss.h"
+#include "gfx/npc_mayor.h"
+#include "gfx/npc_guard.h"
+#include "gfx/npc_shopkeeper.h"
+#include "gfx/npc_merchant.h"
+#include "gfx/npc_amulet.h"

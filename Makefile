@@ -72,6 +72,16 @@ gfx:
 		-o $(GFX_OUT_DIR)/enemy_bat.h
 	@python3 tools/png2gb.py assets/enemy_boss.png --name enemy_boss --global \
 		-o $(GFX_OUT_DIR)/enemy_boss.h
+	@python3 tools/png2gb.py assets/npc_mayor.png --name npc_mayor --global \
+		-o $(GFX_OUT_DIR)/npc_mayor.h
+	@python3 tools/png2gb.py assets/npc_guard.png --name npc_guard --global \
+		-o $(GFX_OUT_DIR)/npc_guard.h
+	@python3 tools/png2gb.py assets/npc_shopkeeper.png --name npc_shopkeeper --global \
+		-o $(GFX_OUT_DIR)/npc_shopkeeper.h
+	@python3 tools/png2gb.py assets/npc_merchant.png --name npc_merchant --global \
+		-o $(GFX_OUT_DIR)/npc_merchant.h
+	@python3 tools/png2gb.py assets/npc_amulet.png --name npc_amulet --global \
+		-o $(GFX_OUT_DIR)/npc_amulet.h
 
 # Host-side regression tests for the PNG -> GB converter (duplicate-tile
 # detection, dedup/tilemap, sprite/OAM, validation rules).  Runs from the

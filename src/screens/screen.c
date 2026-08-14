@@ -5,6 +5,8 @@
 #include "world.h"
 #include "ui.h"
 
+#include <gb/hardware.h>
+
 /* Sync Game.scene with the world's current map after a runtime map
  * change (walking through a gate).  Emits SCENE_CHANGED when it differs. */
 void scene_update_from_map(Game *g)
@@ -73,6 +75,19 @@ void screen_change(Game *g, ScreenId screen)
         ui_hud_show();
     } else {
         ui_hud_hide();
+    }
+
+    /* SCX/SCY are the overworld camera (written every frame by
+     * ui_update_camera).  Battle/menu screens draw full-screen tiles at the
+     * (0,0) origin and never call ui_update_camera, so the camera offset
+     * must be reset here: a stale SCX>0 makes a non-overworld screen show
+     * a shifted background (e.g. cols 12-31 of a 32-wide ring, leaving the
+     * left ~60% of the display showing whatever the ring held).  The
+     * dialogue screen is exempt: it overlays the frozen overworld and must
+     * keep the current camera. */
+    if (screen != SCREEN_OVERWORLD && screen != SCREEN_DIALOGUE) {
+        SCX_REG = 0;
+        SCY_REG = 0;
     }
 
     telemetry_emit(EVENT_SCREEN_CHANGED, (uint8_t)old_screen, (uint8_t)screen, 0, 0);

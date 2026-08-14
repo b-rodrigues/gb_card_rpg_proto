@@ -46,6 +46,11 @@ typedef struct {
     uint8_t facing;
     uint8_t flags;
     uint8_t visual;              /* ASCII prototype character */
+    uint8_t tile;                /* real-tileset VRAM tile id (0 = fall back
+                                    to the ASCII visual via the console font) */
+    uint8_t tile_w;              /* rendered footprint width in tiles (1 for
+                                    single-tile actors; the 2x2 boss spans 2) */
+    uint8_t tile_h;              /* rendered footprint height in tiles */
     const char *display_name;    /* semantic name (battle enemy label, ...) */
     InteractionId interaction;
     uint8_t shop_id;             /* which shop this actor runs (0 = none) */
@@ -82,6 +87,14 @@ typedef enum {
  * against the spawned runtime actor slots. */
 const WorldActorDefinition *actor_find_at(const World *world, uint8_t x, uint8_t y);
 
+/* Return the actor definition whose rendered tile footprint (tile_w x
+ * tile_h, anchored at its position) covers (x, y).  Out-params give the
+ * footprint's anchor cell (runtime position for hostile actors).  Used by
+ * the renderer to draw the sub-tiles of a multi-tile actor (e.g. the 2x2
+ * boss) and to keep cover cells' semantic view on the terrain. */
+const WorldActorDefinition *actor_find_footprint(const World *world, uint8_t x, uint8_t y,
+                                                 uint8_t *anchor_x, uint8_t *anchor_y);
+
 /* Return the runtime slot index of the active hostile actor at (x, y),
  * or NO_ACTOR_INDEX if none. */
 uint8_t actor_find_hostile_slot(const World *world, uint8_t x, uint8_t y);
@@ -95,11 +108,8 @@ ActorEngageResult actor_engage(const WorldActorDefinition *actor, DialogueState 
  * state are not spawned (persistent defeat). */
 void actor_load_scene(World *world, MapId map_id, const GameState *state);
 
-/* Write the active scene's actors as compact (id, x, y, facing) 4-byte
- * entries into out.  Returns the number of entries written.  Used by the
- * debug snapshot. */
-#define ACTOR_SNAPSHOT_ENTRY_SIZE 4
-
-uint8_t actor_write_snapshot(const World *world, uint8_t *out, uint8_t max_actors);
+/* Static actor definitions registered for a map (NULL + count 0 when the
+ * map has no table).  Used by the debug snapshot and engine internals. */
+const WorldActorDefinition *actor_defs_for_map(MapId map_id, uint8_t *count);
 
 #endif /* ACTOR_H */

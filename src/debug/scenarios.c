@@ -47,7 +47,7 @@ enum {
 };
 
 /* Shared post-setup: reset frame/flags/input/telemetry/audio. */
-static void scenario_begin(uint32_t seed)
+static void scenario_begin(uint16_t seed)
 {
     uint8_t i;
     g_game.frame = 0;
@@ -62,6 +62,45 @@ static void scenario_begin(uint32_t seed)
     audio_play_music(MUSIC_OVERWORLD);
 }
 
+/* Shared descriptor-entry loader for id->value sections (variables,
+ * currency): entry = {id, value_lo, value_hi}; written only when the id is
+ * in range.  State is poked directly (no telemetry) per AGENTS.md. */
+static void load_id_values(const uint8_t *b, uint8_t count_off, uint8_t entry_off,
+                           uint8_t max, int16_t *dst)
+{
+    const uint8_t *p = &b[entry_off];
+    uint8_t i;
+
+    for (i = 0; i < b[count_off]; i++) {
+        uint8_t id = p[0];
+        int16_t v = (int16_t)((int16_t)p[1] | ((int16_t)p[2] << 8));
+        if (id >= 1 && id <= max) {
+            dst[id - 1] = v;
+        }
+        p += STATE_LOAD_DESC_VARIABLES_ENTRY_SIZE;
+    }
+}
+
+/* Shared descriptor-entry loader for counted fixed-size sections (party,
+ * inventory, world): entry bytes are copied verbatim into dst (struct
+ * layout matches) and the caller records the loaded count. */
+static void load_raw_entries(const uint8_t *b, uint8_t count_off, uint8_t entry_off,
+                             uint8_t entry_size, uint8_t *dst, uint8_t dst_size)
+{
+    const uint8_t *p = &b[entry_off];
+    uint8_t *d = dst;
+    uint8_t n = b[count_off];
+    uint8_t i, k;
+
+    for (i = 0; i < n; i++) {
+        for (k = 0; k < entry_size; k++) {
+            d[k] = p[k];
+        }
+        p += entry_size;
+        d += dst_size;
+    }
+}
+
 /* General declarative scenario loader.  Reads the initial-state descriptor
  * written by the host STATE_LOAD command (g_scen_state_buf), constructs the
  * canonical GameState and world, then starts the game in the requested
@@ -72,73 +111,55 @@ static void scenario_load_state(void)
     const uint8_t *b = g_scen_state_buf;
     const uint8_t *p;
     SceneId scene;
-    MapId map;
     uint8_t x, y, facing;
-    uint32_t seed;
-    uint8_t screen;
-    uint8_t dialogue_id;
-    uint8_t start_battle;
+    uint16_t seed;
     uint8_t i;
 
     if (b[0] != STATE_LOAD_DESC_VERSION) return;
 
-    screen = b[STATE_LOAD_DESC_SCREEN_OFF];
     scene = (SceneId)b[STATE_LOAD_DESC_SCENE_OFF];
     x = b[STATE_LOAD_DESC_PLAYER_X_OFF];
     y = b[STATE_LOAD_DESC_PLAYER_Y_OFF];
     facing = b[STATE_LOAD_DESC_PLAYER_FACING_OFF];
-    seed = (uint32_t)b[STATE_LOAD_DESC_SEED_OFF]
-         | ((uint32_t)b[STATE_LOAD_DESC_SEED_OFF + 1] << 8)
-         | ((uint32_t)b[STATE_LOAD_DESC_SEED_OFF + 2] << 16)
-         | ((uint32_t)b[STATE_LOAD_DESC_SEED_OFF + 3] << 24);
-    dialogue_id = b[STATE_LOAD_DESC_DIALOGUE_ID_OFF];
-    start_battle = b[STATE_LOAD_DESC_START_BATTLE_OFF];
-    map = scene_id_to_map(scene);
+    /* rng_set_seed() takes a uint16_t, so only the low 16 bits of the
+     * 4-byte descriptor seed reach the RNG (identical to the previous
+     * uint32_t path, which truncated in the call). */
+    seed = (uint16_t)(b[STATE_LOAD_DESC_SEED_OFF]
+                    | (uint16_t)(b[STATE_LOAD_DESC_SEED_OFF + 1] << 8));
 
-    /* Canonical persistent state: default, then descriptor overrides. */
+    /* Canonical persistent state: default, then descriptor overrides.
+     * Flags are applied after scenario_begin() below (it clears them), and
+     * nothing between here and there reads state.flags, so no early copy. */
     game_new_game(&g_game.state);
-    for (i = 0; i < STATE_LOAD_DESC_FLAGS_SIZE; i++) {
-        g_game.state.flags.bytes[i] = b[STATE_LOAD_DESC_FLAGS_OFF + i];
+    load_id_values(b, STATE_LOAD_DESC_VARIABLES_COUNT_OFF,
+                   STATE_LOAD_DESC_VARIABLES_ENTRY_OFF, MAX_STATE_VARIABLES,
+                   g_game.state.variables.values);
+    load_id_values(b, STATE_LOAD_DESC_CURRENCY_COUNT_OFF,
+                   STATE_LOAD_DESC_CURRENCY_ENTRY_OFF, MAX_CURRENCIES,
+                   g_game.state.currency.amount);
+    load_raw_entries(b, STATE_LOAD_DESC_PARTY_COUNT_OFF,
+                     STATE_LOAD_DESC_PARTY_ENTRY_OFF,
+                     STATE_LOAD_DESC_PARTY_ENTRY_SIZE,
+                     (uint8_t *)&g_game.state.party.members[0],
+                     STATE_LOAD_DESC_PARTY_ENTRY_SIZE);
+    if (b[STATE_LOAD_DESC_PARTY_COUNT_OFF] > 0) {
+        g_game.state.party.count = b[STATE_LOAD_DESC_PARTY_COUNT_OFF];
     }
-    p = &b[STATE_LOAD_DESC_VARIABLES_ENTRY_OFF];
-    for (i = 0; i < b[STATE_LOAD_DESC_VARIABLES_COUNT_OFF]; i++) {
-        uint8_t vid = p[0];
-        int16_t val = (int16_t)((int16_t)p[1] | ((int16_t)p[2] << 8));
-        if (vid >= 1 && vid <= MAX_STATE_VARIABLES) {
-            g_game.state.variables.values[vid - 1] = val;
-        }
-        p += STATE_LOAD_DESC_VARIABLES_ENTRY_SIZE;
+    load_raw_entries(b, STATE_LOAD_DESC_INVENTORY_COUNT_OFF,
+                     STATE_LOAD_DESC_INVENTORY_ENTRY_OFF,
+                     STATE_LOAD_DESC_INVENTORY_ENTRY_SIZE,
+                     (uint8_t *)&g_game.state.inventory.entries[0],
+                     STATE_LOAD_DESC_INVENTORY_ENTRY_SIZE);
+    if (b[STATE_LOAD_DESC_INVENTORY_COUNT_OFF] > 0) {
+        g_game.state.inventory.count = b[STATE_LOAD_DESC_INVENTORY_COUNT_OFF];
     }
-    p = &b[STATE_LOAD_DESC_CURRENCY_ENTRY_OFF];
-    for (i = 0; i < b[STATE_LOAD_DESC_CURRENCY_COUNT_OFF]; i++) {
-        uint8_t cid = p[0];
-        int16_t amt = (int16_t)((int16_t)p[1] | ((int16_t)p[2] << 8));
-        if (cid >= 1 && cid <= MAX_CURRENCIES) {
-            g_game.state.currency.amount[cid - 1] = amt;
-        }
-        p += STATE_LOAD_DESC_CURRENCY_ENTRY_SIZE;
-    }
-    p = &b[STATE_LOAD_DESC_PARTY_ENTRY_OFF];
-    for (i = 0; i < b[STATE_LOAD_DESC_PARTY_COUNT_OFF]; i++) {
-        g_game.state.party.members[i].id = (CharacterId)p[0];
-        g_game.state.party.members[i].hp = p[1];
-        g_game.state.party.members[i].max_hp = p[2];
-        g_game.state.party.count = (uint8_t)(i + 1);
-        p += STATE_LOAD_DESC_PARTY_ENTRY_SIZE;
-    }
-    p = &b[STATE_LOAD_DESC_INVENTORY_ENTRY_OFF];
-    for (i = 0; i < b[STATE_LOAD_DESC_INVENTORY_COUNT_OFF]; i++) {
-        g_game.state.inventory.entries[i].item_id = (ItemId)p[0];
-        g_game.state.inventory.entries[i].quantity = p[1];
-        g_game.state.inventory.count = (uint8_t)(i + 1);
-        p += STATE_LOAD_DESC_INVENTORY_ENTRY_SIZE;
-    }
-    p = &b[STATE_LOAD_DESC_WORLD_ENTRY_OFF];
-    for (i = 0; i < b[STATE_LOAD_DESC_WORLD_COUNT_OFF]; i++) {
-        g_game.state.world.actors[i].actor_id = (ActorId)(p[0] | (p[1] << 8));
-        g_game.state.world.actors[i].state = p[2];
-        g_game.state.world.count = (uint8_t)(i + 1);
-        p += STATE_LOAD_DESC_WORLD_ENTRY_SIZE;
+    load_raw_entries(b, STATE_LOAD_DESC_WORLD_COUNT_OFF,
+                     STATE_LOAD_DESC_WORLD_ENTRY_OFF,
+                     STATE_LOAD_DESC_WORLD_ENTRY_SIZE,
+                     (uint8_t *)&g_game.state.world.actors[0],
+                     STATE_LOAD_DESC_WORLD_ENTRY_SIZE);
+    if (b[STATE_LOAD_DESC_WORLD_COUNT_OFF] > 0) {
+        g_game.state.world.count = b[STATE_LOAD_DESC_WORLD_COUNT_OFF];
     }
     p = &b[STATE_LOAD_DESC_PROGRESSION_ENTRY_OFF];
     for (i = 0; i < b[STATE_LOAD_DESC_PROGRESSION_COUNT_OFF]; i++) {
@@ -158,7 +179,7 @@ static void scenario_load_state(void)
     g_game.state.scene.player_y = y;
     g_game.state.scene.player_facing = facing;
     world_init(&g_game.world, &g_game.state);
-    world_load_map(&g_game.world, map, &g_game.state);
+    world_load_map(&g_game.world, scene_id_to_map(scene), &g_game.state);
     g_game.world.player.position.x = x;
     g_game.world.player.position.y = y;
     g_game.world.player.facing = (Direction)facing;
@@ -179,11 +200,12 @@ static void scenario_load_state(void)
     if (b[STATE_LOAD_DESC_FONT_TEST_OFF]) {
         ui_draw_font_test();
     }
-    if (dialogue_id != DIALOGUE_ID_NONE) {
-        dialogue_start_def(&g_game.dialogue, (DialogueId)dialogue_id);
+    if (b[STATE_LOAD_DESC_DIALOGUE_ID_OFF] != DIALOGUE_ID_NONE) {
+        dialogue_start_def(&g_game.dialogue,
+                           (DialogueId)b[STATE_LOAD_DESC_DIALOGUE_ID_OFF]);
         g_game.screen = SCREEN_DIALOGUE;
     }
-    if (start_battle) {
+    if (b[STATE_LOAD_DESC_START_BATTLE_OFF]) {
         uint8_t idx = 0;
         for (i = 0; i < MAX_WORLD_ACTORS; i++) {
             if (g_game.world.actors[i].active) {
@@ -204,13 +226,13 @@ static void scenario_load_state(void)
         g_game.screen = SCREEN_BATTLE;
         audio_play_music(MUSIC_BATTLE);
     }
-    if (screen == SCREEN_GAME_OVER) {
+    if (b[STATE_LOAD_DESC_SCREEN_OFF] == SCREEN_GAME_OVER) {
         g_game.screen = SCREEN_GAME_OVER;
     }
-    if (screen == SCREEN_THANKS) {
+    if (b[STATE_LOAD_DESC_SCREEN_OFF] == SCREEN_THANKS) {
         g_game.screen = SCREEN_THANKS;
     }
-    if (screen == SCREEN_ENDING) {
+    if (b[STATE_LOAD_DESC_SCREEN_OFF] == SCREEN_ENDING) {
         g_game.screen = SCREEN_ENDING;
     }
 
@@ -221,7 +243,7 @@ static void scenario_load_state(void)
      * prev_screen (rather than g_game.prev_screen, which item-menu close
      * navigation reads) so dialogue_screen_render() does not skip its
      * ui_draw_world_full() on the first frame. */
-    if (dialogue_id != DIALOGUE_ID_NONE) {
+    if (b[STATE_LOAD_DESC_DIALOGUE_ID_OFF] != DIALOGUE_ID_NONE) {
         g_game.render_cache.prev_screen = SCREEN_DIALOGUE;
     }
     debug_snapshot();

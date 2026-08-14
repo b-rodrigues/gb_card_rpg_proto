@@ -17,6 +17,12 @@ extern char g_ui_screen_buf[18][21];
 #define UI_ENEMY_SLIME_TILE     144   /* 1 tile (OAM sprite) */
 #define UI_ENEMY_BAT_TILE       145   /* 1 tile (OAM sprite) */
 #define UI_ENEMY_BOSS_TILE_BASE 146   /* 4 tiles (2x2 OAM sprite grid) */
+#define UI_NPC_TILE_BASE        150   /* 5 letter placeholder tiles (M/G/S/E/?) */
+
+/* First VRAM tile id occupied by an actor on the overworld (enemy slime).
+ * Everything >= this id in the overworld tilemap ring is an actor tile
+ * (the ui_refill_semantic decode keys off it). */
+#define UI_ACTOR_TILE_FIRST     UI_ENEMY_SLIME_TILE
 
 /* Copy the banked tilesets into VRAM.  Called once at boot from game_init
  * after banked_copy_init(); renderers then read only VRAM.

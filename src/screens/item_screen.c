@@ -73,7 +73,7 @@ static void menu_draw_status(Game *g, const MenuFrame *frame, char *buf)
     ps = progression_get(&g->state, t);
 
     menu_draw_content(frame, 0, "HERO");
-    y = menu_row(frame, 1);
+    y = (uint8_t)(frame->top_row + 1);
     ui_draw_text_line(0, y, "HP:", 3);
     ui_format_int((int16_t)hero->hp, buf);
     ui_draw_text_line(4, y, buf, 4);
@@ -81,22 +81,22 @@ static void menu_draw_status(Game *g, const MenuFrame *frame, char *buf)
     ui_format_int((int16_t)hero->max_hp, buf);
     ui_draw_text_line(9, y, buf, 4);
 
-    y = menu_row(frame, 2);
+    y = (uint8_t)(frame->top_row + 2);
     ui_draw_text_line(0, y, "GOLD:", 6);
     ui_format_int(gold, buf);
     ui_draw_text_line(6, y, buf, 12);
 
-    y = menu_row(frame, 4);
+    y = (uint8_t)(frame->top_row + 4);
     ui_draw_text_line(0, y, "LEVEL:", 6);
     ui_format_int((int16_t)(ps ? ps->level : 1), buf);
     ui_draw_text_line(6, y, buf, 4);
 
-    y = menu_row(frame, 5);
+    y = (uint8_t)(frame->top_row + 5);
     ui_draw_text_line(0, y, "PROGRESS:", 9);
     ui_format_int((int16_t)(ps ? ps->progress : 0), buf);
     ui_draw_text_line(10, y, buf, 6);
 
-    y = menu_row(frame, 6);
+    y = (uint8_t)(frame->top_row + 6);
     ui_draw_text_line(0, y, "WEAPON:", 7);
     if (g->state.equipment.weapon != ITEM_NONE) {
         const ItemDefinition *wd = item_get_def(g->state.equipment.weapon);
@@ -241,6 +241,7 @@ static void menu_draw(Game *g)
 void item_screen_update(Game *g)
 {
     ItemId id;
+    uint8_t vc;
     uint8_t tab_changed = 0;
 
     if (!g) return;
@@ -279,13 +280,14 @@ void item_screen_update(Game *g)
         return;
     }
 
-    if (menu_visible_count(&g->state.inventory, g->item_menu_tab) > 0) {
+    vc = menu_visible_count(&g->state.inventory, g->item_menu_tab);
+    if (vc > 0) {
         if (input_pressed(INPUT_UP)) {
             if (g->item_menu_index > 0) g->item_menu_index--;
             g->render_cache.valid = false;
         }
         if (input_pressed(INPUT_DOWN)) {
-            if ((uint8_t)(g->item_menu_index + 1) < menu_visible_count(&g->state.inventory, g->item_menu_tab)) {
+            if ((uint8_t)(g->item_menu_index + 1) < vc) {
                 g->item_menu_index++;
             }
             g->render_cache.valid = false;
@@ -304,8 +306,10 @@ void item_screen_update(Game *g)
             } else {
                 item_equip(&g->state, id);
             }
-            if (g->item_menu_index >= menu_visible_count(&g->state.inventory, g->item_menu_tab)) {
-                uint8_t vc = menu_visible_count(&g->state.inventory, g->item_menu_tab);
+            /* item_use may have consumed the last item; recompute the
+             * visible count before clamping the cursor. */
+            vc = menu_visible_count(&g->state.inventory, g->item_menu_tab);
+            if (g->item_menu_index >= vc) {
                 if (vc > 0) {
                     g->item_menu_index = (uint8_t)(vc - 1);
                 } else {

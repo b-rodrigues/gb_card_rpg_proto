@@ -205,7 +205,6 @@ void ui_init(void)
     ui_sprite_init();
     DISPLAY_ON;
 }
-
 /* Show the HUD window at the bottom of the display (the overworld only).
  * The window is always enabled while the HUD is visible; its tilemap
  * (0x9C00) holds the HUD. */
@@ -589,19 +588,30 @@ static void ui_hud_put_char(uint8_t x, uint8_t y, char ch)
 #endif
 }
 
-static void ui_hud_text_line(uint8_t y, const char *text, uint8_t max_chars)
+static void ui_hud_text_line(uint8_t x, uint8_t y, const char *text, uint8_t max_chars)
 {
     uint8_t i = 0;
     char ch;
     while (text && text[i] != '\0' && i < max_chars) {
         ch = text[i];
-        ui_hud_put_char(i, y, ch);
+        ui_hud_put_char(x + i, y, ch);
         i++;
     }
     while (i < max_chars) {
-        ui_hud_put_char(i, y, ' ');
+        ui_hud_put_char(x + i, y, ' ');
         i++;
     }
+}
+
+/* Draw one dialogue-box interior row into the HUD window: | border, the
+ * 18-char text (space-padded), | border.  The box lives in the window
+ * (0x9C00), fixed at screen rows 12-17 -- not the scrolling background ring
+ * (see ui_draw_dialogue). */
+static void ui_dlg_box_line(uint8_t y, const char *text, uint8_t max_chars)
+{
+    ui_hud_put_char(0, y, '|');
+    ui_hud_text_line(1, y, text, max_chars);
+    ui_hud_put_char(19, y, '|');
 }
 
 /* Draw a value right-aligned in a 2-wide field (space padded) into the HUD
@@ -639,15 +649,15 @@ void ui_draw_overworld_hud(const World *world)
 
     /* The HUD lives in the WINDOW layer (0x9C00), so the SCX/SCY-scrolled
      * background map never carries it.  Window row y -> screen row 12+y. */
-    ui_hud_text_line(0, "====================", 20);
-    ui_hud_text_line(1, label, 15);
+    ui_hud_text_line(0, 0, "====================", 20);
+    ui_hud_text_line(0, 1, label, 15);
     ui_hud_num2(15, 1, world->player.hp);
     ui_hud_put_char(17, 1, '/');
     ui_hud_num2(18, 1, world->player.max_hp);
-    ui_hud_text_line(2, "", 20);
-    ui_hud_text_line(3, "", 20);
-    ui_hud_text_line(4, "", 20);
-    ui_hud_text_line(5, " [D-PAD] MOVE HERO", 20);
+    ui_hud_text_line(0, 2, "", 20);
+    ui_hud_text_line(0, 3, "", 20);
+    ui_hud_text_line(0, 4, "", 20);
+    ui_hud_text_line(0, 5, " [D-PAD] MOVE HERO", 20);
 }
 
 void ui_draw_world_full(const World *world)
@@ -780,33 +790,33 @@ void ui_update_battle(const Battle *battle)
 /* Draw the window-frame tiles (ui_frame) around the box [c0,c1)x[r0,r1) in
  * the BG tilemap (0x9800).  The staged frame map gives the 3x3 layout
  * (corners, edges, center); the border is the outer ring and the interior
- * stays whatever the console drew (text).  The semantic g_ui_screen_buf is
- * untouched -- this is presentation only, over the existing console box. */
+  * stays whatever the console drew (text).  The semantic g_ui_screen_buf is
+  * untouched -- this is presentation only, over the existing console box. */
 void ui_draw_dialogue(const DialogueState *dialogue)
 {
     if (!dialogue || !dialogue->active) return;
     if (dialogue->current_line >= dialogue->line_count) return;
 
-    /* Dialogue box occupies dedicated modal overlay region: rows 12-17 (6 rows, 20 columns) */
-    ui_draw_text_line(0, 12, "+------------------+", 20);
+    /* Dialogue box occupies the WINDOW layer (0x9C00), fixed at the bottom
+     * of the display (window rows 0-5 = screen rows 12-17).  It must NOT
+     * draw into the background (0x9800): the overworld camera scrolls that
+     * ring via SCX/SCY, so a box written at fixed background rows displays
+     * shifted by the scroll and its text persists in the ring, later
+     * scrolling back into view mixed into the map ("text from other scenes
+     * gets shown").  The window is not scrolled, so the box always appears
+     * at screen rows 12-17 regardless of camera.  The semantic buffer keeps
+     * screen rows 12-17 so the harness assertions are unchanged. */
+    ui_hud_text_line(0, 0, "+------------------+", 20);
 
-    ui_put_char(0, 13, '|');
-    ui_draw_text_line(1, 13, dialogue->speaker ? dialogue->speaker : "", 18);
-    ui_put_char(19, 13, '|');
+    ui_dlg_box_line(1, dialogue->speaker ? dialogue->speaker : "", 18);
 
-    ui_put_char(0, 14, '|');
-    ui_draw_text_line(1, 14, dialogue->lines[dialogue->current_line], 18);
-    ui_put_char(19, 14, '|');
+    ui_dlg_box_line(2, dialogue->lines[dialogue->current_line], 18);
 
-    ui_put_char(0, 15, '|');
-    ui_draw_text_line(1, 15, "", 18);
-    ui_put_char(19, 15, '|');
+    ui_dlg_box_line(3, "", 18);
 
-    ui_put_char(0, 16, '|');
-    ui_draw_text_line(1, 16, " [A] CONTINUE", 18);
-    ui_put_char(19, 16, '|');
+    ui_dlg_box_line(4, " [A] CONTINUE", 18);
 
-    ui_draw_text_line(0, 17, "+------------------+", 20);
+    ui_hud_text_line(0, 5, "+------------------+", 20);
 }
 
 void ui_draw_game_over(uint8_t choice)

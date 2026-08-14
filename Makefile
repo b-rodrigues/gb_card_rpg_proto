@@ -29,7 +29,7 @@ OBJS_DEBUG = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/debug/%.o,$(SRCS))
 # Emulator detection
 EMULATOR ?= $(shell command -v sameboy 2>/dev/null || command -v mgba-sdl 2>/dev/null || command -v mgba-qt 2>/dev/null || command -v mgba 2>/dev/null || echo "")
 
-.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot lint memmap verify-oam verify-font verify-vram vram-check vram-text gfx gfx-selftest clean
+.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot lint memmap verify-oam verify-font verify-vram vram-check vram-text vram-dialogue gfx gfx-selftest clean
 
 all: $(TARGET)
 
@@ -190,6 +190,14 @@ vram-check: release
 # reading real VRAM.  Manual only; not part of the CI chain.
 vram-text: release
 	@python3 tools/vram_text_check.py
+
+# Dialogue-box placement ground truth via PyBoy (see
+# tools/vram_dialogue_check.py): asserts the dialogue box renders in the
+# WINDOW tilemap (0x9C00) at fixed screen rows 12-17, not the scrolled
+# background ring, so its text cannot shift with the camera or pollute the
+# map ("text from other scenes").  Manual only; not part of the CI chain.
+vram-dialogue: release
+	@python3 tools/vram_dialogue_check.py
 
 # Print a reproducible memory budget (code/WRAM usage, _HOME headroom vs the
 # 0x8000 ceiling).  Exits non-zero if a documented invariant is violated.

@@ -69,9 +69,13 @@ void screen_change(Game *g, ScreenId screen)
     g->prev_screen = old_screen;
     g->screen = screen;
 
-    /* The HUD window layer is only visible on the overworld (the SCX/SCY
-     * background map must not carry it). */
-    if (screen == SCREEN_OVERWORLD) {
+    /* The HUD window layer carries the overworld HUD AND the dialogue box
+     * (both live in the WINDOW tilemap 0x9C00, rows 0-5 = screen rows
+     * 12-17).  The window is fixed on screen -- it is NOT scrolled by
+     * SCX/SCY -- so it is the only safe home for these fixed-position
+     * overlays over the scrolled overworld background.  It is enabled on
+     * the overworld (HUD) and on dialogue (the box), disabled elsewhere. */
+    if (screen == SCREEN_OVERWORLD || screen == SCREEN_DIALOGUE) {
         ui_hud_show();
     } else {
         ui_hud_hide();

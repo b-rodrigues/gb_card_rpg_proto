@@ -355,10 +355,16 @@ void ui_clear_screen(void)
 void ui_draw_text_line(uint8_t x, uint8_t y, const char *text, uint8_t max_chars)
 {
     uint8_t i = 0;
+    uint8_t ended;
     char ch;
     if (y >= 18) return;
+    ended = (text == NULL);
     while (i < max_chars) {
-        ch = (text && text[i] != '\0') ? text[i] : ' ';
+        /* Track end-of-string with a flag: re-checking text[i] after a '\0'
+         * would read the NEXT byte (i was already incremented) and could
+         * bleed into the adjacent ROM string packed after this one. */
+        if (!ended && text[i] == '\0') ended = 1;
+        ch = ended ? ' ' : text[i];
         if ((x + i) < 20) {
             ((volatile uint8_t *)0x9800)[y * 32 + x + i] =
                 (uint8_t)(ui_font_tile_base + (uint8_t)(ch - ' '));
@@ -429,11 +435,12 @@ static void ui_draw_world_cell(const World *world, uint8_t col, uint8_t row)
     }
 
     foot = actor_find_footprint(world, col, row, &ax, &ay);
-    if (foot && foot->tile_w != 0 && foot->tile_h != 0) {
-        /* Multi-tile footprint (the 2x2 boss): the sub-tile is row-major,
-         * anchor at (ax,ay).  tile_w is only ever 1 or 2, so the generic
-         * multiply is avoided (a runtime multiply would pull the SDCC mul
-         * helpers into the fixed bank). */
+    if (foot && foot->tile != 0) {
+        /* Real-tileset actor (tile != 0).  Single-tile actors: sub = 0, so
+         * tile_idx = tile.  Multi-tile footprint (the 2x2 boss): sub-tile
+         * is row-major from the anchor (ax, ay).  tile_w is only ever 1 or
+         * 2, so the generic multiply is avoided (a runtime multiply pulls
+         * the SDCC mul helpers into the fixed bank). */
         sub = (uint8_t)(col - ax);
         if (foot->tile_w == 2) {
             sub += (uint8_t)((row - ay) << 1);
@@ -442,6 +449,7 @@ static void ui_draw_world_cell(const World *world, uint8_t col, uint8_t row)
         }
         tile_idx = (uint8_t)(foot->tile + sub);
     } else if (foot) {
+        /* tile == 0: ASCII-visual fallback via the console font. */
         tile_idx = (uint8_t)(ui_font_tile_base + (uint8_t)(foot->visual - ' '));
     } else {
         tile_idx = (uint8_t)(WORLD_TILE_BASE + g_tile_map[t]);

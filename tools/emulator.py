@@ -931,6 +931,13 @@ class EmulatorSession:
         addr = self.get_symbol("g_tilemap_mirror")
         return [self._memread(addr + i) for i in range(32 * 32)]
 
+    def get_hud_tilemap_mirror(self):
+        """Read the DEBUG-only HUD window-tilemap mirror (6 rows x 32 cols,
+        rows 0-5 of 0x9C00), written by ui_hud_put_char.  A WRAM mirror so
+        the font-mapping regression check is immune to VRAM scanout drops."""
+        addr = self.get_symbol("g_hud_tilemap_mirror")
+        return [self._memread(addr + i) for i in range(6 * 32)]
+
     def get_screen_buf(self):
         """Read 18×20 characters from g_ui_screen_buf."""
         addr = self.get_symbol("g_ui_screen_buf")

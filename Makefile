@@ -29,7 +29,7 @@ OBJS_DEBUG = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/debug/%.o,$(SRCS))
 # Emulator detection
 EMULATOR ?= $(shell command -v sameboy 2>/dev/null || command -v mgba-sdl 2>/dev/null || command -v mgba-qt 2>/dev/null || command -v mgba 2>/dev/null || echo "")
 
-.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot lint memmap verify-oam gfx gfx-selftest clean
+.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot lint memmap verify-oam verify-font gfx gfx-selftest clean
 
 all: $(TARGET)
 
@@ -165,6 +165,11 @@ screenshot: $(TARGET)
 # and scene (map) changes via the mGBA debugger (see tools/verify_oam.py).
 verify-oam: debug
 	@python3 tools/verify_oam.py
+
+# Verify the console-font -> VRAM tile mapping (HUD) via the DEBUG-only WRAM
+# mirror (see tools/verify_font.py).  Guards against the -' ' offset dropping.
+verify-font: debug
+	@python3 tools/verify_font.py
 
 # Print a reproducible memory budget (code/WRAM usage, _HOME headroom vs the
 # 0x8000 ceiling).  Exits non-zero if a documented invariant is violated.

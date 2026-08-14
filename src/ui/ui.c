@@ -15,6 +15,13 @@ char g_ui_screen_buf[18][21];
  * debugger cannot read VRAM).  DEBUG-only: 1 KB of WRAM the release does
  * not carry. */
 uint8_t g_tilemap_mirror[32 * 32];
+
+/* Mirror of the HUD window tilemap (0x9C00 rows 0-5), written alongside
+ * every ui_hud_put_char write.  The window tilemap lives in VRAM, whose
+ * reads/writes are unreliable under the harness (scanout drops) and in
+ * mGBA's debugger, so the font-mapping regression check reads this WRAM
+ * mirror instead (it captures the ROM's write *intent*).  DEBUG-only. */
+uint8_t g_hud_tilemap_mirror[6 * 32];
 #endif
 
 /* GBDK console .mode byte (defined in crt0.s _DATA). Bit 2 is M_NO_SCROLL. */
@@ -29,7 +36,12 @@ static font_t ibm_font;
  * *handle* (a RAM pointer to a {first_tile, font_ptr} entry, value 0xCD74),
  * not a tile base: using it directly (ibm_font + ch) renders tiles at
  * 0x74+ch, i.e. unloaded VRAM.  Cached from the handle at ui_init; the IBM
- * font's first_tile is 0. */
+ * font's first_tile is 0.
+ *
+ * The console font packs its glyphs starting at space (0x20), so the tile
+ * for char `ch` is base + (ch - ' ') -- never base + ch, which renders the
+ * glyph for (ch + 0x20) instead.  Every tilemap write below applies that
+ * offset. */
 static uint8_t ui_font_tile_base;
 
 static const palette_color_t cgb_palette[4] = {
@@ -324,7 +336,7 @@ void ui_clear_screen(void)
     for (y = 0; y < 18; y++) {
         for (x = 0; x < 20; x++) {
             ((volatile uint8_t *)0x9C00)[y * 32 + x] =
-                (uint8_t)(ui_font_tile_base + (uint8_t)' ');
+                ui_font_tile_base;
             g_ui_screen_buf[y][x] = ' ';
         }
         g_ui_screen_buf[y][20] = '\0';
@@ -340,7 +352,7 @@ void ui_draw_text_line(uint8_t x, uint8_t y, const char *text, uint8_t max_chars
         ch = (text && text[i] != '\0') ? text[i] : ' ';
         if ((x + i) < 20) {
             ((volatile uint8_t *)0x9C00)[y * 32 + x + i] =
-                (uint8_t)(ui_font_tile_base + (uint8_t)ch);
+                (uint8_t)(ui_font_tile_base + (uint8_t)(ch - ' '));
             g_ui_screen_buf[y][x + i] = ch;
         }
         i++;
@@ -421,7 +433,7 @@ static void ui_draw_world_cell(const World *world, uint8_t col, uint8_t row)
         }
         tile_idx = (uint8_t)(foot->tile + sub);
     } else if (foot) {
-        tile_idx = (uint8_t)(ui_font_tile_base + (uint8_t)foot->visual);
+        tile_idx = (uint8_t)(ui_font_tile_base + (uint8_t)(foot->visual - ' '));
     } else {
         tile_idx = (uint8_t)(WORLD_TILE_BASE + g_tile_map[t]);
     }
@@ -556,13 +568,15 @@ void ui_update_camera(const World *world)
 
 /* Write one char to the HUD window tilemap (0x9C00) row `y` (0-5, displayed
  * at screen rows 12-17) and mirror it into the semantic g_ui_screen_buf.
- * The tile index is the console font base + the char code (the console's
- * putchar does the same for the background).  Callers pass in-range
- * coordinates (x < 20, y < 6). */
+ * The console font packs its glyphs starting at space, so char `ch` is tile
+ * base + (ch - ' ').  Callers pass in-range coordinates (x < 20, y < 6). */
 static void ui_hud_put_char(uint8_t x, uint8_t y, char ch)
 {
-    ((volatile uint8_t *)0x9C00)[y * 32 + x] = (uint8_t)(ui_font_tile_base + (uint8_t)ch);
+    ((volatile uint8_t *)0x9C00)[y * 32 + x] = (uint8_t)(ui_font_tile_base + (uint8_t)(ch - ' '));
     g_ui_screen_buf[12 + y][x] = ch;
+#ifdef DEBUG_BUILD
+    g_hud_tilemap_mirror[y * 32 + x] = (uint8_t)(ui_font_tile_base + (uint8_t)(ch - ' '));
+#endif
 }
 
 static void ui_hud_text_line(uint8_t y, const char *text, uint8_t max_chars)
@@ -652,7 +666,7 @@ static void ui_put_char(uint8_t x, uint8_t y, char ch)
 {
     if (y < 18 && x < 20) {
         ((volatile uint8_t *)0x9C00)[y * 32 + x] =
-            (uint8_t)(ui_font_tile_base + (uint8_t)ch);
+            (uint8_t)(ui_font_tile_base + (uint8_t)(ch - ' '));
         g_ui_screen_buf[y][x] = ch;
     }
 }

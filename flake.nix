@@ -37,6 +37,54 @@
             platforms = platforms.linux;
           };
         };
+
+        # PyBoy (Game Boy emulator in Python) is not packaged in nixpkgs, so
+        # install the precompiled PyPI manylinux wheel (LGPL-3.0).  A source
+        # build needs Cython <3.1 (its 2.7.0 build-system pins
+        # cython>=3.0.6,<3.1,!=3.0.10), which this nixpkgs rev does not
+        # package, and Cython 3.2.x breaks its cythonize -- so use the wheel,
+        # which ships the .so already compiled for CPython 3.14 (the shell's
+        # python3).  Only numpy is propagated: the pysdl2/pysdl2-dll window
+        # deps are guarded by try/except ImportError in PyBoy and are only
+        # needed for SDL windows -- the project uses window="null"
+        # (headless).  pysdl2-dll is not in nixpkgs anyway.  autoPatchelfHook
+        # is a no-op here (all .so only NEED libc.so.6, no RPATH) but is the
+        # standard insurance for prebuilt wheels.
+        pyboy = pkgs.python3.pkgs.buildPythonPackage rec {
+          pname = "pyboy";
+          version = "2.7.0";
+
+          format = "wheel";
+
+          src = pkgs.fetchurl {
+            url = "https://files.pythonhosted.org/packages/51/da/ce77683a235cbbf797c8eab25bd6dceabfd2c5109d75e06abbf7b27ff174/pyboy-2.7.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl";
+            sha256 = "sha256-ivS1WtgnCzawDo0fnThu7Of3I1EYcuN+8twdR1bQnfc=";
+          };
+
+          nativeBuildInputs = [
+            pkgs.autoPatchelfHook
+          ];
+
+          propagatedBuildInputs = with pkgs.python3.pkgs; [
+            numpy
+          ];
+
+          pythonImportsCheck = [ "pyboy" ];
+
+          # The wheel's METADATA declares pysdl2/pysdl2-dll, but both are
+          # guarded by try/except ImportError in PyBoy and unnecessary for
+          # headless (window="null") use; skip the runtime deps check.
+          dontCheckRuntimeDeps = true;
+
+          doCheck = false;
+
+          meta = with pkgs.lib; {
+            description = "Game Boy emulator written in Python";
+            homepage = "https://github.com/Baekalfen/PyBoy";
+            license = licenses.lgpl3Only;
+            platforms = platforms.linux;
+          };
+        };
       in
       {
         packages.gbdk = gbdk;
@@ -58,6 +106,7 @@
             pkgs.imagemagick
             pkgs.python3
             pkgs.python3Packages.pillow
+            pyboy
           ];
 
           shellHook = ''

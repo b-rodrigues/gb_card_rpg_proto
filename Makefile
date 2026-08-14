@@ -29,7 +29,7 @@ OBJS_DEBUG = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/debug/%.o,$(SRCS))
 # Emulator detection
 EMULATOR ?= $(shell command -v sameboy 2>/dev/null || command -v mgba-sdl 2>/dev/null || command -v mgba-qt 2>/dev/null || command -v mgba 2>/dev/null || echo "")
 
-.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot lint memmap verify-oam verify-font verify-vram gfx gfx-selftest clean
+.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot lint memmap verify-oam verify-font verify-vram vram-check gfx gfx-selftest clean
 
 all: $(TARGET)
 
@@ -111,12 +111,12 @@ LDFLAGS = -Wl-b_DATA=0xC940
 
 $(TARGET): gfx $(OBJS) build/crt0.o $(GB_LITE) $(SM83_LITE) | $(BUILD_DIR)
 	$(CC) -no-crt -Wm-yc -Wl-yt0x19 -Wl-yo8 $(LDFLAGS) -o $@ build/crt0.o $(OBJS) $(GB_LITE) $(SM83_LITE)
-	@$(RGBFIX) -C -m 0x1b -r 2 -t "GBCARDRPG" $@ 2>/dev/null || true
+	@$(RGBFIX) -v -C -m 0x1b -r 2 -t "GBCARDRPG" $@
 
 $(TARGET_DEBUG): gfx $(OBJS_DEBUG) build/crt0.o $(GB_LITE) $(SM83_LITE) | $(BUILD_DIR)
 	$(CC) -no-crt -Wm-yc -Wl-yt0x19 -Wl-yo8 $(LDFLAGS) -Wl-m -Wl-j -Wl-y -o $@ build/crt0.o $(OBJS_DEBUG) $(GB_LITE) $(SM83_LITE)
 	@python3 tools/make_sym.py $(BUILD_DIR)/rpg_card_proto_debug.noi $(BUILD_DIR)/rpg_card_proto_debug.sym
-	@$(RGBFIX) -C -m 0x1b -r 2 -t "GBCARDRPG" $@ 2>/dev/null || true
+	@$(RGBFIX) -v -C -m 0x1b -r 2 -t "GBCARDRPG" $@
 
 build/crt0.o: src/crt0.s | $(BUILD_DIR)
 	sdasgb -o $@ $<
@@ -176,6 +176,13 @@ verify-font: debug
 # tools/verify_vram.py).  Guards the vsync-before-render and LCD-off redraw.
 verify-vram: debug
 	@python3 tools/verify_vram.py
+
+# Font/VRAM pixel ground truth via PyBoy (see tools/vram_check.py).  Boots the
+# real release ROM headlessly and reads VRAM directly -- the one place a
+# pixel-level check is the correct tool (the char->tile mapping has no
+# semantic representation).  Manual only; not part of the CI chain.
+vram-check: release
+	@python3 tools/vram_check.py
 
 # Print a reproducible memory budget (code/WRAM usage, _HOME headroom vs the
 # 0x8000 ceiling).  Exits non-zero if a documented invariant is violated.

@@ -37,6 +37,10 @@
     {
       "type": "event_occurred",
       "event": "BATTLE_STARTED"
+    },
+    {
+      "type": "event_occurred",
+      "event": "ENEMY_SPRITE"
     }
   ],
   "initial_state": {

@@ -78,6 +78,10 @@
     },
     {
       "type": "event_occurred",
+      "event": "ENEMY_SPRITE"
+    },
+    {
+      "type": "event_occurred",
       "event": "SCRIPT_TRIGGERED"
     },
     {

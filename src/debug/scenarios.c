@@ -70,6 +70,7 @@ static void scenario_begin(uint32_t seed)
 static void scenario_load_state(void)
 {
     const uint8_t *b = g_scen_state_buf;
+    const uint8_t *p;
     SceneId scene;
     MapId map;
     uint8_t x, y, facing;
@@ -78,7 +79,6 @@ static void scenario_load_state(void)
     uint8_t dialogue_id;
     uint8_t start_battle;
     uint8_t i;
-    uint8_t n;
 
     if (b[0] != STATE_LOAD_DESC_VERSION) return;
 
@@ -100,52 +100,54 @@ static void scenario_load_state(void)
     for (i = 0; i < STATE_LOAD_DESC_FLAGS_SIZE; i++) {
         g_game.state.flags.bytes[i] = b[STATE_LOAD_DESC_FLAGS_OFF + i];
     }
+    p = &b[STATE_LOAD_DESC_VARIABLES_ENTRY_OFF];
     for (i = 0; i < b[STATE_LOAD_DESC_VARIABLES_COUNT_OFF]; i++) {
-        uint8_t vid;
-        int16_t val;
-        n = STATE_LOAD_DESC_VARIABLES_ENTRY_OFF + i * STATE_LOAD_DESC_VARIABLES_ENTRY_SIZE;
-        vid = b[n];
-        val = (int16_t)((int16_t)b[n + 1] | ((int16_t)b[n + 2] << 8));
+        uint8_t vid = p[0];
+        int16_t val = (int16_t)((int16_t)p[1] | ((int16_t)p[2] << 8));
         if (vid >= 1 && vid <= MAX_STATE_VARIABLES) {
             g_game.state.variables.values[vid - 1] = val;
         }
+        p += STATE_LOAD_DESC_VARIABLES_ENTRY_SIZE;
     }
+    p = &b[STATE_LOAD_DESC_CURRENCY_ENTRY_OFF];
     for (i = 0; i < b[STATE_LOAD_DESC_CURRENCY_COUNT_OFF]; i++) {
-        uint8_t cid;
-        int16_t amt;
-        n = STATE_LOAD_DESC_CURRENCY_ENTRY_OFF + i * STATE_LOAD_DESC_CURRENCY_ENTRY_SIZE;
-        cid = b[n];
-        amt = (int16_t)((int16_t)b[n + 1] | ((int16_t)b[n + 2] << 8));
+        uint8_t cid = p[0];
+        int16_t amt = (int16_t)((int16_t)p[1] | ((int16_t)p[2] << 8));
         if (cid >= 1 && cid <= MAX_CURRENCIES) {
             g_game.state.currency.amount[cid - 1] = amt;
         }
+        p += STATE_LOAD_DESC_CURRENCY_ENTRY_SIZE;
     }
+    p = &b[STATE_LOAD_DESC_PARTY_ENTRY_OFF];
     for (i = 0; i < b[STATE_LOAD_DESC_PARTY_COUNT_OFF]; i++) {
-        n = STATE_LOAD_DESC_PARTY_ENTRY_OFF + i * STATE_LOAD_DESC_PARTY_ENTRY_SIZE;
-        g_game.state.party.members[i].id = (CharacterId)b[n];
-        g_game.state.party.members[i].hp = b[n + 1];
-        g_game.state.party.members[i].max_hp = b[n + 2];
+        g_game.state.party.members[i].id = (CharacterId)p[0];
+        g_game.state.party.members[i].hp = p[1];
+        g_game.state.party.members[i].max_hp = p[2];
         g_game.state.party.count = (uint8_t)(i + 1);
+        p += STATE_LOAD_DESC_PARTY_ENTRY_SIZE;
     }
+    p = &b[STATE_LOAD_DESC_INVENTORY_ENTRY_OFF];
     for (i = 0; i < b[STATE_LOAD_DESC_INVENTORY_COUNT_OFF]; i++) {
-        n = STATE_LOAD_DESC_INVENTORY_ENTRY_OFF + i * STATE_LOAD_DESC_INVENTORY_ENTRY_SIZE;
-        g_game.state.inventory.entries[i].item_id = (ItemId)b[n];
-        g_game.state.inventory.entries[i].quantity = b[n + 1];
+        g_game.state.inventory.entries[i].item_id = (ItemId)p[0];
+        g_game.state.inventory.entries[i].quantity = p[1];
         g_game.state.inventory.count = (uint8_t)(i + 1);
+        p += STATE_LOAD_DESC_INVENTORY_ENTRY_SIZE;
     }
+    p = &b[STATE_LOAD_DESC_WORLD_ENTRY_OFF];
     for (i = 0; i < b[STATE_LOAD_DESC_WORLD_COUNT_OFF]; i++) {
-        n = STATE_LOAD_DESC_WORLD_ENTRY_OFF + i * STATE_LOAD_DESC_WORLD_ENTRY_SIZE;
-        g_game.state.world.actors[i].actor_id = (ActorId)(b[n] | (b[n + 1] << 8));
-        g_game.state.world.actors[i].state = b[n + 2];
+        g_game.state.world.actors[i].actor_id = (ActorId)(p[0] | (p[1] << 8));
+        g_game.state.world.actors[i].state = p[2];
         g_game.state.world.count = (uint8_t)(i + 1);
+        p += STATE_LOAD_DESC_WORLD_ENTRY_SIZE;
     }
+    p = &b[STATE_LOAD_DESC_PROGRESSION_ENTRY_OFF];
     for (i = 0; i < b[STATE_LOAD_DESC_PROGRESSION_COUNT_OFF]; i++) {
         ProgressionTarget t;
-        n = STATE_LOAD_DESC_PROGRESSION_ENTRY_OFF + i * STATE_LOAD_DESC_PROGRESSION_ENTRY_SIZE;
-        t.type = b[n];
-        t.id = (uint16_t)(b[n + 1] | (b[n + 2] << 8));
-        progression_ensure(&g_game.state, t, b[n + 3],
-                           (uint16_t)(b[n + 4] | (b[n + 5] << 8)));
+        t.type = p[0];
+        t.id = (uint16_t)(p[1] | (p[2] << 8));
+        progression_ensure(&g_game.state, t, p[3],
+                           (uint16_t)(p[4] | (p[5] << 8)));
+        p += STATE_LOAD_DESC_PROGRESSION_ENTRY_SIZE;
     }
     g_game.state.equipment.weapon = (ItemId)b[STATE_LOAD_DESC_EQUIPMENT_OFF];
 
@@ -197,6 +199,8 @@ static void scenario_load_state(void)
                      game_hero_attack(&g_game.state),
                      g_game.world.actors[idx].hp,
                      g_game.world.actors[idx].max_hp);
+        g_game.battle.enemy_gfx = game_enemy_gfx(g_game.world.actors[idx].id);
+        telemetry_emit(EVENT_ENEMY_SPRITE, g_game.battle.enemy_gfx, 0, 0, 0);
         g_game.screen = SCREEN_BATTLE;
         audio_play_music(MUSIC_BATTLE);
     }

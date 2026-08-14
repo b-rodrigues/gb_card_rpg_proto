@@ -19,7 +19,4 @@ bool save_game(const GameState *state);
  * when no valid save is present. */
 bool load_game(GameState *state);
 
-/* True when SRAM holds a valid save for this build. */
-bool save_present(void);
-
 #endif /* RPG_SAVE_H */

@@ -19,7 +19,6 @@ Battery-backed SRAM persistence of the canonical `GameState`
 | 0xA004 | `sizeof(GameState)` | the serialized `GameState` |
 
 * Checksum: 8-bit sum of the `GameState` bytes (mod 256).
-* `save_present()`: magic + version + checksum valid.
 * `load_game()`: returns false (and leaves state untouched) when no valid
   save is present.
 

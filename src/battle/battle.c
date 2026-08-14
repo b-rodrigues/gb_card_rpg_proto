@@ -14,6 +14,7 @@ void battle_start(Battle *b, const char *enemy_name, uint8_t player_hp,
     b->result = BATTLE_RESULT_NONE;
     b->delay_timer = 0;
     b->battle_over = false;
+    b->enemy_gfx = 0;
     telemetry_emit(EVENT_BATTLE_STARTED, 0, 0, 0, 0);
 }
 

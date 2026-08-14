@@ -26,6 +26,8 @@ static void start_battle_from_world(Game *g)
                  g->state.party.members[0].max_hp,
                  game_hero_attack(&g->state),
                  g->world.actors[idx].hp, g->world.actors[idx].max_hp);
+    g->battle.enemy_gfx = game_enemy_gfx(g->world.actors[idx].id);
+    telemetry_emit(EVENT_ENEMY_SPRITE, g->battle.enemy_gfx, 0, 0, 0);
     audio_play_music(MUSIC_BATTLE);
     telemetry_emit(EVENT_MUSIC_CHANGED, MUSIC_BATTLE, 0, 0, 0);
     telemetry_emit(EVENT_ACTOR_COMBAT_START, (uint8_t)g->world.actors[idx].id, 0, 0, 0);

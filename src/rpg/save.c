@@ -50,29 +50,6 @@ static bool save_valid_at(void)
     return sram[SAVE_SRAM_CHECKSUM_OFF] == sum;
 }
 
-bool save_present(void)
-{
-    uint8_t *sram = (uint8_t *)SAVE_SRAM_BASE;
-    uint8_t i;
-    bool valid;
-
-    /* Read magic/version without a local state copy. */
-    ENABLE_RAM;
-    valid = (sram[SAVE_SRAM_MAGIC_OFF] == (uint8_t)(SAVE_MAGIC & 0xFF) &&
-             sram[SAVE_SRAM_MAGIC_OFF + 1] == (uint8_t)(SAVE_MAGIC >> 8) &&
-             sram[SAVE_SRAM_VERSION_OFF] == SAVE_VERSION);
-    if (valid) {
-        /* Verify the stored checksum against the stored state bytes. */
-        uint8_t sum = 0;
-        for (i = 0; i < sizeof(GameState); i++) {
-            sum = (uint8_t)(sum + sram[SAVE_SRAM_STATE_OFF + i]);
-        }
-        valid = (sram[SAVE_SRAM_CHECKSUM_OFF] == sum);
-    }
-    DISABLE_RAM;
-    return valid;
-}
-
 bool save_game(const GameState *state)
 {
     uint8_t *sram = (uint8_t *)SAVE_SRAM_BASE;

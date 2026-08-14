@@ -42,9 +42,12 @@ void game_init(Game *g)
 {
     if (!g) return;
     /* Install the WRAM banked-copy trampoline before any banked content
-     * (event/dialogue tables) can be read.  Runs here rather than in CRT0
-     * init because the harness jumps straight to main(). */
+     * (event/dialogue tables, real tilesets) can be read.  Runs here rather
+     * than in CRT0 init because the harness jumps straight to main(). */
     banked_copy_init();
+    /* Copy the banked tilesets (battle background, window frame, enemy
+     * sprites) into VRAM now that the copy trampoline is resident. */
+    ui_gfx_load();
     g->frame = 0;
     g->game_over_choice = 0;
     g->shop_id = 1;

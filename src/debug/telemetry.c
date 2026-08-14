@@ -138,14 +138,23 @@ void debug_snapshot(void)
     debug_state_snapshot();
 }
 
+/* Write `val` little-endian at p[0..1]. */
+static void snap_le16(uint8_t *p, int16_t val)
+{
+    p[0] = (uint8_t)(val & 0xFF);
+    p[1] = (uint8_t)((val >> 8) & 0xFF);
+}
+
 /* Serialize the canonical GameState into g_state_snap_buf for the host.
- * Fixed offsets documented in telemetry.h. */
+ * Fixed offsets documented in telemetry.h.  Uses running pointers rather
+ * than b[OFFSET + i*SIZE] index arithmetic (SDCC emits tighter code for a
+ * walking pointer); the output layout is unchanged. */
 void debug_state_snapshot(void)
 {
     const GameState *st;
     uint8_t i;
-    uint8_t n;
     uint8_t *b = g_state_snap_buf;
+    uint8_t *p;
 
     if (!&g_game) return;
     st = &g_game.state;
@@ -154,68 +163,62 @@ void debug_state_snapshot(void)
     for (i = 0; i < MAX_STATE_FLAGS / 8; i++) {
         b[STATE_SNAP_FLAGS_OFFSET + i] = st->flags.bytes[i];
     }
+    p = &b[STATE_SNAP_VARIABLES_OFFSET];
     for (i = 0; i < STATE_SNAP_VARIABLES_SIZE / 2; i++) {
-        b[STATE_SNAP_VARIABLES_OFFSET + i * 2]     = (uint8_t)(st->variables.values[i] & 0xFF);
-        b[STATE_SNAP_VARIABLES_OFFSET + i * 2 + 1] = (uint8_t)((st->variables.values[i] >> 8) & 0xFF);
+        snap_le16(p, st->variables.values[i]);
+        p += 2;
     }
-
     /* Currency: dense slots; report every slot (id = index + 1). */
     b[STATE_SNAP_CURRENCY_COUNT_OFF] = MAX_CURRENCIES;
+    p = &b[STATE_SNAP_CURRENCY_ENTRY_OFF];
     for (i = 0; i < MAX_CURRENCIES; i++) {
-        n = STATE_SNAP_CURRENCY_ENTRY_OFF + i * STATE_SNAP_CURRENCY_ENTRY_SIZE;
-        b[n]     = (uint8_t)(i + 1);
-        b[n + 1] = (uint8_t)(st->currency.amount[i] & 0xFF);
-        b[n + 2] = (uint8_t)((st->currency.amount[i] >> 8) & 0xFF);
+        p[0] = (uint8_t)(i + 1);
+        snap_le16(&p[1], st->currency.amount[i]);
+        p += STATE_SNAP_CURRENCY_ENTRY_SIZE;
     }
 
     b[STATE_SNAP_PARTY_OFFSET] = st->party.count;
+    p = &b[STATE_SNAP_PARTY_OFFSET + 1];
     for (i = 0; i < MAX_PARTY_MEMBERS; i++) {
-        n = STATE_SNAP_PARTY_OFFSET + 1 + i * STATE_SNAP_PARTY_ENTRY_SIZE;
-        if (i < st->party.count) {
-            b[n]     = (uint8_t)st->party.members[i].id;
-            b[n + 1] = st->party.members[i].hp;
-            b[n + 2] = st->party.members[i].max_hp;
-        } else {
-            b[n] = 0; b[n + 1] = 0; b[n + 2] = 0;
+        uint8_t k;
+        for (k = 0; k < 3; k++) {
+            p[k] = (i < st->party.count) ?
+                ((uint8_t *)&st->party.members[i])[k] : 0;
         }
+        p += STATE_SNAP_PARTY_ENTRY_SIZE;
     }
 
     b[STATE_SNAP_INVENTORY_OFFSET] = st->inventory.count;
+    p = &b[STATE_SNAP_INVENTORY_OFFSET + 1];
     for (i = 0; i < 16; i++) {
-        n = STATE_SNAP_INVENTORY_OFFSET + 1 + i * STATE_SNAP_INVENTORY_ENTRY_SIZE;
-        if (i < st->inventory.count) {
-            b[n]     = (uint8_t)st->inventory.entries[i].item_id;
-            b[n + 1] = st->inventory.entries[i].quantity;
-        } else {
-            b[n] = 0; b[n + 1] = 0;
+        uint8_t k;
+        for (k = 0; k < 2; k++) {
+            p[k] = (i < st->inventory.count) ?
+                ((uint8_t *)&st->inventory.entries[i])[k] : 0;
         }
+        p += STATE_SNAP_INVENTORY_ENTRY_SIZE;
     }
 
     b[STATE_SNAP_WORLD_OFFSET] = st->world.count;
+    p = &b[STATE_SNAP_WORLD_OFFSET + 1];
     for (i = 0; i < 16; i++) {
-        n = STATE_SNAP_WORLD_OFFSET + 1 + i * STATE_SNAP_WORLD_ENTRY_SIZE;
-        if (i < st->world.count) {
-            b[n]     = (uint8_t)(st->world.actors[i].actor_id & 0xFF);
-            b[n + 1] = (uint8_t)((st->world.actors[i].actor_id >> 8) & 0xFF);
-            b[n + 2] = st->world.actors[i].state;
-        } else {
-            b[n] = 0; b[n + 1] = 0; b[n + 2] = 0;
+        uint8_t k;
+        for (k = 0; k < 3; k++) {
+            p[k] = (i < st->world.count) ?
+                ((uint8_t *)&st->world.actors[i])[k] : 0;
         }
+        p += STATE_SNAP_WORLD_ENTRY_SIZE;
     }
 
     b[STATE_SNAP_PROGRESSION_COUNT_OFF] = st->progression.count;
+    p = &b[STATE_SNAP_PROGRESSION_ENTRY_OFF];
     for (i = 0; i < MAX_PROGRESSION_TARGETS; i++) {
-        n = STATE_SNAP_PROGRESSION_ENTRY_OFF + i * STATE_SNAP_PROGRESSION_ENTRY_SIZE;
-        if (i < st->progression.count) {
-            b[n]     = st->progression.entries[i].target.type;
-            b[n + 1] = (uint8_t)(st->progression.entries[i].target.id & 0xFF);
-            b[n + 2] = (uint8_t)((st->progression.entries[i].target.id >> 8) & 0xFF);
-            b[n + 3] = st->progression.entries[i].state.level;
-            b[n + 4] = (uint8_t)(st->progression.entries[i].state.progress & 0xFF);
-            b[n + 5] = (uint8_t)((st->progression.entries[i].state.progress >> 8) & 0xFF);
-        } else {
-            b[n] = 0; b[n + 1] = 0; b[n + 2] = 0; b[n + 3] = 0; b[n + 4] = 0; b[n + 5] = 0;
+        uint8_t k;
+        for (k = 0; k < 6; k++) {
+            p[k] = (i < st->progression.count) ?
+                ((uint8_t *)&st->progression.entries[i])[k] : 0;
         }
+        p += STATE_SNAP_PROGRESSION_ENTRY_SIZE;
     }
 
     b[STATE_SNAP_EQUIPMENT_OFF] = (uint8_t)st->equipment.weapon;

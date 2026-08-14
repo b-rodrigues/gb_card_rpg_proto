@@ -8,6 +8,22 @@
 
 extern char g_ui_screen_buf[18][21];
 
+/* Real-tileset VRAM allocation.  Tile ids below WORLD_TILE_BASE are the
+ * GBDK console font (0..127); the overworld terrain occupies 128..131.
+ * These bases are the first id of each banked tileset loaded at boot by
+ * ui_gfx_load() (data is game content in bank 2, see src/game/gfx_content.c). */
+#define UI_BATTLE_BG_TILE_BASE  132   /* 3 tiles + 4x2 tilemap */
+#define UI_FRAME_TILE_BASE      135   /* 9 tiles + 3x3 tilemap */
+#define UI_ENEMY_SLIME_TILE     144   /* 1 tile (OAM sprite) */
+#define UI_ENEMY_BAT_TILE       145   /* 1 tile (OAM sprite) */
+#define UI_ENEMY_BOSS_TILE_BASE 146   /* 4 tiles (2x2 OAM sprite grid) */
+
+/* Copy the banked tilesets into VRAM.  Called once at boot from game_init
+ * after banked_copy_init(); renderers then read only VRAM.
+ * ui_gfx_map() returns the WRAM-staged battle-background tilemap (4x2). */
+void ui_gfx_load(void);
+const uint8_t *ui_gfx_map(void);
+
 void ui_init(void);
 void ui_clear_screen(void);
 
@@ -20,6 +36,8 @@ void ui_sprite_move(uint8_t px, uint8_t py);
 void ui_sprite_hide(void);
 void ui_sprite_begin_transition(void);
 void ui_sprite_commit(void);
+void ui_enemy_sprite_show(uint8_t gfx, uint8_t px, uint8_t py);
+void ui_enemy_sprite_hide(void);
 
 void ui_draw_world_map(const World *world);
 void ui_draw_overworld_hud(const World *world);

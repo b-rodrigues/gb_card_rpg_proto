@@ -30,6 +30,10 @@ typedef struct {
     BattleResult result;
     uint8_t delay_timer;
     bool battle_over;
+    /* Which enemy sprite to render (generic 0=slime, 1=bat, 2=boss).
+     * Set by the battle-start caller from the actor's entity id via the
+     * game-layer hook game_enemy_gfx(); the engine never maps game ids. */
+    uint8_t enemy_gfx;
 } Battle;
 
 void battle_start(Battle *b, const char *enemy_name, uint8_t player_hp,

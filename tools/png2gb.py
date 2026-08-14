@@ -205,11 +205,14 @@ def ascii_preview(tile_bytes):
     return lines
 
 
-def format_c_array(name, all_tile_bytes, tiles_x, tiles_y):
+def format_c_array(name, all_tile_bytes, tiles_x, tiles_y, is_global=False):
     """Emit a C byte array in the same style as the hand-authored
     player_sprite_tile array in src/ui/ui.c, with an ASCII-art comment
-    per tile row so it stays human-reviewable."""
-    lines = [f"static const uint8_t {name}[{len(all_tile_bytes)}] = {{"]
+    per tile row so it stays human-reviewable.  is_global drops the
+    'static' so the array can be declared extern and placed in a banked
+    ROM region (see --global)."""
+    storage = "" if is_global else "static "
+    lines = [f"{storage}const uint8_t {name}[{len(all_tile_bytes)}] = {{"]
     for t in range(tiles_x * tiles_y):
         tile = all_tile_bytes[t * 16:(t + 1) * 16]
         preview = ascii_preview(tile)
@@ -223,10 +226,11 @@ def format_c_array(name, all_tile_bytes, tiles_x, tiles_y):
     return "\n".join(lines)
 
 
-def format_tilemap(name, tilemap, tiles_x, tiles_y):
+def format_tilemap(name, tilemap, tiles_x, tiles_y, is_global=False):
     """Emit the deduped tilemap as a C 2D array (tile indices)."""
+    storage = "" if is_global else "static "
     lines = [
-        f"static const uint8_t {name}[{tiles_y}][{tiles_x}] = {{",
+        f"{storage}const uint8_t {name}[{tiles_y}][{tiles_x}] = {{",
     ]
     for y in range(tiles_y):
         row = tilemap[y * tiles_x:(y + 1) * tiles_x]
@@ -253,7 +257,7 @@ def format_oam_defs(name, frames, tile_bytes_per_frame):
     return "\n".join(lines)
 
 
-def convert(path, name):
+def convert(path, name, is_global=False):
     img, tiles_x, tiles_y = load_and_validate(path)
     shade_map = build_shade_map(img, str(path))
 
@@ -262,10 +266,10 @@ def convert(path, name):
         for tx in range(tiles_x):
             all_bytes += encode_tile(img, tx, ty, shade_map)
 
-    return all_bytes, tiles_x, tiles_y, format_c_array(name, all_bytes, tiles_x, tiles_y)
+    return all_bytes, tiles_x, tiles_y, format_c_array(name, all_bytes, tiles_x, tiles_y, is_global)
 
 
-def convert_tilemap(path, name):
+def convert_tilemap(path, name, is_global=False):
     """Multi-tile image -> (deduped tileset, tilemap array, C snippets)."""
     img, tiles_x, tiles_y = load_and_validate(path)
     shade_map = build_shade_map(img, str(path))
@@ -278,12 +282,12 @@ def convert_tilemap(path, name):
     tileset, tilemap = dedup_tiles(all_bytes)
     n_dup = len(all_bytes) // 16 - len(tileset) // 16
 
-    out = [format_c_array(name + "_tiles", tileset, 1, len(tileset) // 16),
-           format_tilemap(name + "_map", tilemap, tiles_x, tiles_y)]
+    out = [format_c_array(name + "_tiles", tileset, 1, len(tileset) // 16, is_global),
+           format_tilemap(name + "_map", tilemap, tiles_x, tiles_y, is_global)]
     return tileset, tilemap, n_dup, tiles_x, tiles_y, "\n\n".join(out)
 
 
-def convert_sprite(path, name, frame_h):
+def convert_sprite(path, name, frame_h, is_global=False):
     """Sprite frame sheet -> tiles + OAM defs.
 
     Sprites do NOT dedup tiles: an OAM 8x16 sprite needs its two 8x8 tiles
@@ -323,7 +327,7 @@ def convert_sprite(path, name, frame_h):
     n_frames = h // frame_h
     frames = [(f * tiles_per_frame, w, frame_h) for f in range(n_frames)]
 
-    out = [format_c_array(name + "_tiles", all_bytes, 1, len(all_bytes) // 16),
+    out = [format_c_array(name + "_tiles", all_bytes, 1, len(all_bytes) // 16, is_global),
            format_oam_defs(name + "_frames", frames, tiles_per_frame)]
     return all_bytes, frames, n_frames, img.size[0], img.size[1], "\n\n".join(out)
 
@@ -458,6 +462,8 @@ def main():
     ap.add_argument("--sprite", metavar="HEIGHT", type=int, choices=[8, 16],
                     help="validate as a sprite frame sheet (8 wide, 8 or 16 tall per frame) and emit OAM defs")
     ap.add_argument("--selftest", action="store_true", help="run built-in self-checks and exit")
+    ap.add_argument("--global", dest="is_global", action="store_true",
+                    help="emit non-static const arrays (for placing in a banked ROM region)")
     args = ap.parse_args()
 
     if args.selftest:
@@ -469,16 +475,16 @@ def main():
 
     try:
         if args.tilemap:
-            all_bytes, _, n_dup, tiles_x, tiles_y, c_src = convert_tilemap(args.png, args.name)
+            all_bytes, _, n_dup, tiles_x, tiles_y, c_src = convert_tilemap(args.png, args.name, args.is_global)
             n_unique = len(all_bytes) // 16
             detail = (f"({n_unique} unique of {tiles_x * tiles_y} tiles, "
                       f"{n_dup} duplicate(s) deduped)")
         elif args.sprite is not None:
-            all_bytes, _, n_frames, w, h, c_src = convert_sprite(args.png, args.name, args.sprite)
+            all_bytes, _, n_frames, w, h, c_src = convert_sprite(args.png, args.name, args.sprite, args.is_global)
             tiles_x, tiles_y = w // TILE_SIZE, h // TILE_SIZE
             detail = f"({n_frames} frame(s))"
         else:
-            all_bytes, tiles_x, tiles_y, c_src = convert(args.png, args.name)
+            all_bytes, tiles_x, tiles_y, c_src = convert(args.png, args.name, args.is_global)
             detail = ""
     except Png2GbError as e:
         print(f"png2gb: {e.asset}: [{e.rule}] {e.detail}", file=sys.stderr)

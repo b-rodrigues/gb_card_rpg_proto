@@ -62,6 +62,16 @@ gfx:
 		-o $(GFX_OUT_DIR)/player_sprite_tile.h
 	@python3 tools/png2gb.py assets/world_tiles.png --name world_tiles \
 		-o $(GFX_OUT_DIR)/world_tiles.h
+	@python3 tools/png2gb.py assets/battle_bg.png --name battle_bg --tilemap --global \
+		-o $(GFX_OUT_DIR)/battle_bg.h
+	@python3 tools/png2gb.py assets/ui_frame.png --name ui_frame --tilemap --global \
+		-o $(GFX_OUT_DIR)/ui_frame.h
+	@python3 tools/png2gb.py assets/enemy_slime.png --name enemy_slime --global \
+		-o $(GFX_OUT_DIR)/enemy_slime.h
+	@python3 tools/png2gb.py assets/enemy_bat.png --name enemy_bat --global \
+		-o $(GFX_OUT_DIR)/enemy_bat.h
+	@python3 tools/png2gb.py assets/enemy_boss.png --name enemy_boss --global \
+		-o $(GFX_OUT_DIR)/enemy_boss.h
 
 # Host-side regression tests for the PNG -> GB converter (duplicate-tile
 # detection, dedup/tilemap, sprite/OAM, validation rules).  Runs from the

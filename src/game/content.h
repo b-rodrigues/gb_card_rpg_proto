@@ -30,6 +30,11 @@ void game_on_level_up(GameState *state, ProgressionTarget target,
  * battle screen. */
 ScreenId game_screen_after_victory(const Game *g);
 
+/* Generic enemy-sprite index (0=slime, 1=bat, 2=boss) for the battle
+ * renderer, mapped from the actor's entity id.  The engine stores this on
+ * Battle.enemy_gfx and never branches on game ids itself. */
+uint8_t game_enemy_gfx(EntityId id);
+
 /* Content registration helpers, implemented in the content modules. */
 void game_events_register(void);
 void game_dialogue_register(void);

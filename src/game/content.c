@@ -84,3 +84,11 @@ ScreenId game_screen_after_victory(const Game *g)
     }
     return SCREEN_OVERWORLD;
 }
+
+/* Enemy sprite index for the battle renderer, by entity id. */
+uint8_t game_enemy_gfx(EntityId id)
+{
+    if (id == ENTITY_ID_BAT) return 1;
+    if (id == ENTITY_ID_SLIME_LORD) return 2;
+    return 0;   /* slime (and any unknown hostile) */
+}

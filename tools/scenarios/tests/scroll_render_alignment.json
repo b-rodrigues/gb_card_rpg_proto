@@ -49,13 +49,13 @@
       "type": "tilemap_cell",
       "row": 1,
       "col": 31,
-      "expected": 129
+      "expected": 3
     },
     {
       "type": "tilemap_cell",
       "row": 2,
       "col": 12,
-      "expected": 128
+      "expected": 14
     },
     {
       "type": "screen_row",

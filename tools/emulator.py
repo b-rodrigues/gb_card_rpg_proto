@@ -926,8 +926,8 @@ class EmulatorSession:
     def get_tilemap_mirror(self):
         """Read the g_tilemap_mirror ring (DEBUG build; mGBA cannot read VRAM,
         so the ROM mirrors each background-tilemap write into WRAM).  Indexed
-        by (world_row & 31) * 32 + (world_col & 31); values are tile indices
-        (WORLD_TILE_BASE + tileset index, or ibm_font + char for actors)."""
+        by (world_row & 31) * 32 + (world_col & 31); values are ASCII
+        console-font tile indices (ui_font_tile_base + (ch - ' '))."""
         addr = self.get_symbol("g_tilemap_mirror")
         return [self._memread(addr + i) for i in range(32 * 32)]
 

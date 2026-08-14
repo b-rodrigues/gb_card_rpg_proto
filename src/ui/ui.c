@@ -162,7 +162,6 @@ void ui_init(void)
 
     font_init();
     ibm_font = font_load(font_ibm);
-    font_set(ibm_font);
     ui_font_tile_base = ((pmfont_handle)ibm_font)->first_tile;
 
     /* Load the overworld terrain tileset into VRAM at WORLD_TILE_BASE.
@@ -174,12 +173,6 @@ void ui_init(void)
 
     /* The battle bg / frame / enemy tilesets are banked content loaded by
      * ui_gfx_load() from game_init (banked_copy_init runs there). */
-
-    /* Disable GBDK console auto-scroll.  When putchar() advances the cursor
-     * past the bottom-right tile, the console normally scrolls the whole
-     * screen up one line.  M_NO_SCROLL (bit 2 of the console .mode byte,
-     * exposed as console_mode by crt0.s) makes it reset the cursor instead. */
-    console_mode |= M_NO_SCROLL;
 
     /* Set DMG palettes: 0xE4 = 11 10 01 00 (Lightest to Darkest) */
     BGP_REG = 0xE4;

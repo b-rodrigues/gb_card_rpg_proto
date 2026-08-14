@@ -1,436 +1,153 @@
-# Pretium Pacis
+# Game Boy RPG Prototype & Foundation (`gb_card_rpg_proto`)
 
-A Game Boy RPG about **survival, travel, exploration, combat, money, and political intrigue**.
+A deterministic, Nix-based Game Boy RPG development project targeting authentic Nintendo Game Boy (DMG) and Game Boy Color (CGB) constraints.
 
-`Pretium Pacis` — *the price of peace* — is the working title for the RPG that this repository is becoming the technical foundation for.
+The project began as a prototype for a **Baten Kaitos-inspired, card-based RPG**, but is deliberately evolving into something broader: a small, reusable **Game Boy RPG foundation** that can eventually serve as the starting point for future RPG projects.
 
-The project targets authentic **Nintendo Game Boy (DMG) and Game Boy Color (CGB)** constraints. The goal is not to reproduce every convention of a traditional JRPG, but to remove the parts of RPGs that tend to feel like chores and replace them with compact, decision-focused systems.
+This is **not intended to become a general-purpose game engine**. The architecture is developed pragmatically: when the game exposes a reusable RPG problem, we build a clean foundation for it.
 
-> **The player should spend their time making interesting decisions, not walking between menus and locations just because RPGs traditionally make them do so.**
+> **Build the game first. Generalize only where the game demonstrates a reusable problem.**
 
-## The Game
+## Current State
 
-The setting is a small principality caught in a political crisis.
-
-A large empire has imposed a blockade on the principality, ostensibly to protect a minority population living there. The blockade disrupts trade and creates economic and political pressure without necessarily becoming an open war.
-
-The player is not initially a chosen hero or great military leader. They are essentially **a person trying to make a living**.
-
-They can take guild jobs, explore dangerous places, trade, invest their money, and gradually become involved in the conflict. Eventually, a former friend may approach them about joining a paramilitary organization secretly financed by the principality: a force that can attack imperial interests while the principality maintains plausible deniability.
-
-From that point on, the player has substantially greater freedom to use their wages, loot, investments, and knowledge of the economy to shape their own fortunes and, indirectly, the wider conflict.
-
-The story is therefore driven by the intersection of:
-
-- personal survival;
-- political conflict;
-- economic pressure;
-- exploration;
-- violence and its consequences;
-- and the player's growing ability to influence the world.
-
-## Core Design Principles
-
-### No pointless walking
-
-Towns are not intended to be large maps full of buildings that the player has to enter individually.
-
-A town is primarily a **list of things to do**:
+The project has a complete, playable vertical slice — a small but complete
+RPG:
 
 ```text
-TOWN
-
-> Guild
-  Work
-  Market
-  Bank
-  Investments
-  Inn
-  Leave
+Town → Mayor → Monster Hunt quest → kill 3 monsters
+   → return → SWORD → equip → Castle → Lord of Slimes → Ending
 ```
 
-The player makes decisions from the list instead of spending time walking around town looking for the one NPC or building they need.
+plus a second, structurally different quest (the Lost Merchant:
+fetch/deliver/unlock his shop) that proves the quest/event abstraction is
+reusable.  The full state/flow is deterministic and driven by the debug
+harness.
 
-### No tedious overworld travel
+Current status (Foundation 1.0, non-graphical):
 
-Travel between settlements and destinations is its own gameplay system.
+- GameState + persistent world actor lifecycle + progression;
+- overworld scenes, actors, movement, collision, interaction;
+- scripted events, dialogue, quests (registered engine modules);
+- items, inventory, equipment, per-shop stock;
+- battle flow + results back into GameState;
+- battery-backed SRAM save/load (versioned format);
+- game/content separation (`src/game/` registered against a generic engine);
+- deterministic debug harness (scenarios, telemetry, assertions, RNG);
+- memory budget (`make memmap`), lint, release validation.
 
-Before a journey, the player prepares:
+The **card system is not yet implemented**.  The current battle
+implementation proves the battle lifecycle and keeps the combat boundary
+clean so the card mechanics can plug in later.
 
-- supplies;
-- money;
-- equipment;
-- route;
-- and possibly a guide.
+Graphics are still the ASCII console-font prototype; a graphics pipeline is a
+specified but deferred milestone (see `docs/graphics.md`).
 
-The player can then choose between different ways of traveling.
+## Architectural Direction
 
-**Travel on foot** is cheap but risky.
+The repository is being designed around the common denominator of small RPGs rather than around the rules of one specific game.
 
-**Hire a guide with a horse** is expensive but considerably safer.
+The emerging foundation includes:
 
-The journey is handled as a compact, Oregon Trail-style sequence of decisions and events rather than as hours of walking across an empty overworld.
+### World
 
-### Exploration is physical
-
-Once the player reaches a dungeon, cave, temple, mine, or other destination, exploration switches to a traditional top-down Game Boy map.
-
-The player controls the character directly with the D-pad.
-
-Enemies exist on the map and move around. The player can therefore:
-
-- approach enemies;
-- avoid them;
-- position themselves advantageously;
-- or deliberately engage them.
-
-Exploration is therefore about **navigation and decisions**, rather than random encounters every few steps.
-
-### Battles are card-based
-
-When combat begins, the game transitions into a **Baten Kaitos-inspired card battle system**.
-
-The battle system is intended to make encounters strategic without requiring a huge number of commands or complex real-time controls.
-
-The current repository already contains the battle lifecycle and combat boundaries needed to plug in the eventual card mechanics. The card system itself is still under development.
-
-### Encounters are decisions, not just fights
-
-Not every enemy encounter has to become a battle.
-
-Human enemies can potentially:
-
-- threaten the player;
-- demand money or resources;
-- be bribed;
-- be negotiated with;
-- or be fought.
-
-The player can sometimes choose to comply and live another day.
-
-This means that an encounter can become a resource-management or role-playing decision rather than automatically becoming combat.
-
-### Defeat is not Game Over
-
-The game is designed around a **constant-flow structure** rather than traditional Game Over → Load Save gameplay.
-
-The game should auto-save important persistent state.
-
-If the player loses a battle, they do not simply see a Game Over screen. Instead, they wake up in the hospital of the last town they visited, having lost some money and/or resources.
-
-This makes defeat a setback rather than a hard stop.
-
-It also gives the economy an important role: a prudent player can maintain savings and investments, while an unlucky player can recover by taking short-term work.
-
-## Activities and Making a Living
-
-The player needs things to do that are smaller than a major expedition.
-
-Activities provide short, optional ways to spend time and earn money or other benefits.
-
-Examples include:
-
-- teaching swordplay;
-- helping in a soup kitchen;
-- working for a guild;
-- guarding a caravan;
-- repairing equipment;
-- delivering goods;
-- hunting;
-- looting a nearby cave;
-- clearing a small monster-infested location.
-
-Safe work provides a **financial safety net**. It should be possible to recover from a bad expedition without turning the game into a grind, while still making poverty meaningful.
-
-Riskier short activities can reuse the real exploration, travel, encounter, and battle systems.
-
-Activities can also change with the state of the world.
-
-## The Economy
-
-Money is intended to be more than a shop currency.
-
-The player can:
-
-- earn wages;
-- save money;
-- maintain an emergency reserve;
-- buy equipment;
-- invest in companies;
-- short companies;
-- react to economic news;
-- and potentially manipulate the physical causes of economic outcomes.
-
-The economy evolves naturally over time.
-
-Companies can improve or deteriorate because of:
-
-- resource availability;
-- supply and demand;
-- political events;
-- trade disruptions;
-- natural disasters;
-- accidents;
-- competition;
-- government contracts;
-- shortages;
-- and other random events.
-
-Story events use the same underlying economic state. For example, a tightening imperial blockade can disrupt trade, affect resource availability, hurt some companies, and benefit others.
-
-The simulation is deliberately lightweight: it uses a small number of world resources, companies, commodity categories, and economic indices rather than attempting to model a realistic modern economy.
-
-## Economic Intervention
-
-One of the central systemic ideas is that **financial positions can create physical opportunities**.
-
-For example:
-
-```text
-Short a company that raises wyverns
-        ↓
-Discover that its wyvern farm is vulnerable
-        ↓
-"Intervene in WYV Corp" becomes available
-        ↓
-Raid the farm
-        ↓
-Wyvern population decreases
-        ↓
-Production decreases
-        ↓
-Company performance falls
-        ↓
-Stock price falls
-        ↓
-The short position becomes profitable
-```
-
-The player can also do the reverse:
-
-```text
-Invest in a weapons manufacturer
-        ↓
-Discover that it depends on an iron mine
-        ↓
-The mine is occupied by monsters
-        ↓
-"Clear Iron Mine" becomes available
-        ↓
-Clear the mine
-        ↓
-Iron production resumes
-        ↓
-Weapons production improves
-        ↓
-Company performance improves
-        ↓
-Investment becomes more valuable
-```
-
-The intervention does **not** directly change the company's stock price. It changes the underlying world state, and the normal economic simulation produces the consequences.
-
-This allows ordinary RPG actions — killing monsters, protecting a route, discovering a resource, sabotaging a facility, etc. — to interact with the financial system.
-
-## Economic Simulation
-
-The economic model is designed to be cheap enough for Game Boy hardware.
-
-The world is the underlying economic substrate rather than a company itself:
-
-```text
-                 WORLD STATE
-                     │
-          ┌──────────┴──────────┐
-          ↓                     ↓
-      RESOURCES              CONDITIONS
-          │                     │
-          └──────────┬──────────┘
-                     ↓
-                 COMPANIES
-                     ↓
-                MARKET VALUE
-                     ↓
-              PLAYER POSITIONS
-                     │
-                     ↓
-                INTERVENTIONS
-                     │
-                     ↓
-              PHYSICAL WORLD
-                     │
-                     └──────────→ WORLD STATE
-```
-
-Resources are represented as simple stocks and flows:
-
-```text
-Iron stock:       820
-Production:       +40/day
-Consumption:      -55/day
-```
-
-Companies consume and produce resources. Their performance reacts to the state of those resources, demand, world events, and other small modifiers.
-
-Company performance can update daily, while shop and commodity prices can be much stickier and update roughly every ten days.
-
-Individual goods such as swords and potions do not need their own full economic simulation. They use:
-
-```text
-base item price
-× economic modifier
-× commodity modifier
-× regional modifier
-```
-
-Prices then move gradually toward their target values rather than changing abruptly.
-
-The result should be a small deterministic simulation that produces a surprisingly rich economy from a very small amount of state.
-
-## Day / Night
-
-A day/night system is still under consideration.
-
-If implemented, time of day could change what is possible rather than simply changing the color of the screen.
-
-For example:
-
-- some town activities could become available at night;
-- pubs and other nightlife could open;
-- adult entertainment venues could become accessible;
-- certain dungeon encounters could become more dangerous;
-- some enemies could behave differently;
-- night travel could be unavailable or considerably more dangerous.
-
-The system will only be introduced if it creates meaningful decisions rather than adding another clock the player has to manage.
-
-## Story Structure
-
-The story is deliberately designed to start small and become increasingly political.
-
-The player's initial concerns are mundane:
-
-```text
-Get work
-  ↓
-Make money
-  ↓
-Survive
-  ↓
-Explore
-```
-
-As the player becomes more capable:
-
-```text
-Guild work
-  ↓
-Rumors and information
-  ↓
-Economic opportunities
-  ↓
-Political involvement
-  ↓
-Paramilitary recruitment
-  ↓
-Operations against the Empire
-```
-
-The paramilitary group is not intended to be a conventional heroic resistance. It is financed by the principality so that the principality can deny direct involvement in attacks against the Empire.
-
-The player can therefore become involved in actions that might be viewed very differently depending on who is telling the story: resistance, insurgency, terrorism, sabotage, or simply war by other means.
-
-The game should avoid presenting this conflict as a simplistic good-versus-evil story.
-
-## Technical Constraints
-
-The game is deliberately being designed around the limitations of the original Game Boy.
-
-Target hardware:
-
-- Nintendo Game Boy (DMG);
-- Game Boy Color (CGB).
-
-Toolchain:
-
-- GBDK-4 / `lcc`;
-- RGBDS;
-- Nix flakes;
-- mGBA for primary development and debugging;
-- additional emulators for compatibility testing.
-
-The constraints are part of the design rather than merely an implementation inconvenience.
-
-The game favors:
-
-- compact data structures;
-- deterministic simulation;
-- integer arithmetic;
-- discrete time steps;
-- menu-driven town interfaces;
-- small maps;
-- reusable gameplay systems;
-- and a limited number of simulated entities.
-
-The goal is to create **the illusion of a large, reactive RPG world without actually simulating a large world**.
-
-## Current Technical Foundation
-
-The repository started as a Baten Kaitos-inspired card RPG prototype and has evolved into a reusable Game Boy RPG foundation.
-
-The current foundation already provides:
-
-- `GameState` and persistent world state;
-- overworld scenes and maps;
+- scenes/maps;
+- stable scene IDs;
 - actors/entities;
-- movement and collision;
+- movement;
+- collision;
 - scene transitions;
-- dialogue and scripted events;
-- quests;
-- items, inventory, equipment, and currency;
-- battle lifecycle and combatants;
-- battery-backed SRAM save/load;
-- deterministic RNG and debug state;
-- scenario-based testing;
-- telemetry and assertions;
+- actor interaction.
+
+### Story
+
+- dialogue;
+- scripted events/scenes;
+- event triggers;
+- game flags;
+- game variables.
+
+### RPG State
+
+- party state;
+- character stats;
+- progression;
+- items;
+- inventory;
+- equipment;
+- persistent world state.
+
+### Gameplay
+
+- encounter lifecycle;
+- combatants;
+- battle entry/exit;
+- rewards;
+- game-specific combat rules.
+
+### Persistence
+
+Save/load is intended to serialize persistent game state rather than individual screens.
+
+### Development Infrastructure
+
+- deterministic state injection;
+- scenario testing;
+- telemetry;
+- assertions;
+- LLM-readable debug state;
 - emulator automation;
-- memory-budget tooling;
-- reproducible Nix-based builds.
+- reproducible builds.
 
-The current graphical layer is still a prototype. The eventual game will use proper Game Boy graphics and sprites.
-
-The card battle system is not yet implemented; the existing battle architecture is intended to provide the boundary into which it will be added.
+See [`docs/rpg-foundation.md`](docs/rpg-foundation.md) for the architecture and [`docs/DEBUG_PROTOCOL.md`](docs/DEBUG_PROTOCOL.md) for the debug contract.
 
 ## Development Philosophy
 
-This repository is both a game project and the foundation for that game.
+The repository deliberately separates **foundation mechanisms** from **game-specific content**.
 
-The architecture deliberately separates reusable RPG mechanisms from game-specific content:
+For example:
 
 ```text
 Foundation                  Game
 ────────────────────────────────────────
-Actor                       Player
-Actor                       NPC
-Actor                       Enemy
+Actor                       Mayor
+Actor                       Guard
+Actor                       Slime
 
 Scene                       Town
-Scene                       Cave
-Scene                       Temple
+Scene                       Forest
+
+Dialogue                    Mayor greeting
+Dialogue                    Guard warning
 
 Item                        Potion
-Item                        Sword
+Item                        Phoenix Sword
 
-Battle lifecycle            Card battle rules
-Progression                 Game-specific progression
-Save system                 Persistent world state
+Battle lifecycle            Baten Kaitos-style rules
+Progression                 Game-specific XP formula
 ```
 
-The project follows a simple rule:
+The foundation should provide reusable primitives without hard-coding the story, characters, items, maps, or combat rules of this particular RPG.
 
-> **Build the game first. Generalize only where the game demonstrates a reusable problem.**
+Generalization follows demonstrated need rather than speculation.
 
-It is not intended to become a general-purpose game engine.
+## Hardware & Toolchain
+
+- **Target Hardware**: Nintendo Game Boy (DMG) / Game Boy Color (CGB)
+- **C Toolchain**: GBDK-4 (`lcc`)
+- **Assembly Toolchain**: RGBDS (`rgbasm`, `rgblink`, `rgbfix`)
+- **Environment**: Nix flakes
+- **Primary development/debug emulator**: mGBA
+- **Compatibility testing**: Gambatte and other available Game Boy emulators
+
+The project is developed against **mGBA** for debugging and automated development workflows. Compatibility is also checked against other emulators because emulator behavior can differ, particularly around low-level Game Boy behavior and error reporting.
+
+The Nix environment also provides tools such as SameBoy where available.
+
+## Requirements
+
+- Nix with flakes enabled.
+
+No host-level package installation should be necessary.
 
 ## Development Setup
 
@@ -440,43 +157,125 @@ Enter the reproducible development environment:
 nix develop
 ```
 
-Build the release ROM:
+## Commands
+
+Common development tasks are exposed through `make` targets.
+
+### Build Release ROM
 
 ```bash
 make release
 ```
 
-Build the debug ROM:
+Produces `build/rpg_card_proto.gb`.
+
+### Build Debug ROM
 
 ```bash
 make debug
 ```
 
-Run the ROM:
+Produces `build/rpg_card_proto_debug.gb` with the development harness, telemetry, assertions, deterministic scenario support, and debug metadata enabled.
+
+### Run the ROM
 
 ```bash
 make run
 ```
 
-Run the debug harness:
+The Makefile detects an available emulator from the development environment.
+
+### Run the Debug ROM
+
+```bash
+make run-debug
+```
+
+### Run the Full Harness
 
 ```bash
 make test-harness
 ```
 
-Validate the release ROM:
+Builds the debug ROM and executes the scenario tests through the host-side development harness.
+
+### Run One Scenario
+
+```bash
+make test-scenario SCENARIO=first_encounter
+```
+
+The scenario name corresponds to a scenario definition under `tools/scenarios/`.
+
+### Validate the Release ROM
 
 ```bash
 make test
 ```
 
-Inspect the memory budget:
+Builds the release ROM and validates its Game Boy header/checksum integrity.
+
+### Memory Budget
 
 ```bash
 make memmap
 ```
 
-See the existing documentation for the complete development workflow.
+Prints the reproducible ROM/WRAM budget and fails on a `_HOME` >= 0x8000
+violation.
+
+### Save/Load Roundtrip (host descriptor check)
+
+```bash
+make roundtrip SCENARIO=save_load_roundtrip
+```
+
+### Capture a Screenshot
+
+```bash
+make screenshot
+```
+
+Produces `build/screenshot.png` for visual inspection.
+
+### Clean Build Artifacts
+
+```bash
+make clean
+```
+
+## Development Harness
+
+A major architectural goal is that an LLM should be able to test the game without manually playing through the entire RPG to reach a scenario.
+
+Instead, scenarios can establish a deterministic initial state such as:
+
+```text
+Scene: TOWN
+Player: (8, 6)
+Flag: MET_MAYOR = false
+```
+
+and then execute actions such as:
+
+```text
+UP
+A
+```
+
+The harness can inspect telemetry, assertions, state snapshots, and scenario results to determine what happened.
+
+This allows agents to test situations such as:
+
+- talking to a specific NPC;
+- entering combat with a specific enemy;
+- triggering a scripted scene;
+- testing a scene transition;
+- starting from a particular progression state;
+- testing game-over behavior;
+- reproducing a bug without replaying the entire game.
+
+The debug protocol is documented in [`docs/DEBUG_PROTOCOL.md`](docs/DEBUG_PROTOCOL.md), with the broader harness design in [`docs/dev-harness.md`](docs/dev-harness.md).
 
 ## Project Structure
 
@@ -491,7 +290,7 @@ src/
 ├── ui/         Screen and UI rendering
 ├── screens/    Individual game screens
 ├── debug/      Telemetry, scenarios, assertions and deterministic debug support
-└── game/       Game-specific content
+└── game/       Game-specific content (events, dialogue, actors, items, quests, shops)
 
 build/          Generated ROMs and build artifacts
 docs/           Architecture and development documentation
@@ -500,66 +299,57 @@ tools/          Host-side development and emulator harness
 
 ## Documentation
 
-The repository contains technical documentation covering the foundation, architecture, save system, graphics, testing, memory budget, and development harness.
+- [`docs/architecture.md`](docs/architecture.md) — module layout, dependency
+  direction, state ownership, content registration.
+- [`docs/FOUNDATION_CONTRACT.md`](docs/FOUNDATION_CONTRACT.md) — what the
+  foundation provides, what it does not, and the golden rule.
+- [`docs/game-vs-engine.md`](docs/game-vs-engine.md) — how to decide where a
+  feature belongs.
+- [`docs/save-format.md`](docs/save-format.md) — the SRAM save format and
+  versioning policy.
+- [`docs/memory-budget.md`](docs/memory-budget.md) — the memory budget.
+- [`docs/graphics.md`](docs/graphics.md) — the deferred graphics pipeline spec.
+- [`docs/testing.md`](docs/testing.md) — how the foundation is validated.
+- [`docs/roadmap.md`](docs/roadmap.md) — status (DONE / NEXT / LATER) and the
+  detailed historical plan.
+- [`docs/DEBUG_PROTOCOL.md`](docs/DEBUG_PROTOCOL.md) — debug protocol and
+  LLM-readable game state contract.
+- [`docs/dev-harness.md`](docs/dev-harness.md) — deterministic scenario and
+  development harness design.
+- [`AGENTS.md`](AGENTS.md) — operational instructions for AI coding agents
+  working on the repository.
 
-The game design is being documented separately as the mechanics are developed. The major systems include:
+## Long-Term Direction
 
-- battle;
-- exploration;
-- encounters;
-- travel;
-- activities;
-- economy;
-- economic simulation;
-- story and political systems.
+The eventual goal is not to turn this repository into a large standalone engine.
 
-## Status
-
-The project is currently in the **foundation / systems prototyping phase**.
-
-The immediate priority is not content production or sprite polish. The goal is to prove the core gameplay loops first:
-
-1. travel and preparation;
-2. exploration;
-3. encounters;
-4. card-based battle;
-5. activities and short-term work;
-6. economic simulation;
-7. investment and economic intervention;
-8. persistent consequences and story progression.
-
-Once these systems work together, the project can grow into the actual game.
-
-## Long-Term Goal
-
-The eventual game should feel like a compact RPG where almost every system feeds another system:
+Instead, once the common RPG infrastructure becomes sufficiently stable, this repository may become a **Game Boy RPG template/foundation** from which future games can be created:
 
 ```text
-                 STORY / POLITICS
-                       ↕
-                    ECONOMY
-                   ↕      ↕
-            INVESTMENT   ACTIVITIES
-                   ↕      ↕
-                 TRAVEL
-                    ↓
-                EXPLORATION
-                    ↓
-                ENCOUNTERS
-                    ↓
-                  BATTLE
-                    ↓
-              WORLD CHANGES
-                    ↓
-                 ECONOMY
+             Game Boy RPG Foundation
+                       │
+          ┌────────────┼────────────┐
+          ▼            ▼            ▼
+        RPG #1        RPG #2       RPG #3
 ```
 
-The player starts as somebody trying to get by.
+A future game should be able to replace:
 
-By the end, they may have become an adventurer, investor, political operative, paramilitary fighter, economic manipulator — or some combination of all of them.
+- maps;
+- characters;
+- enemies;
+- items;
+- dialogue;
+- story;
+- quests;
+- progression rules;
+- combat rules;
 
-The central question is not simply **"Can you defeat the final boss?"**
+while retaining reusable infrastructure such as screens, scenes, actors, input, audio, persistence, debugging, telemetry, and the scenario harness.
 
-It is:
-
-> **What are you willing to do to survive, and what happens when you gain enough power to change the world around you?**
+The repository has reached **Foundation 1.0 (non-graphical)**: the generic
+runtime is cleanly separated from game content, the vertical slice is complete
+and deterministically testable, save/load works, and the memory budget is
+understood.  The next milestones are the graphics pipeline (spec'd in
+`docs/graphics.md`), then the card battle system — at which point this
+repository is the template a real game is forked from.

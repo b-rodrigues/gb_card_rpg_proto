@@ -55,15 +55,22 @@ int main(void)
         if (g_boot_phase == 3) {
             g_boot_phase = 4;
         }
-        game_render(&g_game);
         if (!g_harness_mode) {
+            /* Wait for VBlank AFTER gameplay logic, immediately BEFORE
+             * game_render, so every tilemap write inside game_render lands
+             * during VBlank.  GBDK's vsync() busy-waits for LY == 145 (the
+             * second VBlank scanline) and returns there.  The PPU silently
+             * ignores VRAM writes during LCD modes 2/3 (mid-scanout); the
+             * previous render-then-vsync order dropped the boot redraw's
+             * writes, showing one frame then a blank screen. */
             vsync();
         }
-        /* DMA shadow OAM to real OAM during VBlank (after vsync) so every
-         * displayed frame has the sprite in the correct state.  Transitions
-         * force the hide earlier (ui_sprite_begin_transition in game_render)
-         * so the sprite is gone before the new screen's redraw wipes the
-         * display. */
+        game_render(&g_game);
+        /* DMA shadow OAM to real OAM.  Runs right after game_render, so for
+         * steady frames it is still inside the VBlank opened by the vsync
+         * above.  Transitions force the hide earlier (ui_sprite_begin_transition
+         * in game_render) so the sprite is gone before the new screen's
+         * redraw wipes the display. */
         ui_sprite_commit();
     }
 }

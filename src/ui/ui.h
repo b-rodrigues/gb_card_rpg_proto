@@ -21,6 +21,14 @@ void ui_sprite_hide(void);
 void ui_sprite_begin_transition(void);
 void ui_sprite_commit(void);
 
+/* Toggle LCDC bit 7 directly (harness-safe: no GBDK display_off VBlank
+ * wait).  A full-screen redraw spans several display sweeps and cannot fit
+ * in one VBlank, and the PPU drops VRAM writes in scanout modes 2/3; the
+ * boot redraw (called directly from game_init, before the main loop's
+ * vsync) runs with the LCD off so every write lands. */
+void ui_lcd_off(void);
+void ui_lcd_on(void);
+
 void ui_draw_world_map(const World *world);
 void ui_draw_overworld_hud(const World *world);
 void ui_draw_world_full(const World *world);

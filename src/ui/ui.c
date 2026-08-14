@@ -184,6 +184,16 @@ void ui_sprite_commit(void)
     refresh_OAM();
 }
 
+void ui_lcd_off(void)
+{
+    LCDC_REG &= ~0x80;
+}
+
+void ui_lcd_on(void)
+{
+    LCDC_REG |= 0x80;
+}
+
 void ui_clear_screen(void)
 {
     uint8_t x, y;

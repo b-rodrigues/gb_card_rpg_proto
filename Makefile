@@ -29,7 +29,7 @@ OBJS_DEBUG = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/debug/%.o,$(SRCS))
 # Emulator detection
 EMULATOR ?= $(shell command -v sameboy 2>/dev/null || command -v mgba-sdl 2>/dev/null || command -v mgba-qt 2>/dev/null || command -v mgba 2>/dev/null || echo "")
 
-.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot lint memmap verify-oam gfx clean
+.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot lint memmap verify-oam verify-vram gfx clean
 
 all: $(TARGET)
 
@@ -131,6 +131,12 @@ screenshot: $(TARGET)
 # and scene (map) changes via the mGBA debugger (see tools/verify_oam.py).
 verify-oam: debug
 	@python3 tools/verify_oam.py
+
+# Verify real-boot VRAM writes land (vsync-before-render + LCD-off boot
+# redraw): boots the debug ROM WITHOUT harness mode and compares the real
+# background ring against the WRAM mirror (see tools/verify_vram.py).
+verify-vram: debug
+	@python3 tools/verify_vram.py
 
 # Print a reproducible memory budget (code/WRAM usage, _HOME headroom vs the
 # 0x8000 ceiling).  Exits non-zero if a documented invariant is violated.

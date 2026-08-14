@@ -345,7 +345,7 @@ void ui_clear_screen(void)
     uint8_t x, y;
     for (y = 0; y < 18; y++) {
         for (x = 0; x < 20; x++) {
-            ((volatile uint8_t *)0x9C00)[y * 32 + x] =
+            ((volatile uint8_t *)0x9800)[y * 32 + x] =
                 ui_font_tile_base;
             g_ui_screen_buf[y][x] = ' ';
         }
@@ -361,7 +361,7 @@ void ui_draw_text_line(uint8_t x, uint8_t y, const char *text, uint8_t max_chars
     while (i < max_chars) {
         ch = (text && text[i] != '\0') ? text[i] : ' ';
         if ((x + i) < 20) {
-            ((volatile uint8_t *)0x9C00)[y * 32 + x + i] =
+            ((volatile uint8_t *)0x9800)[y * 32 + x + i] =
                 (uint8_t)(ui_font_tile_base + (uint8_t)(ch - ' '));
             g_ui_screen_buf[y][x + i] = ch;
         }
@@ -675,7 +675,7 @@ void ui_update_player_position(const World *world, uint8_t old_px, uint8_t old_p
 static void ui_put_char(uint8_t x, uint8_t y, char ch)
 {
     if (y < 18 && x < 20) {
-        ((volatile uint8_t *)0x9C00)[y * 32 + x] =
+        ((volatile uint8_t *)0x9800)[y * 32 + x] =
             (uint8_t)(ui_font_tile_base + (uint8_t)(ch - ' '));
         g_ui_screen_buf[y][x] = ch;
     }

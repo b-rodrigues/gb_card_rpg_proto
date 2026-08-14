@@ -145,11 +145,14 @@ void game_render(Game *g)
          * VBlank, and the PPU ignores VRAM writes during scanout modes 2/3
          * (this dropped the window/HUD tilemap writes on the initial map
          * load, leaving the HUD blank).  With the LCD off every write
-         * lands.  The sprite reveal stays with the frame-boundary commit in
-         * main.c, so the sprite appears on the first steady frame after the
-         * redraw, during VBlank -- never shown at a stale position. */
+         * lands.  The sprite reveal (ui_sprite_commit) runs here, while the
+         * LCD is still off: the DMA cannot be dropped by scanout, so the
+         * sprite is already visible the moment the LCD restarts scanning.
+         * (Doing the DMA after ui_lcd_on would land mid-scanout, where the
+         * PPU ignores OAM writes, hiding the sprite for a frame.) */
         ui_lcd_off();
         screen_render(g);
+        ui_sprite_commit();
         ui_lcd_on();
         return;
     }

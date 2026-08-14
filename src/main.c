@@ -71,10 +71,10 @@ int main(void)
         game_render(&g_game);
         /* DMA shadow OAM to real OAM.  Runs right after game_render, so for
          * steady frames it is still inside the VBlank opened by the vsync
-         * above.  A full redraw can overrun into scanout, but transitions
-         * hide the sprite first (ui_sprite_begin_transition in game_render)
-         * so a late copy only risks one frame of stale sprites during a
-         * wipe, never the sprite being shown mid-wipe. */
+         * above.  A full redraw already committed the sprite inside
+         * game_render (ui_sprite_commit before ui_lcd_on, while the LCD is
+         * off), so this late copy is only redundant on those frames -- it
+         * cannot drop the reveal to scanout. */
         ui_sprite_commit();
     }
 }

@@ -29,7 +29,7 @@ OBJS_DEBUG = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/debug/%.o,$(SRCS))
 # Emulator detection
 EMULATOR ?= $(shell command -v sameboy 2>/dev/null || command -v mgba-sdl 2>/dev/null || command -v mgba-qt 2>/dev/null || command -v mgba 2>/dev/null || echo "")
 
-.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot lint memmap verify-oam verify-font verify-vram vram-check gfx gfx-selftest clean
+.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot lint memmap verify-oam verify-font verify-vram vram-check vram-text gfx gfx-selftest clean
 
 all: $(TARGET)
 
@@ -183,6 +183,13 @@ verify-vram: debug
 # semantic representation).  Manual only; not part of the CI chain.
 vram-check: release
 	@python3 tools/vram_check.py
+
+# Text-layer ground truth via PyBoy (see tools/vram_text_check.py): asserts
+# generic text lands on the always-displayed BACKGROUND (0x9800), not the
+# overworld-only WINDOW (0x9C00), by opening the ITEM menu with START and
+# reading real VRAM.  Manual only; not part of the CI chain.
+vram-text: release
+	@python3 tools/vram_text_check.py
 
 # Print a reproducible memory budget (code/WRAM usage, _HOME headroom vs the
 # 0x8000 ceiling).  Exits non-zero if a documented invariant is violated.

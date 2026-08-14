@@ -72,7 +72,14 @@ void battle_screen_render(Game *g)
         g->battle.player.hp != rc->prev_player_hp ||
         g->battle.enemy.hp != rc->prev_enemy_hp ||
         g->battle.result != rc->prev_battle_result) {
+        /* Wrap with LCD off: ui_update_battle writes ~60 BG tilemap tiles
+         * (HP rows + status line).  Without this the writes overrun VBlank
+         * and are silently dropped by the PPU in scanout modes 2/3,
+         * producing garbled text (e.g. [A] ATTACK -> ENJ A TACN). */
+        ui_lcd_off();
         ui_update_battle(&g->battle);
+        ui_sprite_commit();
+        ui_lcd_on();
         rc->prev_battle_turn = g->battle.turn;
         rc->prev_player_hp = g->battle.player.hp;
         rc->prev_enemy_hp = g->battle.enemy.hp;

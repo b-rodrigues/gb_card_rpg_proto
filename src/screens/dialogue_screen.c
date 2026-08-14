@@ -46,10 +46,15 @@ void dialogue_screen_render(Game *g)
         return;
     }
 
-    /* Dialogue line or id changed: redraw the box. */
+    /* Dialogue line or id changed: redraw the box with LCD off so window
+     * tilemap writes (0x9C00) land in VRAM bank 0 during VBlank without
+     * being silently dropped by the PPU in scanout modes 2/3. */
     if (g->dialogue.current_line != rc->prev_dialogue_line ||
         g->dialogue.id != rc->prev_dialogue_id) {
+        ui_lcd_off();
         ui_draw_dialogue(&g->dialogue);
+        ui_sprite_commit();
+        ui_lcd_on();
         telemetry_emit(EVENT_RENDER_DIALOGUE, (uint8_t)g->dialogue.id,
                        g->dialogue.current_line, 0, 0);
         rc->prev_dialogue_line = g->dialogue.current_line;

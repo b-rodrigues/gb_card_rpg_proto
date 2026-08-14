@@ -335,6 +335,10 @@ void ui_lcd_on(void)
 void ui_clear_screen(void)
 {
     uint8_t x, y;
+    /* Always select VRAM bank 0 before tilemap writes: on CGB, VBK_REG = 1
+     * selects the CGB attribute bank and writes land there instead of the
+     * tile-index bank, producing garbled display. */
+    VBK_REG = 0;
     for (y = 0; y < 18; y++) {
         for (x = 0; x < 20; x++) {
             ((volatile uint8_t *)0x9800)[y * 32 + x] =
@@ -351,6 +355,7 @@ void ui_draw_text_line(uint8_t x, uint8_t y, const char *text, uint8_t max_chars
     uint8_t ended;
     char ch;
     if (y >= 18) return;
+    VBK_REG = 0;  /* select tile-index bank, not CGB attribute bank */
     ended = (text == NULL);
     while (i < max_chars) {
         /* Track end-of-string with a flag: re-checking text[i] after a '\0'
@@ -582,6 +587,9 @@ void ui_update_camera(const World *world)
  * base + (ch - ' ').  Callers pass in-range coordinates (x < 20, y < 6). */
 static void ui_hud_put_char(uint8_t x, uint8_t y, char ch)
 {
+    /* Window tilemap (0x9C00) lives in VRAM bank 0; force it before every
+     * write.  On CGB, VBK_REG = 1 would land this in the attribute bank. */
+    VBK_REG = 0;
     ((volatile uint8_t *)0x9C00)[y * 32 + x] = (uint8_t)(ui_font_tile_base + (uint8_t)(ch - ' '));
     g_ui_screen_buf[12 + y][x] = ch;
 #ifdef DEBUG_BUILD
@@ -686,6 +694,7 @@ void ui_update_player_position(const World *world, uint8_t old_px, uint8_t old_p
 static void ui_put_char(uint8_t x, uint8_t y, char ch)
 {
     if (y < 18 && x < 20) {
+        VBK_REG = 0;  /* select tile-index bank, not CGB attribute bank */
         ((volatile uint8_t *)0x9800)[y * 32 + x] =
             (uint8_t)(ui_font_tile_base + (uint8_t)(ch - ' '));
         g_ui_screen_buf[y][x] = ch;

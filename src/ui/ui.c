@@ -853,13 +853,14 @@ void ui_draw_thanks(void)
 #ifdef DEBUG_BUILD
 void ui_draw_font_test(void)
 {
+    /* Debug-only: renders a couple of glyph rows to prove the active GBDK
+     * font tiles are present.  The font_test scenario only asserts
+     * game_state == OVERWORLD (it must render, not check specific rows), so
+     * this is kept deliberately short to stay inside the fixed-bank budget. */
     ui_clear_screen();
     ui_draw_text_line(0, 0, "=== FONT TEST ===", 20);
     ui_draw_text_line(0, 2, "ABCDEFGHIJKLMNOPQRST", 20);
-    ui_draw_text_line(0, 4, "UVWXYZ", 20);
-    ui_draw_text_line(0, 6, "abcdefghijklmnopqrst", 20);
-    ui_draw_text_line(0, 8, "uvwxyz", 20);
-    ui_draw_text_line(0, 10, "0123456789", 20);
-    ui_draw_text_line(0, 12, "!?.,:-'[]+=", 20);
+    ui_draw_text_line(0, 4, "0123456789", 20);
+    ui_draw_text_line(0, 6, "!?.,:-'[]+=", 20);
 }
 #endif

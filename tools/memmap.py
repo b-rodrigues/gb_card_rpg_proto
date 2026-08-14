@@ -12,6 +12,13 @@ import re
 import sys
 
 
+# The RAM-resident VBlank ISR lives in WRAM at 0xC900-0xC93F (see
+# src/crt0.s).  The Makefile pins _DATA at 0xC940 so no C data overlaps it;
+# this range must stay free of every linker area.
+ISR_RESERVE_START = 0xC900
+ISR_RESERVE_END = 0xC940
+
+
 def main():
     if len(sys.argv) != 2:
         print(__doc__)
@@ -24,8 +31,7 @@ def main():
             if not m:
                 continue
             name, start, size, nbytes = m.groups()
-            if name in ("_CODE", "_HOME", "_DATA"):
-                areas[name] = (int(start, 16), int(size, 16), int(nbytes))
+            areas[name] = (int(start, 16), int(size, 16), int(nbytes))
 
     ok = True
 
@@ -58,9 +64,23 @@ def main():
         ram_headroom = 0xE000 - end
         print(f"_DATA (WRAM)                  : {nbytes:>6} B  @ 0x{start:04X}-0x{end:04X}  "
               f"headroom to 0xE000: {ram_headroom} B")
+        if start < ISR_RESERVE_START:
+            print(f"  VIOLATION: _DATA base 0x{start:04X} < ISR reserve 0x{ISR_RESERVE_START:04X} "
+                  f"(Makefile must link with -Wl-b_DATA=0x{ISR_RESERVE_END:04X})")
+            ok = False
     else:
         print("_DATA : (not found)")
         ok = False
+
+    for name, (start, size, nbytes) in sorted(areas.items()):
+        if name in ("_CODE", "_HOME", "_DATA"):
+            continue
+        end = start + size
+        if start < ISR_RESERVE_END and end > ISR_RESERVE_START:
+            print(f"{name} overlaps the reserved VBlank ISR range "
+                  f"0x{ISR_RESERVE_START:04X}-0x{ISR_RESERVE_END:04X}: "
+                  f"0x{start:04X}-0x{end:04X}")
+            ok = False
 
     print()
     if ok:

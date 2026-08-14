@@ -155,6 +155,13 @@ _add_VBL:
 ; the VBlank vector (0x0040 -> JP 0xC900).  Calls audio_update() directly;
 ; audio.c must remain in the fixed bank 0 so the baked-in call target is
 ; always mapped.  Saves af/bc/de/hl (SDCC clobber set).
+;
+; 0xC900-0xC93F is permanently reserved for this ISR: the Makefile links with
+; -Wl-b_DATA=0xC940, so no C data (BSS/DATA/INITIALIZED) is ever placed below
+; 0xC940.  Without that reservation the telemetry ring buffer landed on 0xC900
+; and its zero-fill in telemetry_init() wiped the ISR on real boot, hanging
+; the game (the harness never dispatches the ISR, so it stayed green).  The
+; memmap target rejects any symbol overlapping this range.
 vbl_isr:
         push    af
         push    bc

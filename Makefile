@@ -29,7 +29,7 @@ OBJS_DEBUG = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/debug/%.o,$(SRCS))
 # Emulator detection
 EMULATOR ?= $(shell command -v sameboy 2>/dev/null || command -v mgba-sdl 2>/dev/null || command -v mgba-qt 2>/dev/null || command -v mgba 2>/dev/null || echo "")
 
-.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot lint memmap verify-oam verify-font gfx gfx-selftest clean
+.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot lint memmap verify-oam verify-font verify-vram gfx gfx-selftest clean
 
 all: $(TARGET)
 
@@ -170,6 +170,12 @@ verify-oam: debug
 # mirror (see tools/verify_font.py).  Guards against the -' ' offset dropping.
 verify-font: debug
 	@python3 tools/verify_font.py
+
+# Verify the real-boot (non-harness) main loop writes the HUD tilemap during
+# VBlank with no dropped cells, comparing real VRAM to the DEBUG mirror (see
+# tools/verify_vram.py).  Guards the vsync-before-render and LCD-off redraw.
+verify-vram: debug
+	@python3 tools/verify_vram.py
 
 # Print a reproducible memory budget (code/WRAM usage, _HOME headroom vs the
 # 0x8000 ceiling).  Exits non-zero if a documented invariant is violated.

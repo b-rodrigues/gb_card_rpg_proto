@@ -322,12 +322,22 @@ void ui_sprite_begin_transition(void)
 }
 
 /* DMA shadow OAM to real OAM.  Called once per frame from main.c right after
- * vsync (during VBlank) so every displayed frame has the sprite in the
- * correct state for that frame; transitions force the hide beforehand in
+ * game_render, still inside the VBlank opened by the vsync at the top of the
+ * loop for steady frames; transitions force the hide beforehand in
  * ui_sprite_begin_transition(). */
 void ui_sprite_commit(void)
 {
     refresh_OAM();
+}
+
+void ui_lcd_off(void)
+{
+    LCDC_REG &= ~0x80;
+}
+
+void ui_lcd_on(void)
+{
+    LCDC_REG |= 0x80;
 }
 
 void ui_clear_screen(void)
@@ -736,7 +746,7 @@ void ui_draw_battle_full(const Battle *battle)
     /* Show the real hero sprite next to the "HERO:" label (text row 9,
      * col 15 -- where the old ASCII '@' sat), un-hiding it from the
      * screen_change() hide on the way in.  Only shadow OAM is written here;
-     * the frame-boundary commit (ui_sprite_commit after vsync) DMAs it to
+     * the frame-boundary commit (ui_sprite_commit in main.c) DMAs it to
      * real OAM, so the sprite appears once the battle screen is drawn. */
     move_sprite(PLAYER_SPRITE_NUM, 128, 88);
 

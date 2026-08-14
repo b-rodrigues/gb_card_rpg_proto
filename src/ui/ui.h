@@ -45,6 +45,16 @@ void ui_sprite_commit(void);
 void ui_enemy_sprite_show(uint8_t gfx, uint8_t px, uint8_t py);
 void ui_enemy_sprite_hide(void);
 
+/* Toggle the LCD via the LCDC display-enable bit (direct register write, no
+ * VBlank wait -- safe under the harness where vsync is skipped).  Full-screen
+ * tilemap redraws run with the LCD off so every write lands: the PPU ignores
+ * VRAM writes during scanout modes 2/3 and a full redraw cannot fit in one
+ * VBlank.  ui_lcd_off/ui_lcd_on are matched around the redraw in game_render;
+ * the sprite stays hidden until the frame-boundary commit on the following
+ * frame's VBlank. */
+void ui_lcd_off(void);
+void ui_lcd_on(void);
+
 void ui_draw_world_map(const World *world);
 void ui_draw_overworld_hud(const World *world);
 void ui_draw_world_full(const World *world);

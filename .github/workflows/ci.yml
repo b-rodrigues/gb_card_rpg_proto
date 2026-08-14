@@ -20,7 +20,7 @@ jobs:
 
       - name: Lint + release + memory budget + harness + OAM fidelity
         run: |
-          nix develop -c bash -c "make clean && make lint && make test && make memmap && make test-harness && make verify-oam && make verify-font"
+          nix develop -c bash -c "make clean && make lint && make test && make memmap && make test-harness && make verify-oam && make verify-font && make verify-vram"
         timeout-minutes: 50
 
       - name: PNG -> GB converter selftest

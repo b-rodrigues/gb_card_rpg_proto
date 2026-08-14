@@ -55,15 +55,26 @@ int main(void)
         if (g_boot_phase == 3) {
             g_boot_phase = 4;
         }
-        game_render(&g_game);
         if (!g_harness_mode) {
+            /* Wait for VBlank AFTER gameplay logic, immediately BEFORE
+             * game_render, so every tilemap write inside game_render lands
+             * during VBlank.  GBDK's vsync() busy-waits for LY == 145 (the
+             * second VBlank scanline) and returns there.  The PPU silently
+             * ignores VRAM writes during LCD modes 2/3 (mid-scanout); the
+             * previous render-then-vsync order dropped window/HUD tilemap
+             * writes (verified: cells read back 0x00 at the next VBlank
+             * where the game had written a tile).  Incremental redraws fit
+             * easily inside VBlank; only full-screen wipes overrun, and
+             * those hide the sprite first and accept a partial tail. */
             vsync();
         }
-        /* DMA shadow OAM to real OAM during VBlank (after vsync) so every
-         * displayed frame has the sprite in the correct state.  Transitions
-         * force the hide earlier (ui_sprite_begin_transition in game_render)
-         * so the sprite is gone before the new screen's redraw wipes the
-         * display. */
+        game_render(&g_game);
+        /* DMA shadow OAM to real OAM.  Runs right after game_render, so for
+         * steady frames it is still inside the VBlank opened by the vsync
+         * above.  A full redraw can overrun into scanout, but transitions
+         * hide the sprite first (ui_sprite_begin_transition in game_render)
+         * so a late copy only risks one frame of stale sprites during a
+         * wipe, never the sprite being shown mid-wipe. */
         ui_sprite_commit();
     }
 }

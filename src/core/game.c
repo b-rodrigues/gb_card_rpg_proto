@@ -118,8 +118,8 @@ void game_render(Game *g)
      * boot/restart) hides the sprite in real OAM first: the redraw takes
      * several display sweeps (blank then top-to-bottom redraw), and the
      * sprite must not float over the wipe at a stale position.  The
-     * frame-boundary commit (ui_sprite_commit in main.c, after vsync)
-     * reveals it at the new screen's position once the redraw is done.
+     * frame-boundary commit (ui_sprite_commit in main.c) reveals it at the
+     * new screen's position once the redraw is done.
      *
      * The three triggers are distinct:
      *  - rc->valid == false: screen change / boot / restart (reset);
@@ -140,6 +140,18 @@ void game_render(Game *g)
     if (!rc->valid || rc->prev_screen != g->screen ||
         g->world.map_id != rc->prev_map_id) {
         ui_sprite_begin_transition();
+        /* Full redraw with the LCD off (see ui_lcd_off/ui_lcd_on): a full
+         * screen redraw spans several display sweeps and cannot fit in one
+         * VBlank, and the PPU ignores VRAM writes during scanout modes 2/3
+         * (this dropped the window/HUD tilemap writes on the initial map
+         * load, leaving the HUD blank).  With the LCD off every write
+         * lands.  The sprite reveal stays with the frame-boundary commit in
+         * main.c, so the sprite appears on the first steady frame after the
+         * redraw, during VBlank -- never shown at a stale position. */
+        ui_lcd_off();
+        screen_render(g);
+        ui_lcd_on();
+        return;
     }
     screen_render(g);
 }

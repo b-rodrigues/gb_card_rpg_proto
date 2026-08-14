@@ -470,7 +470,9 @@ def main():
     try:
         if args.tilemap:
             all_bytes, _, n_dup, tiles_x, tiles_y, c_src = convert_tilemap(args.png, args.name)
-            detail = f"({n_dup} duplicate tile(s) deduped)"
+            n_unique = len(all_bytes) // 16
+            detail = (f"({n_unique} unique of {tiles_x * tiles_y} tiles, "
+                      f"{n_dup} duplicate(s) deduped)")
         elif args.sprite is not None:
             all_bytes, _, n_frames, w, h, c_src = convert_sprite(args.png, args.name, args.sprite)
             tiles_x, tiles_y = w // TILE_SIZE, h // TILE_SIZE

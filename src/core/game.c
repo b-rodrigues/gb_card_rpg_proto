@@ -11,6 +11,14 @@
 #include "rpg/items.h"
 #include "banked.h"
 
+/* Boot-phase breadcrumb set by main.c (see main.c).  game_render uses it to
+ * tell the initial boot redraw (called directly from game_init, before the
+ * main loop's vsync) apart from screen-change redraws: only the boot redraw
+ * toggles the LCD off (its writes would otherwise land mid-scanout), because
+ * toggling the LCD after vsync() desyncs the PPU and blanks the display on
+ * later returns. */
+extern volatile uint8_t g_boot_phase;
+
 void game_render_reset(Game *g)
 {
     if (!g) return;
@@ -140,20 +148,29 @@ void game_render(Game *g)
     if (!rc->valid || rc->prev_screen != g->screen ||
         g->world.map_id != rc->prev_map_id) {
         ui_sprite_begin_transition();
-        /* Full redraw with the LCD off (see ui_lcd_off/ui_lcd_on): a full
-         * screen redraw spans several display sweeps and cannot fit in one
-         * VBlank, and the PPU ignores VRAM writes during scanout modes 2/3
-         * (this dropped the window/HUD tilemap writes on the initial map
-         * load, leaving the HUD blank).  With the LCD off every write
-         * lands.  The sprite reveal (ui_sprite_commit) runs here, while the
-         * LCD is still off: the DMA cannot be dropped by scanout, so the
-         * sprite is already visible the moment the LCD restarts scanning.
-         * (Doing the DMA after ui_lcd_on would land mid-scanout, where the
-         * PPU ignores OAM writes, hiding the sprite for a frame.) */
-        ui_lcd_off();
+        /* Full redraw.  Only the BOOT redraw runs with the LCD off
+         * (g_boot_phase < 4): it is called directly from game_init with no
+         * vsync() before it, so its writes would otherwise land mid-scanout
+         * and be dropped (the blank-HUD bug).  Screen-change / map-change
+         * redraws (menu/shop/dialogue exit, gate crossings) must NOT toggle
+         * the LCD: the main loop calls vsync() immediately before
+         * game_render, so their writes already land during VBlank, and
+         * turning the LCD off after vsync() returned (LY==145) desyncs the
+         * PPU so the next loop iteration's vsync() cannot resync -- leaving
+         * the display off for many frames (the blank-screen bug after
+         * closing the shop/menu/dialogue).  The sprite is committed right
+         * after the redraw (still inside VBlank for quick redraws;
+         * otherwise the main-loop commit on the next frame reveals it). */
+        if (g_boot_phase < 4) {
+            ui_lcd_off();
+        }
         screen_render(g);
-        ui_sprite_commit();
-        ui_lcd_on();
+        if (g_boot_phase < 4) {
+            ui_sprite_commit();
+            ui_lcd_on();
+        } else {
+            ui_sprite_commit();
+        }
         return;
     }
     screen_render(g);

@@ -38,17 +38,30 @@ Implemented:
     (duplicate 8x8 tiles are emitted once and referenced by index);
   * `--sprite 8|16`: 8-wide frame sheet → tiles + OAM frame defs (contiguous
     tile ids so 8x16 sprites keep id/id+1).
+  `--global` emits non-static arrays so generated tile/map data can live in
+  banked ROM and be linked across translation units.
   `--selftest` runs deterministic byte-exact regression checks (dedup,
   tilemap indices, sprite/OAM layout, validation rules); wired as
   `make gfx-selftest`.
 * `make gfx` — regenerates `src/gfx/*.h` from `assets/*.png`
   (deterministic output; a CI step fails if the committed headers drift from
   the source assets).
-* `assets/player_demo.png` → `src/gfx/player_sprite_tile.h`, included by
-  `src/ui/ui.c` (byte-identical to the previously hand-authored tile).
+* Banked tileset pipeline — the tile/map bytes for the battle background,
+  window frame, and enemy sprites live in banked ROM (`src/game/gfx_content.c`,
+  GAME_CONTENT_BANK) and are copied into VRAM at boot by `ui_gfx_load()`
+  (`banked_copy` after `banked_copy_init`), mirroring the event/dialogue
+  content pattern.  Renderers read only VRAM.
+* Battle screen — the battle background (battle_bg tileset) is drawn into the
+  BG tilemap and the enemy is rendered as an OAM sprite (slime/bat single
+  8x8; the 16x16 boss spans a 2x2 grid).  Enemy sprite selection goes through
+  the game-layer hook `game_enemy_gfx(EntityId)`; `EVENT_ENEMY_SPRITE`
+  telemetry makes the active sprite observable to the harness.
+  The semantic `g_ui_screen_buf` ASCII stays authoritative.
 
-TODO: the renderer rewiring below (terrain already renders as real GB tiles;
-battle/menu/dialogue/ending screens still draw through the console font).
+TODO: the renderer rewiring of the menu/dialogue/ending screens to the
+ui_frame tileset (deferred: the fixed `_CODE` bank is at ~23 B headroom and
+the frame draw helper does not fit without a further budget allocation;
+terrain already renders as real GB tiles and the battle screen is rewired).
 
 ## Renderer requirements (DMG + CGB)
 

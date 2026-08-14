@@ -58,9 +58,13 @@ testable, save/load works, and the memory budget is understood.
   branch has landed the player OAM sprite + the `png2gb.py` PNG→tileset
   stage (`make gfx`).  The converter now also has duplicate-tile detection,
   dedup + tilemap generation, sprite/OAM frame definitions, tile-count
-  validation, and a `--selftest` (`make gfx-selftest`).  The renderer
-  rewiring (battle/menu/dialogue/ending screens to real tilesets, DMG+CGB
-  palettes) remains
+  validation, and a `--selftest` (`make gfx-selftest`).  The real tilesets
+  (battle background, window frame, enemy sprites) are banked content loaded
+  into VRAM at boot, and the **battle screen is rewired** to the battle-bg
+  tileset + enemy OAM sprites (slime/bat single, boss 2x2 grid) with
+  `EVENT_ENEMY_SPRITE` observability.  The menu/dialogue/ending screen
+  rewiring to the ui_frame tileset remains (deferred: fixed `_CODE` bank is
+  near capacity; needs a further budget allocation)
 - Battle system expansion (per-enemy stats/AI, command menu, variance, etc.)
 - Card battle prototype (hand/deck/discard, draw, play, resolve)
 

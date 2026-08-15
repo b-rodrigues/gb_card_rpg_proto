@@ -135,16 +135,12 @@ void overworld_screen_render(Game *g)
         return;
     }
 
-    /* Camera crossed a tile boundary.  The incremental path is small enough
-     * to complete with the LCD disabled, so keep its entering-edge redraw but
-     * make every VRAM write legal.  Leaving the LCD enabled here was the
-     * release-only failure path: after repeated scrolls execution returned
-     * with a corrupted ROM bank and eventually ran garbage. */
+    /* Camera crossed a tile boundary.  The entering edge is a small bounded
+     * redraw and runs in the VBlank opened by main.c; do not toggle the LCD
+     * here or the player sees a blank frame on every camera step. */
     if (g->world.scroll_x != s_prev_scroll_x ||
         g->world.scroll_y != s_prev_scroll_y) {
-        ui_lcd_off();
         ui_draw_world_scroll(&g->world, s_prev_scroll_x, s_prev_scroll_y);
-        ui_lcd_on();
         s_prev_scroll_x = g->world.scroll_x;
         s_prev_scroll_y = g->world.scroll_y;
         rc->prev_player_x = px;

@@ -277,6 +277,7 @@ static void ui_draw_world_cell(const World *world, uint8_t col, uint8_t row)
     uint8_t tile_idx;
     uint8_t sx;
     uint8_t sy;
+    uint8_t player_cell;
     const WorldActorDefinition *actor;
     volatile uint8_t *tilemap = (volatile uint8_t *)0x9800;
 
@@ -286,8 +287,12 @@ static void ui_draw_world_cell(const World *world, uint8_t col, uint8_t row)
         t = world->map[row][col];
     }
 
-    actor = actor_find_at(world, col, row);
-    if (actor) {
+    player_cell = (col == world->player.position.x &&
+                   row == world->player.position.y);
+    actor = player_cell ? NULL : actor_find_at(world, col, row);
+    if (player_cell) {
+        tile_idx = (uint8_t)(ui_font_tile_base + (uint8_t)('@' - ' '));
+    } else if (actor) {
         tile_idx = (uint8_t)(ui_font_tile_base + (uint8_t)(actor->visual - ' '));
     } else {
         tile_idx = (uint8_t)(ui_font_tile_base + (uint8_t)(g_sem_map[t] - ' '));
@@ -300,7 +305,8 @@ static void ui_draw_world_cell(const World *world, uint8_t col, uint8_t row)
     sx = (uint8_t)(col - world->scroll_x);
     sy = (uint8_t)(row - world->scroll_y);
     if (sx < WORLD_VIEW_W && sy < WORLD_VIEW_H) {
-        g_ui_screen_buf[sy][sx] = actor ? actor->visual : g_sem_map[t];
+        g_ui_screen_buf[sy][sx] = player_cell ? '@' :
+                                   (actor ? actor->visual : g_sem_map[t]);
     }
 }
 
@@ -336,10 +342,9 @@ void ui_draw_world_map(const World *world)
         g_ui_screen_buf[y][WORLD_VIEW_W] = '\0';
     }
 
-    /* Sprite in camera-relative screen coordinates: the BG scrolls under
-     * it via SCX/SCY, so the OAM position is (world px - camera px). */
-    ui_sprite_move((uint8_t)(world_player_px(world) - world->camera_px_x),
-                   (uint8_t)(world_player_py(world) - world->camera_px_y));
+    /* The ASCII overworld uses @ for the hero.  Keep the hardware sprite
+     * hidden so the player has one authoritative representation. */
+    ui_sprite_hide();
 }
 
 /* Refill the semantic view from the tilemap ring mirror (DEBUG-only).  The
@@ -403,9 +408,6 @@ void ui_draw_world_scroll(const World *world, uint8_t prev_sx, uint8_t prev_sy)
     ui_refill_semantic(world);
 #endif
 
-    /* Sprite stays camera-relative (the BG scrolls under it). */
-    ui_sprite_move((uint8_t)(world_player_px(world) - world->camera_px_x),
-                   (uint8_t)(world_player_py(world) - world->camera_px_y));
 }
 
 void ui_update_camera(const World *world)
@@ -497,15 +499,24 @@ void ui_draw_world_full(const World *world)
 
 void ui_update_player_position(const World *world, uint8_t old_px, uint8_t old_py, uint8_t new_px, uint8_t new_py)
 {
-    /* The background never encodes the player (see ui_draw_world_map), so
-     * there is nothing to erase/redraw at old_px/old_py any more -- moving
-     * the OAM sprite is the whole update.  old_px/old_py are kept in the
-     * signature so callers (RenderCache in overworld_screen.c) don't need
-     * to change. */
-    (void)old_px;
-    (void)old_py;
+    uint8_t old_x;
+    uint8_t old_y;
+    uint8_t new_x;
+    uint8_t new_y;
+
     if (!world) return;
-    ui_sprite_move(new_px, new_py);
+
+    /* Sub-tile movement needs no background write.  At a tile commit, redraw
+     * only the old and new cells so the @ moves without a full-screen wipe. */
+    old_x = (uint8_t)((old_px + world->camera_px_x) >> 3);
+    old_y = (uint8_t)((old_py + world->camera_px_y) >> 3);
+    new_x = (uint8_t)((new_px + world->camera_px_x) >> 3);
+    new_y = (uint8_t)((new_py + world->camera_px_y) >> 3);
+    if (old_x == new_x && old_y == new_y) return;
+
+    VBK_REG = 0;
+    ui_draw_world_cell(world, old_x, old_y);
+    ui_draw_world_cell(world, new_x, new_y);
 }
 
 static void ui_put_char(uint8_t x, uint8_t y, char ch)

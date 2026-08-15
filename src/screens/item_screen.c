@@ -15,8 +15,6 @@
 #define MENU_TAB_STATUS 3
 #define MENU_TAB_COUNT  4
 
-static const uint8_t g_tab_x[MENU_TAB_COUNT] = {0, 5, 10, 15};
-
 /* Per-tab item visibility: the ITEM tab shows consumables only, the EQUIP
  * tab shows weapons only. */
 static bool menu_item_visible(uint8_t tab, const ItemDefinition *def)
@@ -49,14 +47,10 @@ static uint8_t menu_visible_entry(const InventoryState *inv, uint8_t tab, uint8_
     return 0xFF;
 }
 
-static void menu_draw_tab_row(Game *g)
+static void menu_draw_tabs(Game *g)
 {
-    /* Full labels (direct literals), active tab marked on the row below. */
-    ui_draw_text_line(g_tab_x[0], 2, "ITEM", 5);
-    ui_draw_text_line(g_tab_x[1], 2, "EQUIP", 5);
-    ui_draw_text_line(g_tab_x[2], 2, "QUEST", 5);
-    ui_draw_text_line(g_tab_x[3], 2, "STAT", 5);
-    ui_draw_text_line(g_tab_x[g->item_menu_tab], 3, "^", 1);
+    ui_draw_text_line(0, 2, "ITEM EQUIPQUESTSTAT ", 20);
+    ui_draw_text_line((uint8_t)(g->item_menu_tab * 5), 3, "^", 1);
     ui_draw_text_line(0, 4, "--------------------", 20);
 }
 
@@ -116,13 +110,15 @@ static void quest_draw_status(Game *g, const QuestDefinition *q, uint8_t y, char
         ui_draw_text_line(0, y, "not started", 11);
     } else if (st == QUEST_STATUS_ACTIVE) {
         if (q->progress_variable != 0) {
+            uint8_t len;
             ui_draw_text_line(0, y, q->progress_label, 8);
             ui_draw_text_line(8, y, ": ", 2);
             ui_format_int(game_variable_get(&g->state, q->progress_variable), buf);
-            ui_draw_text_line(10, y, buf, 1);
-            ui_draw_text_line(11, y, "/", 1);
+            ui_draw_text_line(10, y, buf, 4);
+            len = (uint8_t)((buf[1] == '\0') ? 11 : ((buf[2] == '\0') ? 12 : 13));
+            ui_draw_text_line(len++, y, "/", 1);
             ui_format_int(q->progress_target, buf);
-            ui_draw_text_line(12, y, buf, 1);
+            ui_draw_text_line(len, y, buf, 4);
         } else {
             ui_draw_text_line(0, y, "active", 6);
         }
@@ -165,7 +161,7 @@ static void menu_draw(Game *g)
     }
 
     menu_draw_frame(&frame);
-    menu_draw_tab_row(g);
+    menu_draw_tabs(g);
 
     if (g->item_menu_tab == MENU_TAB_STATUS) {
         menu_draw_status(g, &frame, buf);
@@ -213,13 +209,13 @@ void item_screen_update(Game *g)
     if (!g) return;
 
     if (input_pressed(INPUT_SELECT) || input_pressed(INPUT_RIGHT)) {
-        g->item_menu_tab = (uint8_t)((g->item_menu_tab + 1) % MENU_TAB_COUNT);
+        g->item_menu_tab = (uint8_t)((g->item_menu_tab + 1) & 3);
         g->item_menu_index = 0;
         g->render_cache.valid = false;
         return;
     }
     if (input_pressed(INPUT_LEFT)) {
-        g->item_menu_tab = (uint8_t)(g->item_menu_tab == 0 ? MENU_TAB_STATUS : g->item_menu_tab - 1);
+        g->item_menu_tab = (uint8_t)((g->item_menu_tab - 1) & 3);
         g->item_menu_index = 0;
         g->render_cache.valid = false;
         return;

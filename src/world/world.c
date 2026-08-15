@@ -356,17 +356,18 @@ WorldMoveResult world_update_actors(World *w)
 
         target_x = (uint8_t)(a->spawn_x + dx);
         target_y = (uint8_t)(a->spawn_y + dy);
-        a->ai_step++;
 
         if (target_x == a->x && target_y == a->y) {
             a->facing = facing;
+            a->ai_step++;
             a->ai_timer = PATROL_STEP_INTERVAL;
             continue;
         }
 
         if (!world_is_walkable(w, target_x, target_y) ||
             w->map[target_y][target_x] == TILE_EXIT ||
-            actor_find_at(w, target_x, target_y) != NULL) {
+            actor_find_at(w, target_x, target_y) != NULL ||
+            actor_find_hostile_slot(w, target_x, target_y) != NO_ACTOR_INDEX) {
             a->ai_timer = PATROL_STEP_INTERVAL;
             continue;
         }
@@ -378,6 +379,7 @@ WorldMoveResult world_update_actors(World *w)
             return MOVE_RESULT_ENCOUNTER;
         }
 
+        a->ai_step++;
         a->move_state = 1;
         a->move_target_x = target_x;
         a->move_target_y = target_y;

@@ -141,7 +141,9 @@ void ui_sprite_init(void)
     for (i = 0; i < (96 * 16); i++) {
         ((volatile uint8_t *)0x8000)[i] = ((volatile uint8_t *)0x9000)[i];
     }
-    set_sprite_data(PLAYER_SPRITE_TILE_ID, 1, player_sprite_tile);
+    for (i = 0; i < 16; i++) {
+        ((volatile uint8_t *)0x8000)[PLAYER_SPRITE_TILE_ID * 16 + i] = player_sprite_tile[i];
+    }
     set_sprite_tile(PLAYER_SPRITE_NUM, PLAYER_SPRITE_TILE_ID);
     SPRITES_8x8;
     SHOW_SPRITES;
@@ -609,6 +611,7 @@ void ui_draw_battle_full(const Battle *battle)
 
 void ui_update_battle(const Battle *battle)
 {
+    const char *msg;
     if (!battle) return;
 
     /* Keep HP readouts current as damage is dealt/received */
@@ -616,16 +619,17 @@ void ui_update_battle(const Battle *battle)
     ui_draw_hp_row(10, battle->player.hp, battle->player.max_hp);
 
     if (battle->result == BATTLE_RESULT_VICTORY) {
-        ui_draw_text_line(0, 15, " VICTORY! PRESS [A]", 20);
+        msg = " VICTORY! PRESS [A]";
     } else if (battle->result == BATTLE_RESULT_DEFEAT) {
-        ui_draw_text_line(0, 15, " DEFEATED! PRESS [A]", 20);
+        msg = " DEFEATED! PRESS [A]";
     } else if (battle->result == BATTLE_RESULT_FLED) {
-        ui_draw_text_line(0, 15, " FLED! PRESS [A]", 20);
+        msg = " FLED! PRESS [A]";
     } else if (battle->turn == BATTLE_TURN_PLAYER) {
-        ui_draw_text_line(0, 15, " [A] ATTACK  [B] RUN", 20);
+        msg = " [A] ATTACK  [B] RUN";
     } else {
-        ui_draw_text_line(0, 15, " ENEMY TURN...", 20);
+        msg = " ENEMY TURN...";
     }
+    ui_draw_text_line(0, 15, msg, 20);
 }
 
 void ui_draw_dialogue(const DialogueState *dialogue, uint8_t scroll_x, uint8_t scroll_y)

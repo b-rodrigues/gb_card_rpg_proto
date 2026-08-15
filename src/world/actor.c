@@ -59,15 +59,13 @@ static void actor_spawn(WorldActorRuntime *r, const WorldActorDefinition *def)
 uint8_t actor_find_hostile_slot(const World *world, uint8_t x, uint8_t y)
 {
     uint8_t i;
+    const WorldActorRuntime *a;
     if (!world) return NO_ACTOR_INDEX;
     for (i = 0; i < MAX_WORLD_ACTORS; i++) {
-        if (world->actors[i].active &&
-            ((world->actors[i].x == x && world->actors[i].y == y) ||
-             (world->actors[i].move_state &&
-              world->actors[i].move_target_x == x &&
-              world->actors[i].move_target_y == y))) {
-            return i;
-        }
+        a = &world->actors[i];
+        if (!a->active) continue;
+        if (a->x == x && a->y == y) return i;
+        if (a->move_state && a->move_target_x == x && a->move_target_y == y) return i;
     }
     return NO_ACTOR_INDEX;
 }
@@ -160,27 +158,31 @@ uint8_t actor_write_snapshot(const World *world, uint8_t *out, uint8_t max_actor
 {
     uint8_t i, n = 0;
     uint8_t slot;
+    uint8_t *p;
 
     if (!world || !out || max_actors == 0) return 0;
 
     /* hostile runtime actors */
     for (slot = 0; slot < MAX_WORLD_ACTORS && n < max_actors; slot++) {
         if (world->actors[slot].active) {
-            out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 0] = (uint8_t)world->actors[slot].id;
-            out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 1] = world->actors[slot].x;
-            out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 2] = world->actors[slot].y;
-            out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 3] = world->actors[slot].facing;
+            p = &out[n * ACTOR_SNAPSHOT_ENTRY_SIZE];
+            p[0] = (uint8_t)world->actors[slot].id;
+            p[1] = world->actors[slot].x;
+            p[2] = world->actors[slot].y;
+            p[3] = world->actors[slot].facing;
             n++;
         }
     }
 
     /* friendly static definitions */
     for (i = 0; i < g_static_actor_count && n < max_actors; i++) {
-        out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 0] = (uint8_t)g_static_actors[i].id;
-        out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 1] = g_static_actors[i].x;
-        out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 2] = g_static_actors[i].y;
-        out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 3] = g_static_actors[i].facing;
+        p = &out[n * ACTOR_SNAPSHOT_ENTRY_SIZE];
+        p[0] = (uint8_t)g_static_actors[i].id;
+        p[1] = g_static_actors[i].x;
+        p[2] = g_static_actors[i].y;
+        p[3] = g_static_actors[i].facing;
         n++;
     }
+
     return n;
 }

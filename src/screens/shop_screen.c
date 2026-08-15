@@ -82,15 +82,8 @@ void shop_screen_update(Game *g)
         if (def && def->count > 0) {
             item = item_get_def(def->items[g->item_menu_index]);
             if (item) {
-                ItemPurchaseResult res = item_purchase(&g->state, item->id);
-                switch (res) {
-                    case ITEM_PURCHASE_OK:
-                        g->shop_message = SHOP_MSG_BOUGHT;
-                        break;
-                    default:
-                        g->shop_message = SHOP_MSG_NO_GOLD;
-                        break;
-                }
+                g->shop_message = (item_purchase(&g->state, item->id) == ITEM_PURCHASE_OK)
+                                  ? SHOP_MSG_BOUGHT : SHOP_MSG_NO_GOLD;
             }
         }
         g->render_cache.valid = false;

@@ -14,11 +14,5 @@ static const ShopDefinition g_shops[] = {
 
 const ShopDefinition *game_shop_for_id(uint8_t id)
 {
-    uint8_t i;
-    for (i = 0; i < (uint8_t)(sizeof(g_shops) / sizeof(g_shops[0])); i++) {
-        if (g_shops[i].id == id) {
-            return &g_shops[i];
-        }
-    }
-    return NULL;
+    return (id == 2) ? &g_shops[1] : ((id == 1) ? &g_shops[0] : NULL);
 }

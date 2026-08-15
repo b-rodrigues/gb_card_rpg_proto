@@ -99,7 +99,13 @@ def main():
 
     def one_tile(btn, n=1):
         for _ in range(n):
-            pb.button(btn, delay=8)
+            # Keep the press edge separate from the release. The redraw path
+            # may consume more host-side time than a fixed PyBoy button
+            # delay, but the game only needs one input edge to start its
+            # eight-frame walk.
+            pb.button_press(btn)
+            pb.tick()
+            pb.button_release(btn)
             for _ in range(14):
                 pb.tick()
 

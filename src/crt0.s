@@ -189,6 +189,10 @@ _vsync:
 ; four arguments into _DATA globals (g_bank_copy_bank/dst/src/n) before
 ; calling, so this trampoline never parses SDCC's stack layout.  The bank
 ; register is always restored to the project's home bank 1 before returning.
+; The body is wrapped in di/ei: the VBlank ISR (WRAM 0xC900) could otherwise
+; fire mid-copy while ROMB points at a content bank.  The ISR only calls the
+; fixed-bank audio code (safe today), but the guard removes the whole class
+; of future ISR/banked-content regressions at a sub-scanline cost.
 ;
 ; Home bank is 1, NOT 0: the project links with -yo8, so the fixed-bank
 ; _CODE/_HOME area spans file 0x0000-0x7FFF and the second half (file
@@ -202,6 +206,7 @@ _vsync:
         .globl  _g_bank_copy_src
         .globl  _g_bank_copy_n
 _banked_copy_tramp:
+        di                            ; no ISR while the MBC5 bank is switched
         xor     a
         ld      (0x3000), a          ; MBC5 ROM bank high byte = 0
         ld      a, (_g_bank_copy_bank)
@@ -230,6 +235,7 @@ _banked_copy_tramp:
         ld      a, #0x01
         ld      (0x2000), a          ; restore home bank 1 (see below)
         ld      (__current_bank), a
+        ei                            ; home bank restored, interrupts safe again
         ret
  _banked_copy_tramp_end:
 

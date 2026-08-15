@@ -48,13 +48,10 @@ void overworld_screen_update(Game *g)
      * crosses its edge, clamped to the scene bounds. */
     world_update_scroll(&g->world);
 
-    if (input_pressed(INPUT_START)) {
-        g->item_menu_index = 0;
-        g->item_menu_tab = 0;
-        screen_change(g, SCREEN_ITEM);
-        return;
-    }
-
+    /* A committed move's result is one-shot and must resolve before fresh
+     * input is read: pressing START on the commit frame would otherwise
+     * swallow the map change or encounter (dropping TOWN_ARRIVAL or the
+     * battle start) because the *_RESULT_* blocks below would never run. */
     if (move_res == MOVE_RESULT_MAP_CHANGED) {
         g->world.map_changed = false;
         scene_update_from_map(g);
@@ -63,6 +60,13 @@ void overworld_screen_update(Game *g)
     }
     if (move_res == MOVE_RESULT_ENCOUNTER) {
         start_battle_from_world(g);
+        return;
+    }
+
+    if (input_pressed(INPUT_START)) {
+        g->item_menu_index = 0;
+        g->item_menu_tab = 0;
+        screen_change(g, SCREEN_ITEM);
         return;
     }
 

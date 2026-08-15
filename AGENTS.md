@@ -2418,3 +2418,91 @@ The non-bankable `_HOME` area must stay below `0x8000` (CPU addresses
 `0x8000+` alias VRAM).  Keep `_CODE` (fixed bank) as small as practical and
 track the budget in the roadmap; every substantial feature should be checked
 against `make memmap`.
+
+---
+
+# 56. Headless Screenshot Walkthrough Capture
+
+The game screen is the player-facing interface; the semantic debug interface
+is the development-agent-facing one (§7).  Sometimes a human or agent still
+needs to see the *rendered* game without booting an emulator.  For that,
+`make screenshots` plays a deterministic walkthrough headlessly and saves the
+frames to `screenshots/*.png`.
+
+## 56.1 Command
+
+```bash
+make screenshots
+```
+
+Builds the release ROM if needed and runs:
+
+```bash
+python3 tools/capture_walkthrough.py
+```
+
+Output: raw 160×144 PNGs in `screenshots/`, one per milestone.  The directory
+is committed (like the ROMs) so a reviewer can inspect the current look from
+the commit/PR without booting anything.
+
+## 56.2 Mechanics
+
+* Headless PyBoy (`window="null"`) boots the **real release ROM** — no debug
+  ROM, no harness mode, no scenario loader.  What is captured is exactly what
+  a player would see.
+* The player entity is located in WRAM via its deterministic boot pattern
+  (same technique as `tools/vram_dialogue_check.py`); the walk is
+  **position-based**, not press-count based: each step is a single short
+  press edge and a wait for the tile commit, and a dropped press is re-pressed
+  so the route self-corrects (PyBoy button delays are lossy).
+* Full-screen transitions eat input for ~10-40 frames (the FIELD→TOWN gate
+  crossing wipes the display blank for ~54 frames and swallows START for
+  ~40; shop/dialogue close swallows it for ~10).  A bare press-then-sleep
+  lands in that dead window, and a dropped shop-close `B` makes `START`
+  *close the shop* instead of opening the quick screen.  Every screen change
+  is therefore **state-verified, not time-expected**, and retried on failure:
+  * the overworld is the only screen with the HUD window layer enabled
+    (`LCDC` bit 5), so dialogue/shop/menu presence is checked by reading that
+    bit (`window_enabled`) after each interaction;
+  * the quick screen's active tab is verified by the `^` caret position
+    (tile column 0/5/10/15 = ITEM/EQUIP/QUEST/STATUS on the row-3 tile row)
+    and `RIGHT` is repeated until the target caret appears.
+* Frames are saved with PyBoy's `screen.image` (headless framebuffer render).
+* Two fresh sessions are used: Walk A (overworld → Town → dialogue → shop →
+  quick screen) and Walk B (slime battle on the Field), so persistent state
+  never bleeds between milestones.
+* Determinism is verified: the walk's position/caret/window checks make the
+  12 frames byte-identical across repeated runs.
+
+## 56.3 Milestones
+
+```text
+00-boot-field        overworld at spawn with the HUD
+01-field-scrolled    FIELD with the camera scrolled (SCX > 0)
+02-town-arrived      TOWN just inside the east gate (camera at origin)
+03-guard-dialogue    dialogue box over the scrolled town (camera offset)
+04-dialogue-next     second dialogue line
+05-shop              shopkeeper shop screen
+06-item-menu         START quick screen (ITEM tab)
+07-quests-tab        QUEST tab
+08-status-tab        STATUS tab
+09-battle            slime encounter (battle screen)
+10-battle-attack     after a player attack (damage dealt)
+11-battle-run        after fleeing (result line)
+```
+
+## 56.4 Rules
+
+* **Screenshots are a visual-review aid only.**  They are not assertions and
+  must never gate CI.  Semantic state, telemetry, and the scenario harness
+  (`make test-harness`) remain authoritative (§7, §40).  Prefer a scenario
+  assertion over a screenshot for any behavior that has a semantic
+  representation.
+* The milestone list should grow when a feature visibly changes the screen
+  (a new screen, a new tab, a reworked battle view).  Keep each milestone
+  reachable by position-based walking; do not add a milestone that requires
+  a non-deterministic sequence (e.g. surviving random damage rolls).
+* Colors come from PyBoy's renderer and may differ slightly from SameBoy;
+  layout and placement are what the frames are for.  The dialogue-box frame
+  (`03-*`) is the ground-truth check for camera-scroll overlay alignment,
+  alongside the VRAM assertion in `make vram-dialogue`.

@@ -2,9 +2,12 @@
 """Dialogue-box placement ground-truth check (PyBoy).
 
 On this ASCII-only branch the dialogue box is drawn into the BACKGROUND
-tilemap (0x9800) at fixed rows 12-17 via the console font -- the
-window-layer dialogue box (f77ec9b) is a gfx-branch change.  The box must
-be present, clean (no map tiles inside it), and the HUD window must be
+tilemap (0x9800) at screen rows 12-17 via the console font -- the
+window-layer dialogue box (f77ec9b) is a gfx-branch change.  The dialogue
+overlays the frozen, camera-scrolled overworld (SCX/SCY are kept during
+SCREEN_DIALOGUE), so the box is written at ring rows (12 + scroll_y)..(17 +
+scroll_y) and the PPU shows it at screen rows 12-17.  The box must be
+present, clean (no map tiles inside it), and the HUD window must be
 disabled while the dialogue is up.
 
 This boots the real release ROM headlessly, walks to the town guard (camera
@@ -173,12 +176,20 @@ def main():
     bg = pb.tilemap_background
 
     # On this ASCII-only branch the dialogue box is drawn into the
-    # BACKGROUND tilemap (console putchar) at ABSOLUTE ring rows 12-17 --
-    # the console writes ring row 12 + y regardless of SCX/SCY.  The
-    # window-layer dialogue box (f77ec9b) is a gfx-branch change.  The box
-    # must still be present, clean (no map tiles inside it), and the window
-    # must stay disabled (HUD hidden during dialogue).
-    box = [background_row(bg, 12 + wy, 0) for wy in range(6)]
+    # BACKGROUND tilemap (console putchar) at screen rows 12-17, offset into
+    # the 32x32 ring by the frozen camera: ring rows (12+scroll_y)..(17+scroll_y),
+    # ring cols (scroll_x..scroll_x+19).  The window-layer dialogue box
+    # (f77ec9b) is a gfx-branch change.  The box must still be present,
+    # clean (no map tiles inside it), and the window must stay disabled
+    # (HUD hidden during dialogue).  Read the scroll from the SCY/SCX
+    # registers: a dialogue opened with a scrolled camera (SCY > 0) is the
+    # exact case this branch regressed on, so the walk must reach it.
+    scroll_y = pb.memory[0xFF42] >> 3
+    check("dialogue-camera-scrolled", scroll_y > 0,
+          "expected the walk to reach a scrolled camera (SCY>0) so the box "
+          f"placement is exercised with an offset, got scroll_y={scroll_y}")
+
+    box = [background_row(bg, 12 + wy, scroll_y) for wy in range(6)]
     lcdc = pb.memory[0xFF40]
     win_enabled = bool(lcdc & 0x20)
 
@@ -188,11 +199,13 @@ def main():
     continue_ok = "[A] CONTINUE" in box[4]
     check("dialogue-bg-box", top_ok and bottom_ok and continue_ok,
           "expected the box (+ borders, [A] CONTINUE) in background rows "
-          "12-17, got: " + " / ".join(box))
+          f"12-17 at the scrolled ring offset (scroll_y={scroll_y}), got: "
+          + " / ".join(box))
 
     # ── 2. Box is clean: no map tiles (>= 128) inside it ───────────────
     dirty = any(t >= 128 for wy in range(6)
-                for t in (raw_id(bg, x, (12 + wy) & 31) for x in range(20)))
+                for t in (raw_id(bg, x, (12 + scroll_y + wy) & 31)
+                          for x in range(20)))
     check("dialogue-clean", not dirty,
           f"map tiles leaked into the dialogue box (rows: {box[1:5]})")
 
@@ -204,7 +217,7 @@ def main():
     # during the screen transition; this catches redraws that only fail when
     # the modal text changes on a live frame.
     press("a", settle=30)
-    second_line = background_row(pb.tilemap_background, 14, 0)
+    second_line = background_row(pb.tilemap_background, 14, scroll_y)
     check("dialogue-second-line", "Watch for slimes." in second_line,
           "expected the second dialogue line, got: " + second_line)
 

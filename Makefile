@@ -29,7 +29,7 @@ OBJS_DEBUG = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/debug/%.o,$(SRCS))
 # Emulator detection
 EMULATOR ?= $(shell command -v sameboy 2>/dev/null || command -v mgba-sdl 2>/dev/null || command -v mgba-qt 2>/dev/null || command -v mgba 2>/dev/null || echo "")
 
-.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot lint memmap verify-oam verify-vram verify-scroll vram-check vram-text vram-dialogue gfx clean
+.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot screenshots lint memmap verify-oam verify-vram verify-scroll vram-check vram-text vram-dialogue gfx clean
 
 all: $(TARGET)
 
@@ -134,6 +134,15 @@ roundtrip: debug
 screenshot: $(TARGET)
 	@bash tools/screenshot.sh $(BUILD_DIR)/screenshot.png $(TARGET)
 
+# Headless gameplay walkthrough screenshots for visual review without booting
+# the ROM (see tools/capture_walkthrough.py and AGENTS.md §56).  Boots the
+# real release ROM in headless PyBoy, walks deterministically to each
+# milestone, and saves raw 160x144 PNGs into screenshots/.  Visual review
+# only -- semantic telemetry stays authoritative.  Manual only; not part of
+# the CI chain.
+screenshots: $(TARGET)
+	@python3 tools/capture_walkthrough.py
+
 # Verify the player sprite's real-OAM transition-hide across screen changes
 # and scene (map) changes via the mGBA debugger (see tools/verify_oam.py).
 verify-oam: debug
@@ -166,9 +175,10 @@ vram-text: release
 
 # Dialogue-box placement ground truth via PyBoy (see
 # tools/vram_dialogue_check.py): asserts the dialogue box renders in the
-# WINDOW tilemap (0x9C00) at fixed screen rows 12-17, not the scrolled
-# background ring, so its text cannot shift with the camera or pollute the
-# map ("text from other scenes").  Manual only; not part of the CI chain.
+# BACKGROUND tilemap (0x9800) at screen rows 12-17, written into the
+# scrolled ring at (12 + scroll_y)..(17 + scroll_y) so it cannot shift with
+# the camera or pollute the map ("text from other scenes").  Manual only;
+# not part of the CI chain.
 vram-dialogue: release
 	@python3 tools/vram_dialogue_check.py
 

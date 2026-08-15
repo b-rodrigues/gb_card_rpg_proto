@@ -245,6 +245,45 @@ void ui_draw_text_line(uint8_t x, uint8_t y, const char *text, uint8_t max_chars
     }
 }
 
+/* Camera-offset variants of ui_put_char/ui_draw_text_line for the dialogue
+ * box, which overlays the frozen (SCX/SCY-scrolled) overworld: the screen
+ * anchor is the modal rows 12-17, but the ring must hold them at
+ * ((y+scroll)&31) so the PPU, which reads ring row (scroll + R) & 31 at
+ * screen row R, actually displays the box where it should be.  g_ui_screen_buf
+ * stays screen-anchored, so the harness semantic rows are unchanged.  Safe
+ * for every current map (18 rows -> scroll_y <= 6 -> box rows <= 23; FIELD
+ * scroll_x <= 12 -> box cols <= 31), so the & 31 wrap is belt-and-braces. */
+static void ui_put_char_ring(uint8_t x, uint8_t y, char ch, uint8_t ox, uint8_t oy)
+{
+    if (y < 18 && x < 20) {
+        VBK_REG = 0;  /* tile-index bank, not the CGB attribute bank */
+        ((volatile uint8_t *)0x9800)[((y + oy) & 31) * 32 + ((x + ox) & 31)] =
+            (uint8_t)(ui_font_tile_base + (uint8_t)(ch - ' '));
+        g_ui_screen_buf[y][x] = ch;
+    }
+}
+
+static void ui_draw_text_line_ring(uint8_t x, uint8_t y, const char *text,
+                                   uint8_t max_chars, uint8_t ox, uint8_t oy)
+{
+    uint8_t i = 0;
+    uint8_t ended;
+    char ch;
+    if (y >= 18) return;
+    VBK_REG = 0;  /* tile-index bank, not the CGB attribute bank */
+    ended = (text == NULL);
+    while (i < max_chars) {
+        if (!ended && text[i] == '\0') ended = 1;
+        ch = ended ? ' ' : text[i];
+        if ((x + i) < 20) {
+            ((volatile uint8_t *)0x9800)[((y + oy) & 31) * 32 + ((x + ox + i) & 31)] =
+                (uint8_t)(ui_font_tile_base + (uint8_t)(ch - ' '));
+            g_ui_screen_buf[y][x + i] = ch;
+        }
+        i++;
+    }
+}
+
 void ui_format_int(int16_t value, char *out)
 {
     char tmp[7];
@@ -546,31 +585,31 @@ void ui_update_battle(const Battle *battle)
     }
 }
 
-void ui_draw_dialogue(const DialogueState *dialogue)
+void ui_draw_dialogue(const DialogueState *dialogue, uint8_t scroll_x, uint8_t scroll_y)
 {
     if (!dialogue || !dialogue->active) return;
     if (dialogue->current_line >= dialogue->line_count) return;
 
     /* Dialogue box occupies dedicated modal overlay region: rows 12-17 (6 rows, 20 columns) */
-    ui_draw_text_line(0, 12, "+------------------+", 20);
+    ui_draw_text_line_ring(0, 12, "+------------------+", 20, scroll_x, scroll_y);
 
-    ui_put_char(0, 13, '|');
-    ui_draw_text_line(1, 13, dialogue->speaker ? dialogue->speaker : "", 18);
-    ui_put_char(19, 13, '|');
+    ui_put_char_ring(0, 13, '|', scroll_x, scroll_y);
+    ui_draw_text_line_ring(1, 13, dialogue->speaker ? dialogue->speaker : "", 18, scroll_x, scroll_y);
+    ui_put_char_ring(19, 13, '|', scroll_x, scroll_y);
 
-    ui_put_char(0, 14, '|');
-    ui_draw_text_line(1, 14, dialogue->lines[dialogue->current_line], 18);
-    ui_put_char(19, 14, '|');
+    ui_put_char_ring(0, 14, '|', scroll_x, scroll_y);
+    ui_draw_text_line_ring(1, 14, dialogue->lines[dialogue->current_line], 18, scroll_x, scroll_y);
+    ui_put_char_ring(19, 14, '|', scroll_x, scroll_y);
 
-    ui_put_char(0, 15, '|');
-    ui_draw_text_line(1, 15, "", 18);
-    ui_put_char(19, 15, '|');
+    ui_put_char_ring(0, 15, '|', scroll_x, scroll_y);
+    ui_draw_text_line_ring(1, 15, "", 18, scroll_x, scroll_y);
+    ui_put_char_ring(19, 15, '|', scroll_x, scroll_y);
 
-    ui_put_char(0, 16, '|');
-    ui_draw_text_line(1, 16, " [A] CONTINUE", 18);
-    ui_put_char(19, 16, '|');
+    ui_put_char_ring(0, 16, '|', scroll_x, scroll_y);
+    ui_draw_text_line_ring(1, 16, " [A] CONTINUE", 18, scroll_x, scroll_y);
+    ui_put_char_ring(19, 16, '|', scroll_x, scroll_y);
 
-    ui_draw_text_line(0, 17, "+------------------+", 20);
+    ui_draw_text_line_ring(0, 17, "+------------------+", 20, scroll_x, scroll_y);
 }
 
 void ui_draw_game_over(uint8_t choice)

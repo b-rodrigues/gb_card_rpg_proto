@@ -149,12 +149,11 @@ void game_render(Game *g)
         /* Full redraw.  Only the BOOT redraw runs with the LCD off
          * (g_boot_phase < 4): it is called directly from game_init with no
          * vsync() before it, so its writes would otherwise land mid-scanout
-         * and be dropped by the PPU (the blank-after-one-frame bug).
-         * Screen-change / map-change redraws run after the main loop's
-         * vsync() and land in VBlank, so they must NOT toggle the LCD
-         * (turning it off after vsync() returned at LY==145 desyncs the PPU
-         * so the next vsync() cannot resync).  The sprite is committed by
-         * the frame-boundary ui_sprite_commit() in main.c. */
+         * and be dropped by the PPU.  Screen-change / map-change redraws run
+         * after the main loop's vsync() and land in VBlank, so they must NOT
+         * toggle the LCD (turning it off after vsync() returned at LY==145
+         * desyncs the PPU so the next vsync() cannot resync).  The sprite is
+         * committed by the frame-boundary ui_sprite_commit() in main.c. */
         if (g_boot_phase < 4) {
             ui_lcd_off();
             screen_render(g);

@@ -7,22 +7,16 @@
  * START restarts the game. */
 static void ending_draw(void)
 {
-    MenuFrame frame;
-
-    frame.title = "THE END";
-    frame.title_row = 1;
-    frame.top_row = 4;
-    frame.bottom_row = 15;
-    frame.boxed = false;
-
-    menu_draw_frame(&frame);
-    menu_draw_content(&frame, 0, "The Hero cleared");
-    menu_draw_content(&frame, 1, "the land of slimes!");
-    menu_draw_content(&frame, 2, "Now peace has");
-    menu_draw_content(&frame, 3, "returned!");
-    menu_draw_content(&frame, 4, "Thank you for");
-    menu_draw_content(&frame, 5, "playing!");
-    menu_draw_content(&frame, 10, "[A] RESTART");
+    ui_clear_screen();
+    ui_draw_text_line(0, 1, "      THE END       ", 20);
+    ui_draw_text_line(0, 2, "--------------------", 20);
+    ui_draw_text_line(0, 4, "The Hero cleared", 20);
+    ui_draw_text_line(0, 5, "the land of slimes!", 20);
+    ui_draw_text_line(0, 6, "Now peace has", 20);
+    ui_draw_text_line(0, 7, "returned!", 20);
+    ui_draw_text_line(0, 8, "Thank you for", 20);
+    ui_draw_text_line(0, 9, "playing!", 20);
+    ui_draw_text_line(0, 14, "[A] RESTART", 20);
 }
 
 void ending_screen_update(Game *g)

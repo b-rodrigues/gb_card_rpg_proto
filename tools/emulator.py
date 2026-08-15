@@ -508,9 +508,7 @@ class EmulatorSession:
             )
 
         # Set frame-sync breakpoint and run to first frame.  The game_render
-        # breakpoint is re-issued every attempt; a one-shot canary breakpoint
-        # at main distinguishes "booted to main then hung" from "CPU never
-        # executed".  Every attempt's output is kept for diagnostics.
+        # breakpoint is re-issued every attempt.
         boot_phase_addr = self.get_symbol("g_boot_phase")
         hit = False
         any_hit = False
@@ -518,8 +516,6 @@ class EmulatorSession:
         for attempt in range(8):
             brk = self._cmd(f'break 0x{game_render_addr:04X}')
             attempts_log.append(b'break: ' + brk)
-            if attempt == 0:
-                attempts_log.append(b'canary: ' + self._cmd(f'break 0x{main_addr:04X}'))
             self._send('c')
             out = self._read_until(timeout=10.0)
             attempts_log.append(out)
@@ -528,8 +524,7 @@ class EmulatorSession:
                 if f'{game_render_addr:04X}'.encode() in out:
                     hit = True
                     break
-            # Not game_render: the canary (main) fired or the emulator raced
-            # ahead.  Re-sync to main and retry.
+            # Not game_render: re-sync to main and retry.
             self._set_pc(main_addr)
             time.sleep(0.1)
         if not hit:

@@ -63,6 +63,13 @@ void overworld_screen_update(Game *g)
         return;
     }
 
+    /* Advance autonomous patrol AI for active scene actors. */
+    move_res = world_update_actors(&g->world);
+    if (move_res == MOVE_RESULT_ENCOUNTER) {
+        start_battle_from_world(g);
+        return;
+    }
+
     if (input_pressed(INPUT_START)) {
         g->item_menu_index = 0;
         g->item_menu_tab = 0;
@@ -139,25 +146,8 @@ void overworld_screen_render(Game *g)
         return;
     }
 
-    /* Camera crossed a tile boundary.  Scrolling updates SCX/SCY with zero
-     * VRAM writes because the full 32-column background ring is pre-populated
-     * on LCD-safe full map redraws. */
-    if (g->world.scroll_x != s_prev_scroll_x ||
-        g->world.scroll_y != s_prev_scroll_y) {
-        s_prev_scroll_x = g->world.scroll_x;
-        s_prev_scroll_y = g->world.scroll_y;
-        rc->prev_player_x = px;
-        rc->prev_player_y = py;
-    }
-
     ui_update_camera(&g->world);
-
-    /* OAM ignores SCX/SCY, so position the ASCII @ in camera-relative pixels
-     * every frame.  No background tile is rewritten during movement. */
     ui_sprite_move(px, py);
-
-    if (px != rc->prev_player_x || py != rc->prev_player_y) {
-        rc->prev_player_x = px;
-        rc->prev_player_y = py;
-    }
+    rc->prev_player_x = px;
+    rc->prev_player_y = py;
 }

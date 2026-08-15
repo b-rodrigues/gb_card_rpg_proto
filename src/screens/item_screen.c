@@ -186,7 +186,6 @@ static void menu_draw(Game *g)
     frame.title_row = 0;
     frame.top_row = 5;
     frame.bottom_row = 17;
-    frame.boxed = false;
     switch (g->item_menu_tab) {
         case MENU_TAB_ITEM:   frame.title = "ITEMS"; break;
         case MENU_TAB_EQUIP:  frame.title = "EQUIP"; break;

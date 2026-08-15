@@ -34,7 +34,6 @@ static void shop_draw(Game *g)
     frame.title_row = 0;
     frame.top_row = 3;
     frame.bottom_row = 12;
-    frame.boxed = false;
 
     menu_draw_frame(&frame);
 

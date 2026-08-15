@@ -21,7 +21,6 @@ typedef struct {
     uint8_t title_row;
     uint8_t top_row;      /* first content row (inclusive) */
     uint8_t bottom_row;   /* one past the last content row */
-    bool boxed;           /* draw a border around the content area */
 } MenuFrame;
 
 /* Clear the screen and draw the frame: centered title at title_row with a
@@ -30,9 +29,6 @@ void menu_draw_frame(const MenuFrame *frame);
 
 /* Draw one content line: idx 0 is top_row; out-of-range idx is ignored. */
 void menu_draw_content(const MenuFrame *frame, uint8_t idx, const char *text);
-
-/* Blank the frame's content area (used when switching a subscreen). */
-void menu_clear_content(const MenuFrame *frame);
 
 /* Absolute row for a content index (top_row + idx).  Callers pass indices
  * in [0, bottom_row - top_row); drawing is clamped by menu_draw_content. */

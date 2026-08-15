@@ -1,0 +1,33 @@
+{
+  "name": "patrol_slime_cross",
+  "test": true,
+  "description": "Slime patrols in a cross pattern around spawn (14,8): Up, Center, Down, Center, Left, Center, Right, Center",
+  "scenario_id": "NEW_GAME",
+  "actions": [
+    {
+      "type": "wait",
+      "frames": 32
+    }
+  ],
+  "assertions": [
+    {
+      "type": "game_state",
+      "expected": "OVERWORLD"
+    },
+    {
+      "type": "actor_at",
+      "entity": "SLIME",
+      "x": 14,
+      "y": 7
+    }
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 4,
+      "y": 4,
+      "facing": "DOWN"
+    },
+    "seed": 12345
+  }
+}

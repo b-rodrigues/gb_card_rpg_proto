@@ -159,6 +159,10 @@ verify-vram: debug
 verify-scroll: debug
 	@python3 tools/verify_scroll.py
 
+# Verify autonomous enemy patrol AI patterns (Slimes cross, Bats circle).
+verify-patrol: debug
+	@python3 tools/verify_patrol.py
+
 # Verify the music clock never stalls across screen/map transitions: boots the
 # debug ROM WITHOUT harness mode (real interrupts) and walks FIELD -> TOWN and
 # a guard dialogue round-trip, asserting g_audio_ticks advances every sampled

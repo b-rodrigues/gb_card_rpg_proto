@@ -63,6 +63,11 @@ static void actor_spawn(WorldActorRuntime *r, const WorldActorDefinition *def)
     r->gold_reward = def->gold_reward;
     r->reward_currency = def->reward_currency;
     r->display_name = def->display_name;
+    r->spawn_x = def->x;
+    r->spawn_y = def->y;
+    r->ai_type = def->ai_type;
+    r->ai_step = 0;
+    r->ai_timer = PATROL_STEP_INTERVAL;
 }
 
 uint8_t actor_find_hostile_slot(const World *world, uint8_t x, uint8_t y)

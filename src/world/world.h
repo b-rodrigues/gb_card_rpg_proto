@@ -67,6 +67,9 @@ typedef enum {
     TILE_BUILDING = 3
 } TileType;
 
+/* Frames between autonomous patrol steps for hostile actors (~0.53 seconds). */
+#define PATROL_STEP_INTERVAL 32
+
 /* Mutable runtime state for a spawned World Actor.  Static actor
  * configuration lives in WorldActorDefinition; hostile actors are spawned
  * into World.actors by actor_load_scene().  actor_id is the persistent
@@ -84,6 +87,11 @@ typedef struct {
     uint8_t gold_reward;         /* copied from the definition */
     uint8_t reward_currency;     /* copied from the definition */
     const char *display_name;    /* copied from the definition */
+    uint8_t spawn_x;             /* patrol anchor origin */
+    uint8_t spawn_y;
+    uint8_t ai_type;             /* ActorAiType */
+    uint8_t ai_step;             /* step index in patrol cycle */
+    uint8_t ai_timer;            /* countdown to next patrol step */
 } WorldActorRuntime;
 
 typedef struct {
@@ -144,6 +152,11 @@ void world_update_scroll(World *w);
 WorldMoveResult world_try_begin_move(World *w, int8_t dx, int8_t dy,
                                      const GameState *state);
 WorldMoveResult world_update_move(World *w, const GameState *state);
+
+/* Advance autonomous patrol AI for all active hostile actors in the scene.
+ * If an actor steps into the player, sets encounter_actor_index and returns
+ * MOVE_RESULT_ENCOUNTER. */
+WorldMoveResult world_update_actors(World *w);
 
 /* Renderer pixel position (tile*8 plus the sub-tile walk progress) of the
  * player sprite.  Valid whenever the player is not animating a move. */

@@ -287,25 +287,27 @@ static void ui_draw_text_line_ring(uint8_t x, uint8_t y, const char *text,
 
 void ui_format_int(int16_t value, char *out)
 {
-    char tmp[7];
+    char tmp[6];
     uint8_t i = 0;
     uint8_t j = 0;
-    int32_t mag;
-    int16_t digit;
+    uint16_t uval;
 
     if (!out) return;
-    mag = (value < 0) ? -(int32_t)value : (int32_t)value;
-
-    if (mag == 0) {
-        tmp[i++] = '0';
-    }
-    while (mag > 0) {
-        digit = (int16_t)(mag % 10);
-        tmp[i++] = (char)('0' + digit);
-        mag /= 10;
-    }
     if (value < 0) {
-        tmp[i++] = '-';
+        out[j++] = '-';
+        uval = (uint16_t)(-value);
+    } else {
+        uval = (uint16_t)value;
+    }
+
+    if (uval == 0) {
+        out[j++] = '0';
+        out[j] = '\0';
+        return;
+    }
+    while (uval > 0) {
+        tmp[i++] = (char)('0' + (uint8_t)(uval % 10));
+        uval /= 10;
     }
     while (i > 0) {
         out[j++] = tmp[--i];
@@ -357,6 +359,14 @@ static void ui_draw_world_cell_ex(const World *world, uint8_t col, uint8_t row)
 static void ui_draw_world_cell(const World *world, uint8_t col, uint8_t row)
 {
     ui_draw_world_cell_ex(world, col, row);
+}
+
+void ui_update_actor_pos(const World *world, uint8_t old_x, uint8_t old_y, uint8_t new_x, uint8_t new_y)
+{
+    if (!world) return;
+    VBK_REG = 0;
+    ui_draw_world_cell(world, old_x, old_y);
+    ui_draw_world_cell(world, new_x, new_y);
 }
 
 /* Draw every cell in [c0,c1) x [r0,r1) into the tilemap ring. */
@@ -466,6 +476,7 @@ static void ui_hud_num2(uint8_t x, uint8_t y, uint8_t val)
 void ui_draw_overworld_hud(const World *world)
 {
     const char *label;
+    uint8_t r;
 
     if (!world) return;
 
@@ -489,9 +500,7 @@ void ui_draw_overworld_hud(const World *world)
     ui_hud_num2(15, 1, world->player.hp);
     ui_hud_put_char(17, 1, '/');
     ui_hud_num2(18, 1, world->player.max_hp);
-    ui_hud_text_line(2, "", 20);
-    ui_hud_text_line(3, "", 20);
-    ui_hud_text_line(4, "", 20);
+    for (r = 2; r <= 4; r++) ui_hud_text_line(r, "", 20);
     ui_hud_text_line(5, " [D-PAD] MOVE HERO", 20);
 }
 
@@ -588,28 +597,20 @@ void ui_update_battle(const Battle *battle)
 
 void ui_draw_dialogue(const DialogueState *dialogue, uint8_t scroll_x, uint8_t scroll_y)
 {
+    uint8_t y;
     if (!dialogue || !dialogue->active) return;
     if (dialogue->current_line >= dialogue->line_count) return;
 
     /* Dialogue box occupies dedicated modal overlay region: rows 12-17 (6 rows, 20 columns) */
     ui_draw_text_line_ring(0, 12, "+------------------+", 20, scroll_x, scroll_y);
-
-    ui_put_char_ring(0, 13, '|', scroll_x, scroll_y);
+    for (y = 13; y <= 16; y++) {
+        ui_put_char_ring(0, y, '|', scroll_x, scroll_y);
+        ui_put_char_ring(19, y, '|', scroll_x, scroll_y);
+    }
     ui_draw_text_line_ring(1, 13, dialogue->speaker ? dialogue->speaker : "", 18, scroll_x, scroll_y);
-    ui_put_char_ring(19, 13, '|', scroll_x, scroll_y);
-
-    ui_put_char_ring(0, 14, '|', scroll_x, scroll_y);
     ui_draw_text_line_ring(1, 14, dialogue->lines[dialogue->current_line], 18, scroll_x, scroll_y);
-    ui_put_char_ring(19, 14, '|', scroll_x, scroll_y);
-
-    ui_put_char_ring(0, 15, '|', scroll_x, scroll_y);
     ui_draw_text_line_ring(1, 15, "", 18, scroll_x, scroll_y);
-    ui_put_char_ring(19, 15, '|', scroll_x, scroll_y);
-
-    ui_put_char_ring(0, 16, '|', scroll_x, scroll_y);
     ui_draw_text_line_ring(1, 16, " [A] CONTINUE", 18, scroll_x, scroll_y);
-    ui_put_char_ring(19, 16, '|', scroll_x, scroll_y);
-
     ui_draw_text_line_ring(0, 17, "+------------------+", 20, scroll_x, scroll_y);
 }
 
@@ -618,13 +619,8 @@ void ui_draw_game_over(uint8_t choice)
     ui_clear_screen();
     ui_draw_text_line(0, 3, "    GAME OVER", 20);
     ui_draw_text_line(0, 8, "   CONTINUE?", 20);
-    if (choice == 0) {
-        ui_draw_text_line(0, 11, "> YES", 20);
-        ui_draw_text_line(0, 12, "  NO", 20);
-    } else {
-        ui_draw_text_line(0, 11, "  YES", 20);
-        ui_draw_text_line(0, 12, "> NO", 20);
-    }
+    ui_draw_text_line(0, 11, choice == 0 ? "> YES" : "  YES", 20);
+    ui_draw_text_line(0, 12, choice == 0 ? "  NO" : "> NO", 20);
     ui_draw_text_line(0, 16, " [A] CONFIRM", 20);
 }
 

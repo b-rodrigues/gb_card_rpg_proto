@@ -80,11 +80,8 @@ static void scene_fill_terrain(World *w, MapId map_id)
 
         case MAP_TOWN:
             for (y = 3; y <= 6; y++) {
-                for (x = 4; x <= 8; x++) {
-                    w->map[y][x] = TILE_BUILDING;
-                }
-                for (x = 12; x <= 16; x++) {
-                    w->map[y][x] = TILE_BUILDING;
+                for (x = 4; x <= 16; x++) {
+                    if (x <= 8 || x >= 12) w->map[y][x] = TILE_BUILDING;
                 }
             }
             break;
@@ -101,10 +98,8 @@ static void scene_fill_terrain(World *w, MapId map_id)
         case MAP_MOUNTAIN_PASS:
             for (y = 0; y < w->height; y++) {
                 for (x = 0; x < w->width; x++) {
-                    if (x <= 3 || x >= 16) {
+                    if (x <= 3 || x >= 16 || (y % 4 == 2 && (x == 9 || x == 10))) {
                         w->map[y][x] = TILE_WALL;
-                    } else if (y % 4 == 2 && (x == 9 || x == 10)) {
-                        w->map[y][x] = TILE_WALL;   /* pinch point */
                     }
                 }
             }
@@ -112,11 +107,8 @@ static void scene_fill_terrain(World *w, MapId map_id)
 
         case MAP_CASTLE:
             for (y = 3; y <= 8; y++) {
-                for (x = 3; x <= 6; x++) {
-                    w->map[y][x] = TILE_BUILDING;
-                }
-                for (x = 13; x <= 16; x++) {
-                    w->map[y][x] = TILE_BUILDING;
+                for (x = 3; x <= 16; x++) {
+                    if (x <= 6 || x >= 13) w->map[y][x] = TILE_BUILDING;
                 }
             }
             break;
@@ -154,22 +146,10 @@ void scene_load_tiles(World *w, MapId map_id)
 
 MapId scene_id_to_map(SceneId scene)
 {
-    switch (scene) {
-        case SCENE_TOWN:          return MAP_TOWN;
-        case SCENE_FOREST:        return MAP_FOREST;
-        case SCENE_MOUNTAIN_PASS: return MAP_MOUNTAIN_PASS;
-        case SCENE_CASTLE:        return MAP_CASTLE;
-        default:                  return MAP_FIELD;
-    }
+    return (scene <= SCENE_CASTLE) ? (MapId)scene : MAP_FIELD;
 }
 
 SceneId map_to_scene_id(MapId map)
 {
-    switch (map) {
-        case MAP_TOWN:          return SCENE_TOWN;
-        case MAP_FOREST:        return SCENE_FOREST;
-        case MAP_MOUNTAIN_PASS: return SCENE_MOUNTAIN_PASS;
-        case MAP_CASTLE:        return SCENE_CASTLE;
-        default:                return SCENE_FIELD;
-    }
+    return (map <= MAP_CASTLE) ? (SceneId)map : SCENE_FIELD;
 }

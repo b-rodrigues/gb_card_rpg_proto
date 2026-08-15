@@ -5,6 +5,7 @@
 #include "scene.h"
 #include "event.h"
 #include "rpg/currency.h"
+#include "ui.h"
 
 void world_load_map(World *w, MapId map_id, const GameState *state)
 {
@@ -294,4 +295,86 @@ void world_on_battle_fled(Game *g)
     if (w->actors[idx].active) {
         w->actors[idx].hp = g->battle.enemy.hp;
     }
+}
+
+/* ── Autonomous Enemy Patrol AI ─────────────────────────────────── */
+
+WorldMoveResult world_update_actors(World *w)
+{
+    uint8_t slot;
+    WorldActorRuntime *a;
+    int8_t dx, dy;
+    uint8_t target_x, target_y, facing;
+    uint8_t old_x, old_y;
+    uint8_t step;
+
+    if (!w) return MOVE_RESULT_NONE;
+
+    for (slot = 0; slot < MAX_WORLD_ACTORS; slot++) {
+        a = &w->actors[slot];
+        if (!a->active || a->ai_type == AI_NONE) {
+            continue;
+        }
+
+        if (a->ai_timer > 0) {
+            a->ai_timer--;
+            continue;
+        }
+        a->ai_timer = PATROL_STEP_INTERVAL;
+
+        dx = 0;
+        dy = 0;
+        facing = DIRECTION_DOWN;
+
+        if (a->ai_type == AI_PATROL_CIRCLE) {
+            step = (uint8_t)(a->ai_step & 3);
+            if (step == 0) { dx = 1; facing = DIRECTION_RIGHT; }
+            else if (step == 1) { dx = 1; dy = 1; facing = DIRECTION_DOWN; }
+            else if (step == 2) { dy = 1; facing = DIRECTION_LEFT; }
+            else { facing = DIRECTION_UP; }
+        } else {
+            step = (uint8_t)(a->ai_step & 7);
+            if (step == 0) { dy = -1; facing = DIRECTION_UP; }
+            else if (step == 1) { facing = DIRECTION_DOWN; }
+            else if (step == 2) { dy = 1; facing = DIRECTION_DOWN; }
+            else if (step == 3) { facing = DIRECTION_UP; }
+            else if (step == 4) { dx = -1; facing = DIRECTION_LEFT; }
+            else if (step == 5) { facing = DIRECTION_RIGHT; }
+            else if (step == 6) { dx = 1; facing = DIRECTION_RIGHT; }
+            else { facing = DIRECTION_LEFT; }
+        }
+
+        target_x = (uint8_t)(a->spawn_x + dx);
+        target_y = (uint8_t)(a->spawn_y + dy);
+        a->ai_step++;
+
+        if (target_x == a->x && target_y == a->y) {
+            a->facing = facing;
+            continue;
+        }
+
+        if (!world_is_walkable(w, target_x, target_y) ||
+            w->map[target_y][target_x] == TILE_EXIT ||
+            actor_find_at(w, target_x, target_y) != NULL) {
+            continue;
+        }
+
+        if (target_x == w->player.position.x && target_y == w->player.position.y) {
+            w->encounter_actor_index = slot;
+            telemetry_emit(EVENT_ACTOR_COLLISION, target_x, target_y, (uint8_t)a->id, 0);
+            telemetry_emit(EVENT_ENCOUNTER_STARTED, (uint8_t)a->id, 0, 0, 0);
+            return MOVE_RESULT_ENCOUNTER;
+        }
+
+        old_x = a->x;
+        old_y = a->y;
+        a->x = target_x;
+        a->y = target_y;
+        a->facing = facing;
+
+        ui_update_actor_pos(w, old_x, old_y, target_x, target_y);
+        telemetry_emit(EVENT_ACTOR_STATE_CHANGE, (uint8_t)a->id, target_x, target_y, facing);
+    }
+
+    return MOVE_RESULT_NONE;
 }

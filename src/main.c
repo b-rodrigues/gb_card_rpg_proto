@@ -57,12 +57,11 @@ int main(void)
         }
         if (!g_harness_mode) {
             /* Wait for VBlank AFTER gameplay logic, immediately BEFORE
-             * game_render, so every tilemap write inside game_render lands
-             * during VBlank.  GBDK's vsync() busy-waits for LY == 145 (the
-             * second VBlank scanline) and returns there.  The PPU silently
-             * ignores VRAM writes during LCD modes 2/3 (mid-scanout); the
-             * previous render-then-vsync order dropped the boot redraw's
-             * writes, showing one frame then a blank screen. */
+             * game_render.  Incremental tilemap writes then land in VBlank;
+             * full redraws explicitly disable the LCD in game_render because
+             * they are larger than the remaining VBlank budget.  GBDK's
+             * vsync() busy-waits for LY == 145 (the second VBlank scanline).
+             * The PPU silently ignores VRAM writes during LCD modes 2/3. */
             vsync();
         }
         game_render(&g_game);

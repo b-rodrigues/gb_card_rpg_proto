@@ -11,15 +11,6 @@
 #include "rpg/items.h"
 #include "banked.h"
 
-/* Boot-phase breadcrumb set by main.c (see main.c).  game_render uses it to
- * tell the initial boot redraw (called directly from game_init, before the
- * main loop's vsync) apart from screen-change redraws: only the boot redraw
- * toggles the LCD off (its writes would otherwise land mid-scanout and be
- * dropped by the PPU -- the blank-screen bug).  Screen-change / map-change
- * redraws run after the main loop's vsync() and land in VBlank, so they must
- * not toggle the LCD. */
-extern volatile uint8_t g_boot_phase;
-
 void game_render_reset(Game *g)
 {
     if (!g) return;
@@ -116,6 +107,7 @@ void game_update(Game *g)
 void game_render(Game *g)
 {
     RenderCache *rc;
+    uint8_t full_redraw;
 
     if (!g) return;
     rc = &g->render_cache;
@@ -143,23 +135,22 @@ void game_render(Game *g)
      * so the sprite is NOT re-hidden every frame.  That per-frame re-hide
      * (from the old 255 prev_map_id sentinel) made the sprite invisible
      * for the whole fight/discussion on real hardware. */
-    if (!rc->valid || rc->prev_screen != g->screen ||
-        g->world.map_id != rc->prev_map_id) {
+    full_redraw = (!rc->valid || rc->prev_screen != g->screen ||
+                   g->world.map_id != rc->prev_map_id);
+    if (full_redraw) {
         ui_sprite_begin_transition();
-        /* Full redraw.  Only the BOOT redraw runs with the LCD off
-         * (g_boot_phase < 4): it is called directly from game_init with no
-         * vsync() before it, so its writes would otherwise land mid-scanout
-         * and be dropped by the PPU.  Screen-change / map-change redraws run
-         * after the main loop's vsync() and land in VBlank, so they must NOT
-         * toggle the LCD (turning it off after vsync() returned at LY==145
-         * desyncs the PPU so the next vsync() cannot resync).  The sprite is
-         * committed by the frame-boundary ui_sprite_commit() in main.c. */
-        if (g_boot_phase < 4) {
-            ui_lcd_off();
-            screen_render(g);
-            ui_lcd_on();
-            return;
-        }
+        /* A full redraw is much larger than the part of VBlank remaining
+         * after vsync() returns.  Keeping the LCD on here makes the PPU drop
+         * the tail of the tilemap writes in modes 2/3, which produces
+         * garbled menus, incomplete maps, and eventually a white screen.
+         * Disable the LCD for the complete transaction instead.  This is
+         * also required for the boot redraw, which runs before the first
+         * main-loop vsync().  Re-enable it before returning so the next
+         * iteration can synchronize normally. */
+        ui_lcd_off();
+        screen_render(g);
+        ui_lcd_on();
+        return;
     }
     screen_render(g);
 }

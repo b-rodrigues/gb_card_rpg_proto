@@ -319,21 +319,19 @@ static void ui_draw_world_rect(const World *world, uint8_t c0, uint8_t c1,
 
 void ui_draw_world_map(const World *world)
 {
+    uint8_t c1;
+    uint8_t r1;
     uint8_t y;
     if (!world) return;
 
-    /* Draw the ENTIRE map into the ring, not just the camera window.  The
-     * ring is 32 columns and every scene is <= 32 wide (FIELD=32, the rest
-     * are 20), so the whole map fits at the wrapped (col & 31) addresses and
-     * the camera window is just a SCX/SCY slice of it.  A window-only
-     * repaint is wrong after a screen transition: ui_clear_screen() blanks
-     * ring cols 0..19 to the font space tile, and the cells outside the
-     * current window were never redrawn -- so NPC/enemy/floor glyphs there
-     * stayed blank until the camera scrolled or a fresh full redraw happened
-     * (e.g. the town guard vanishing until you talked to the mayor again).
-     * Out-of-map cells draw floor, so the ring is fully consistent
-     * regardless of where the camera is. */
-    ui_draw_world_rect(world, 0, world->width, 0, world->height);
+    /* Redraw the visible ring plus one entering row/column.  Full-screen
+     * transitions are LCD-safe, but rebuilding every cell in a 32-wide map
+     * is unnecessary: the incremental scroll path redraws the next edge
+     * whenever the camera moves. */
+    c1 = (uint8_t)(world->scroll_x + WORLD_VIEW_W + 1);
+    r1 = (uint8_t)(world->scroll_y + WORLD_VIEW_H + 1);
+    ui_draw_world_rect(world, world->scroll_x, c1,
+                       world->scroll_y, r1);
     for (y = 0; y < WORLD_VIEW_H; y++) {
         g_ui_screen_buf[y][WORLD_VIEW_W] = '\0';
     }

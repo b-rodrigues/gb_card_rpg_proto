@@ -76,6 +76,7 @@ void ui_init(void)
      * during single-stepping. */
     LCDC_REG &= ~0x80;
 
+    oam_dma_init();
     font_init();
     ibm_font = font_load(font_ibm);
     font_set(ibm_font);

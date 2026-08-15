@@ -2,6 +2,8 @@
         .module crt0
         .globl  _main
         .globl  _audio_update
+        .globl  _g_harness_mode
+        .globl  _oam_dma_init
         .globl  __cpu
         .globl  __is_GBA
         .globl  _cpu
@@ -87,6 +89,10 @@ copy_isr:
         ld      a, b
         or      c
         jr      nz, copy_isr
+
+        ; Copy the OAM DMA routine into HRAM (0xFF80).
+        call    _oam_dma_init
+
         ; Timer-only IE: TIMA overflow -> INT 0x50 -> JP 0xC900.  VBlank,
         ; STAT, Serial, and Joypad interrupts stay disabled; nothing in the
         ; game uses them (vsync()/wait_vbl_done() are LY-polled, OAM DMA and
@@ -113,8 +119,7 @@ copy_isr:
 .vsync:
         ldh     a, (0xFF44)
         cp      #0x90
-        jr      nz, vsync_wait
-        ret
+        jr      z, .vsync                    ; if already at LY 144, wait until it passes
 vsync_wait:
         ldh     a, (0xFF44)
         cp      #0x90
@@ -125,18 +130,51 @@ vsync_wait:
 .call_hl:
         jp      (hl)
 
+; OAM DMA routine template copied to HRAM 0xFF80.
+; Must run entirely from HRAM (0xFF80-0xFFFE) because Game Boy hardware
+; locks ROM and WRAM during OAM DMA (160 microseconds).
+dma_copy_src:
+        ldh     (0x46), a                    ; initiate OAM DMA (0xFF46) from base in A
+        ld      a, #0x28                     ; ~40 * 4 cycles (~160 microseconds)
+dma_copy_wait:
+        dec     a
+        jr      nz, dma_copy_wait
+        ret
+dma_copy_src_end:
+
+        ; C-callable initializer to copy the DMA routine into HRAM 0xFF80.
+        ; Called by crt0 init and ui_init() so both real boot and harness boot
+        ; paths have the DMA routine resident in HRAM.
+        .globl  _oam_dma_init
+_oam_dma_init:
+        ld      hl, #dma_copy_src
+        ld      de, #0xFF80
+        ld      bc, #(dma_copy_src_end - dma_copy_src)
+copy_dma_loop:
+        ld      a, (hl)
+        inc     hl
+        ld      (de), a
+        inc     de
+        dec     bc
+        ld      a, b
+        or      c
+        jr      nz, copy_dma_loop
+        ret
+
         ; refresh_OAM() copies shadow OAM (WRAM base 0xC000) to real OAM
-        ; (0xFE00) via OAM DMA.  GBDK's stock crt0 (which defines this) is
-        ; not linked (-no-crt), so we provide the C API here.  Must stay in
-        ; bank 0 so the RAM-resident ISR's baked-in call target is mapped.
+        ; (0xFE00) via OAM DMA.  OAM DMA locks the external bus, so the
+        ; transfer loop executes from HRAM 0xFF80.  Interrupts are disabled
+        ; (di) during the transfer so the 256 Hz timer ISR cannot fire
+        ; mid-DMA and attempt to access locked ROM/WRAM.
         .globl  _refresh_OAM
 _refresh_OAM:
+        di
         ld      a, #0xC0                    ; shadow OAM lives at 0xC000
-        ldh     (0xFF46), a                  ; initiate OAM DMA
-        ld      a, #0x28                     ; ~40 * 4 cycles
-refresh_oam_wait:
-        dec     a
-        jr      nz, refresh_oam_wait
+        call    0xFF80                      ; execute DMA loop in HRAM
+        ld      a, (_g_harness_mode)
+        or      a
+        ret     nz
+        ei
         ret
 
         .globl  .reset
@@ -244,6 +282,9 @@ _banked_copy_tramp:
         ld      a, #0x01
         ld      (0x2000), a          ; restore home bank 1 (see below)
         ld      (__current_bank), a
+        ld      a, (_g_harness_mode)
+        or      a
+        ret     nz
         ei                            ; home bank restored, interrupts safe again
         ret
  _banked_copy_tramp_end:

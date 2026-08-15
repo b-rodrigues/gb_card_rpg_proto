@@ -29,7 +29,7 @@ OBJS_DEBUG = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/debug/%.o,$(SRCS))
 # Emulator detection
 EMULATOR ?= $(shell command -v sameboy 2>/dev/null || command -v mgba-sdl 2>/dev/null || command -v mgba-qt 2>/dev/null || command -v mgba 2>/dev/null || echo "")
 
-.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot screenshots lint memmap verify-oam verify-vram verify-scroll verify-music vram-check vram-text vram-dialogue gfx clean
+.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot screenshots lint memmap verify-oam verify-vram verify-scroll verify-music verify-endurance vram-check vram-text vram-dialogue gfx clean
 
 all: $(TARGET)
 
@@ -165,6 +165,11 @@ verify-scroll: debug
 # frame (timer-driven clock; VBlank stalls 1-2 frames per LCD-off redraw).
 verify-music: debug
 	@python3 tools/verify_music.py
+
+# Endurance stress test: 60 seconds (3600 frames) of continuous gameplay with
+# real timer-driven audio and OAM DMA to assert long-running stability.
+verify-endurance: release debug
+	@python3 tools/verify_endurance.py
 
 # Font/VRAM pixel ground truth via PyBoy (see tools/vram_check.py).  Boots the
 # real release ROM headlessly and reads VRAM directly -- the one place a

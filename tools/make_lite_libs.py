@@ -45,7 +45,7 @@ def parse(obj):
 RESOLVED_EXTERNALLY = {
     "_main", "_add_VBL", "_vsync", "_wait_vbl_done", "_display_off",
     "_console_mode", "__cpu", "__is_GBA", "_cpu", "__current_bank",
-    "__shadow_OAM_base", "_shadow_OAM",
+    "__shadow_OAM_base", "_shadow_OAM", "_oam_dma_init",
     ".mode", ".int", ".sys_time", ".reset", ".add_int", ".remove_int",
     ".add_VBL", ".remove_VBL", ".display_off", ".wait_vbl_done",
     ".vsync", ".call_hl", ".STACK", ".refresh_OAM",

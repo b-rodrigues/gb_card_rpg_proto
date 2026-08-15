@@ -20,6 +20,7 @@ void ui_sprite_move(uint8_t px, uint8_t py);
 void ui_sprite_hide(void);
 void ui_sprite_begin_transition(void);
 void ui_sprite_commit(void);
+void oam_dma_init(void);
 
 /* Toggle LCDC bit 7 directly (harness-safe: no GBDK display_off VBlank
  * wait).  Full-screen redraws span several display sweeps and cannot fit

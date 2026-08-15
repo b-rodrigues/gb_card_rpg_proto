@@ -29,7 +29,7 @@ OBJS_DEBUG = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/debug/%.o,$(SRCS))
 # Emulator detection
 EMULATOR ?= $(shell command -v sameboy 2>/dev/null || command -v mgba-sdl 2>/dev/null || command -v mgba-qt 2>/dev/null || command -v mgba 2>/dev/null || echo "")
 
-.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot screenshots lint memmap verify-oam verify-vram verify-scroll vram-check vram-text vram-dialogue gfx clean
+.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot screenshots lint memmap verify-oam verify-vram verify-scroll verify-music vram-check vram-text vram-dialogue gfx clean
 
 all: $(TARGET)
 
@@ -158,6 +158,13 @@ verify-vram: debug
 # tile commit, no blank floor cells, hero anchored, no LCD-off frames).
 verify-scroll: debug
 	@python3 tools/verify_scroll.py
+
+# Verify the music clock never stalls across screen/map transitions: boots the
+# debug ROM WITHOUT harness mode (real interrupts) and walks FIELD -> TOWN and
+# a guard dialogue round-trip, asserting g_audio_ticks advances every sampled
+# frame (timer-driven clock; VBlank stalls 1-2 frames per LCD-off redraw).
+verify-music: debug
+	@python3 tools/verify_music.py
 
 # Font/VRAM pixel ground truth via PyBoy (see tools/vram_check.py).  Boots the
 # real release ROM headlessly and reads VRAM directly -- the one place a

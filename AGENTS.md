@@ -1248,24 +1248,44 @@ Tests should assert audio state semantically rather than attempting to analyze r
 
 ---
 
-# 35. Hardware VBlank Sound Timing
+# 35. Hardware Timer Sound Timing (music clock)
 
 Never update music step timers directly inside the main `while(1)` loop.
 
 Main-loop CPU variations can cause music to play at variable tempos between menus and gameplay.
 
-Music must run on the **hardware VBlank interrupt**, driven by a dedicated
-RAM-resident ISR installed by the custom CRT0:
+Music must run on the **hardware Timer interrupt** (TIMA overflow), driven by
+a dedicated RAM-resident ISR installed by the custom CRT0:
 
-* `src/crt0.s` rewrites the VBlank vector (`0x0040`) to `JP 0xC900` (WRAM,
-  always mapped regardless of ROM bank).
-* At boot `init` copies a small ISR (`vbl_isr`) from ROM to WRAM `0xC900`
-  and enables VBlank IE (`IE |= 0x01`).  The ISR calls `_audio_update`
+* `src/crt0.s` patches the timer vector (`0x0050`) to `JP 0xC900` (WRAM,
+  always mapped regardless of ROM bank), and the VBlank vector (`0x0040`) to
+  a plain `reti` (VBlank IE is off).
+* At boot `init` copies a small ISR (`timer_isr`) from ROM to WRAM `0xC900`
+  and enables **timer-only IE** (`IE = 0x04`).  The ISR calls `_audio_update`
   directly (a baked-in `call`, so no function pointers / banked-call
   helpers) and `reti`s.
+* `audio_init()` programs the timer: `TMA = 0`, `TAC = TACF_START | TACF_65KHZ`
+  (65536 Hz clock) → TIMA overflows at **256 Hz**, independent of CPU/frame
+  pacing.  This is a hard requirement, not a style choice:
+
+  > VBlank is a PPU mode (`STAT.md`).  Every screen/map transition performs a
+  > full redraw with the LCD **off** (`ui_lcd_off()`/`ui_lcd_on()` in
+  > `src/core/game.c`), and Pan Docs `LCDC.md` says the screen stays blank
+  > for the first frame after re-enable — during those 1-2 frames **no
+  > VBlank interrupt fires at all**, so a VBlank-driven scheduler stalls the
+  > music while the APU keeps ringing (the audible 1-2 frame "stop" on every
+  > gate crossing / dialogue / shop / menu transition).  The timer keeps
+  > counting throughout, so the music clock is decoupled from the LCD.
+  > The only things that disturb the timer rate are CGB double-speed mode
+  > and writes to `DIV` — this game does neither (verified by grep), so
+  > 256 Hz is stable.
+
 * `audio_update`/`play_note` and the note tables must stay in the **fixed
   bank 0** (`< 0x4000`) so the ISR's `call` target and table reads are
   always mapped.
+* Tempos are expressed in **timer ticks** (`audio_update`): OVERWORLD 43
+  ticks/note (~6 notes/sec), BATTLE 17 ticks/note (~15 notes/sec) — these
+  preserve the old VBlank-tick tempos (10 and 4 at ~59.73 fps).
 * `main.c` calls `audio_init()` then `enable_interrupts()` (enables IME);
   the ISR and IE are already set up by CRT0.
 
@@ -1995,10 +2015,10 @@ RAM-resident and copied by CRT0 at boot. The harness never runs that copy.
 Keep `_HOME` in ROM (52.5) and avoid harness-exercised paths that depend on
 RAM-resident library code.
 
-The one RAM-resident section the custom CRT0 itself copies is the VBlank
-ISR (see §35): `crt0.s` `init` copies `vbl_isr` from ROM to WRAM `0xC900`
-and enables VBlank IE.  The harness skips this (it never enables interrupts),
-so the ISR never runs under the harness.
+The one RAM-resident section the custom CRT0 itself copies is the timer ISR
+(see §35): `crt0.s` `init` copies `timer_isr` from ROM to WRAM `0xC900`
+and enables timer IE (`IE = 0x04`; VBlank IE is off).  The harness skips this
+(it never enables interrupts), so the ISR never runs under the harness.
 
 ## 52.12 Scenario state ordering
 

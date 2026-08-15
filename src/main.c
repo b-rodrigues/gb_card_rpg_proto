@@ -9,9 +9,9 @@ Game g_game;
 
 /*
  * Set to 1 by the external test harness (via memory write) before
- * jumping to main.  When active, audio, VBlank interrupt handlers,
- * and vsync are skipped so the emulator debugger can use breakpoints
- * for frame synchronisation without blocking on VBlank or DMA.
+ * jumping to main.  When active, audio, interrupt handlers, and vsync
+ * are skipped so the emulator debugger can use breakpoints for frame
+ * synchronisation without blocking on VBlank or DMA.
  *
  * Core subsystem initialisation (input, UI, fonts) always runs.
  */
@@ -34,8 +34,12 @@ int main(void)
 
     if (!g_harness_mode) {
         audio_init();
-        /* The VBlank ISR is set up by CRT0 (vector -> WRAM ISR -> audio_update)
-         * and VBlank IE is enabled there; this enables IME. */
+        /* The timer ISR (the music clock) is set up by CRT0 (timer vector
+         * 0x0050 -> WRAM ISR -> audio_update) and timer IE is enabled there;
+         * this enables IME.  Music deliberately does NOT ride VBlank: the
+         * LCD-off full redraws on every screen/map transition produce no
+         * VBlank interrupt, so a VBlank-driven clock would stall the music
+         * (see AGENTS.md Music contract). */
         enable_interrupts();
     }
 

@@ -17,8 +17,8 @@
         .db     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
         .db     0xE9, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x22, 0x0D, 0x20, 0xFC, 0xC9, 0xFF, 0xFF, 0xFF
         .db     0x1A, 0x22, 0x13, 0x0D, 0x20, 0xFA, 0xC9, 0xFF, 0xF3, 0xC3, 0xCD, 0x77, 0xFF, 0xFF, 0xFF, 0xFF
-        .db     0xC3, 0x00, 0xC9, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xC3, 0x6E, 0x77, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
-        .db     0xFB, 0xF5, 0xE5, 0xC3, 0xB8, 0x77, 0x80, 0x00, 0xF5, 0xE5, 0x21, 0x7F, 0xC3, 0xC3, 0x80, 0x00
+        .db     0xD9, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xC3, 0x6E, 0x77, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
+        .db     0xC3, 0x00, 0xC9, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xF5, 0xE5, 0x21, 0x7F, 0xC3, 0xC3, 0x80, 0x00
         .db     0xF5, 0xE5, 0x21, 0xAE, 0xC3, 0xC3, 0x80, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
         .db     0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80
         .db     0xC5, 0xD5, 0x2A, 0xB6, 0x28, 0x0B, 0xE5, 0x3A, 0x6E, 0x67, 0xE7, 0xE1, 0x23, 0x18, 0xF3, 0xE8
@@ -67,12 +67,17 @@ clear_loop:
         ld      a, #0xC0
         ld      (__shadow_OAM_base + 1), a   ; high byte 0xC0
 
-        ; Copy the RAM-resident VBlank ISR into WRAM (always mapped,
-        ; independent of ROM banking).  IE is enabled here; IME is enabled
-        ; later by main() -> enable_interrupts().
-        ld      hl, #vbl_isr
+        ; Copy the RAM-resident timer ISR into WRAM (always mapped,
+        ; independent of ROM banking).  Music runs on the hardware timer
+        ; (TIMA overflow at 256 Hz; TAC/TMA programmed by audio_init), NOT
+        ; on VBlank: VBlank is a PPU mode, so the VBlank interrupt cannot
+        ; fire during the LCD-off full redraws that every screen/map
+        ; transition performs -- a VBlank-driven music clock stalls for 1-2
+        ; frames per transition (see AGENTS.md Music contract).  IE is set
+        ; here; IME is enabled later by main() -> enable_interrupts().
+        ld      hl, #timer_isr
         ld      de, #0xC900
-        ld      bc, #(vbl_isr_end - vbl_isr)
+        ld      bc, #(timer_isr_end - timer_isr)
 copy_isr:
         ld      a, (hl)
         inc     hl
@@ -82,8 +87,11 @@ copy_isr:
         ld      a, b
         or      c
         jr      nz, copy_isr
-        ldh     a, (0xFFFF)
-        or      #0x01
+        ; Timer-only IE: TIMA overflow -> INT 0x50 -> JP 0xC900.  VBlank,
+        ; STAT, Serial, and Joypad interrupts stay disabled; nothing in the
+        ; game uses them (vsync()/wait_vbl_done() are LY-polled, OAM DMA and
+        ; refresh_OAM() are self-contained).
+        ld      a, #0x04
         ldh     (0xFFFF), a
 
         jp      _main
@@ -151,11 +159,12 @@ refresh_oam_wait:
 _add_VBL:
         ret
 
-; RAM-resident VBlank ISR: copied to WRAM 0xC900 by init and entered via
-; the VBlank vector (0x0040 -> JP 0xC900).  Calls audio_update() directly;
+; RAM-resident timer ISR: copied to WRAM 0xC900 by init and entered via
+; the timer vector (0x0050 -> JP 0xC900).  Fires at 256 Hz (TIMA overflow;
+; TAC/TMA programmed by audio_init()).  Calls audio_update() directly;
 ; audio.c must remain in the fixed bank 0 so the baked-in call target is
 ; always mapped.  Saves af/bc/de/hl (SDCC clobber set).
-vbl_isr:
+timer_isr:
         push    af
         push    bc
         push    de
@@ -166,7 +175,7 @@ vbl_isr:
         pop     bc
         pop     af
         reti
-vbl_isr_end:
+timer_isr_end:
 
 _display_off:
         jp      .display_off
@@ -181,7 +190,7 @@ _vsync:
 ; maps.  A bank switch executed from switchable ROM (0x4000+) unmaps the
 ; very instruction stream doing the switch; WRAM is always mapped.  The
 ; body is copied from ROM to the linker-allocated _g_banked_tramp buffer
-; (WRAM) by _banked_copy_init (see §52.11/§35: like the VBlank ISR, it must
+; (WRAM) by _banked_copy_init (see §52.11/§35: like the timer ISR, it must
 ; be RAM-resident because the harness skips CRT0; game_init calls the init
 ; so it runs in both real boot and harness boot paths).
 ;
@@ -189,7 +198,7 @@ _vsync:
 ; four arguments into _DATA globals (g_bank_copy_bank/dst/src/n) before
 ; calling, so this trampoline never parses SDCC's stack layout.  The bank
 ; register is always restored to the project's home bank 1 before returning.
-; The body is wrapped in di/ei: the VBlank ISR (WRAM 0xC900) could otherwise
+; The body is wrapped in di/ei: the timer ISR (WRAM 0xC900) could otherwise
 ; fire mid-copy while ROMB points at a content bank.  The ISR only calls the
 ; fixed-bank audio code (safe today), but the guard removes the whole class
 ; of future ISR/banked-content regressions at a sub-scanline cost.

@@ -4,6 +4,10 @@ static MusicTrack current_track = MUSIC_NONE;
 static uint8_t step_counter = 0;
 static uint8_t note_index = 0;
 
+#ifdef DEBUG_BUILD
+volatile uint16_t g_audio_ticks = 0;
+#endif
+
 /*
  * Game Boy APU 11-bit frequency register values.
  * Formula: register = 2048 - round(131072 / freq_hz)
@@ -109,6 +113,30 @@ void audio_init(void)
     current_track = MUSIC_NONE;
     step_counter = 0;
     note_index = 0;
+
+    /*
+     * Music clock: the hardware timer (TIMA overflow), NOT VBlank.  TMA=0
+     * with the 65536 Hz TAC clock gives a 256 Hz interrupt, independent of
+     * CPU/frame pacing.  This matters because VBlank is a PPU mode: every
+     * full-screen redraw (screen change, map/gate crossing, boot, restart)
+     * disables the LCD in game_render (ui_lcd_off/ui_lcd_on), during which
+     * no VBlank fires and the screen stays blank through the first frame
+     * after re-enable -- a VBlank-driven scheduler stalls the music for 1-2
+     * frames per transition while the APU keeps ringing.  The timer never
+     * stops (only CGB double-speed switches or DIV writes disturb its rate;
+     * this game does neither).  See AGENTS.md Music contract.
+     *
+     * Order matters: TMA/TIMA first while the timer is still stopped, then
+     * TAC (start + 65536 Hz clock).  The timer is only started here -- the
+     * debug harness skips audio_init entirely, so no ISR/timer under the
+     * harness (and a running TIMA without IME is harmless anyway).
+     * Timer IE is forced on as well so the clock survives any IE tampering
+     * before main() calls enable_interrupts().
+     */
+    TMA_REG = 0x00;
+    TIMA_REG = 0x00;
+    TAC_REG = TACF_START | TACF_65KHZ;
+    IE_REG |= 0x04;
 }
 
 void audio_play_music(MusicTrack track)
@@ -124,15 +152,21 @@ void audio_update(void)
     uint8_t tempo;
     uint16_t freq;
 
+#ifdef DEBUG_BUILD
+    g_audio_ticks++;
+#endif
+
     if (current_track == MUSIC_NONE) return;
 
     /*
-     * Tempo in VBlank ticks per note step.
-     * VBlank fires at ~59.73 Hz.
-     * Lacrimosa: 10 ticks/note -> ~6 notes/sec (solemn, legato)
-     * Summer Presto: 4 ticks/note -> ~15 notes/sec (furious)
+     * Tempo in timer ticks per note step.  The timer ISR fires at 256 Hz
+     * (see audio_init); these values preserve the old VBlank-tick tempos:
+     *   OVERWORLD: 10 VBlank ticks (10/59.7275 s) -> 256 * 10/59.7275 ~= 43
+     *   BATTLE:     4 VBlank ticks (4/59.7275 s)  -> 256 * 4/59.7275  ~= 17
+     * Lacrimosa: 43 ticks/note -> ~6 notes/sec (solemn, legato)
+     * Summer Presto: 17 ticks/note -> ~15 notes/sec (furious)
      */
-    tempo = (current_track == MUSIC_BATTLE) ? 4 : 10;
+    tempo = (current_track == MUSIC_BATTLE) ? 17 : 43;
 
     step_counter++;
     if (step_counter >= tempo) {

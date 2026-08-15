@@ -596,11 +596,8 @@ class EmulatorSession:
     def step(self, frames=1):
         """Advance N frames using breakpoint at _game_render."""
         for _ in range(frames):
-            self._send('next')
-            time.sleep(0.005)
-            self._drain()
-            self._send('c')
-            out = self._read_until(timeout=10.0)
+            self._cmd('next')
+            out = self._cmd('c', timeout=10.0)
             if b'Hit breakpoint' not in out:
                 raise RuntimeError("Frame step failed: breakpoint not hit")
 

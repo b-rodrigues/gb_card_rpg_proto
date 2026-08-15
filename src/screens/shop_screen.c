@@ -21,30 +21,19 @@ static const ShopDefinition *shop_active(const Game *g)
 static void shop_draw(Game *g)
 {
     const ShopDefinition *def = shop_active(g);
-    int16_t gold = currency_get(&g->state, CURRENCY_ID_GOLD);
-    MenuFrame frame;
-    char gold_str[7];
-    char price_str[7];
-    uint8_t i;
-    uint8_t y;
-
-    ui_format_int(gold, gold_str);
-
-    frame.title = "SHOP";
-    frame.title_row = 0;
-    frame.top_row = 3;
-    frame.bottom_row = 12;
+    MenuFrame frame = { "SHOP", 0, 3, 12 };
+    char str[7];
+    uint8_t i, y;
 
     menu_draw_frame(&frame);
-
     y = menu_row(&frame, 0);
     ui_draw_text_line(0, y, "GOLD:", 5);
-    ui_draw_text_line(5, y, gold_str, 14);
+    ui_format_int(currency_get(&g->state, CURRENCY_ID_GOLD), str);
+    ui_draw_text_line(5, y, str, 14);
 
     if (!def) {
         menu_draw_content(&frame, 2, "(nothing)");
-        y = menu_row(&frame, 4);
-        ui_draw_text_line(0, y, "[B] Leave", 20);
+        ui_draw_text_line(0, menu_row(&frame, 4), "[B] Leave", 9);
         return;
     }
 
@@ -52,25 +41,17 @@ static void shop_draw(Game *g)
         const ItemDefinition *item = item_get_def(def->items[i]);
         y = menu_row(&frame, 1 + i);
         ui_draw_text_line(0, y, (g->item_menu_index == i) ? ">" : " ", 1);
-        ui_format_int((int16_t)(item ? item->price : 0), price_str);
+        ui_format_int((int16_t)(item ? item->price : 0), str);
         ui_draw_text_line(1, y, item ? item->name : "?", 8);
-        ui_draw_text_line(9, y, price_str, 4);
+        ui_draw_text_line(9, y, str, 4);
         ui_draw_text_line(14, y, "G", 1);
     }
 
-    y = menu_row(&frame, 3 + def->count);
-    ui_draw_text_line(0, y, "[A] Buy  [B] Leave", 20);
-
-    switch (g->shop_message) {
-        case SHOP_MSG_BOUGHT:
-            menu_draw_content(&frame, 5 + def->count, "Bought!");
-            break;
-        case SHOP_MSG_NO_GOLD:
-            menu_draw_content(&frame, 5 + def->count, "Not enough gold!");
-            break;
-        default:
-            menu_draw_content(&frame, 5 + def->count, "");
-            break;
+    ui_draw_text_line(0, menu_row(&frame, 3 + def->count), "[A] Buy  [B] Leave", 18);
+    if (g->shop_message == SHOP_MSG_BOUGHT) {
+        menu_draw_content(&frame, 5 + def->count, "Bought!");
+    } else if (g->shop_message == SHOP_MSG_NO_GOLD) {
+        menu_draw_content(&frame, 5 + def->count, "Not enough gold!");
     }
 }
 

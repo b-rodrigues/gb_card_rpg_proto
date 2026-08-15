@@ -1,52 +1,33 @@
 #include "actor.h"
+#include "game_ids.h"
+#include "banked.h"
 #include <stddef.h>
 
 /* ── Actor engine ──────────────────────────────────────────────────
- * The per-scene actor definitions are game content, registered at boot via
- * actor_register_tables() (see src/game/actors.c).  Friendly actors are
- * pure static definitions; hostile actors are spawned into World.actors
- * runtime slots so a scene can hold several at once.  Each hostile
- * definition carries a stable ActorId (unique across scenes) so its defeat
- * can be recorded persistently in GameState.world. */
+ * Per-scene actor definitions live in banked ROM (GAME_CONTENT_BANK).
+ * actor_load_scene() copies the current scene's definitions at map load:
+ * hostiles into World.actors runtime slots and friendlies into
+ * g_static_actors[].  Gameplay lookups are pure WRAM. */
 
 static const WorldActorTable *g_actor_tables = NULL;
 static uint8_t g_actor_table_count = 0;
+static uint8_t g_actor_bank = 0;
 
-void actor_register_tables(const WorldActorTable *tables, uint8_t count)
+static WorldActorDefinition g_static_actors[4];
+static uint8_t g_static_actor_count = 0;
+
+void actor_register_tables(const WorldActorTable *tables, uint8_t count, uint8_t bank)
 {
     g_actor_tables = tables;
     g_actor_table_count = count;
+    g_actor_bank = bank;
 }
 
-static const WorldActorDefinition *actor_defs_for_map(MapId map_id, uint8_t *count)
+static const char *actor_name_for_visual(uint8_t visual)
 {
-    uint8_t i;
-    if (!g_actor_tables) {
-        if (count) *count = 0;
-        return NULL;
-    }
-    for (i = 0; i < g_actor_table_count; i++) {
-        if (g_actor_tables[i].map_id == map_id) {
-            if (count) *count = g_actor_tables[i].count;
-            return g_actor_tables[i].defs;
-        }
-    }
-    if (count) *count = 0;
-    return NULL;
-}
-
-static const WorldActorDefinition *actor_find_def_by_actor_id(MapId map_id, ActorId actor_id)
-{
-    const WorldActorDefinition *defs;
-    uint8_t count, i;
-
-    defs = actor_defs_for_map(map_id, &count);
-    for (i = 0; i < count; i++) {
-        if (defs[i].actor_id == actor_id) {
-            return &defs[i];
-        }
-    }
-    return NULL;
+    if (visual == 'V') return "BAT";
+    if (visual == 'L') return "LORD OF SLIMES";
+    return "SLIME";
 }
 
 static void actor_spawn(WorldActorRuntime *r, const WorldActorDefinition *def)
@@ -62,12 +43,17 @@ static void actor_spawn(WorldActorRuntime *r, const WorldActorDefinition *def)
     r->flags = ACTOR_STATE_NONE;
     r->gold_reward = def->gold_reward;
     r->reward_currency = def->reward_currency;
-    r->display_name = def->display_name;
+    r->display_name = actor_name_for_visual(def->visual);
+    r->visual = def->visual;
     r->spawn_x = def->x;
     r->spawn_y = def->y;
     r->ai_type = def->ai_type;
     r->ai_step = 0;
     r->ai_timer = PATROL_STEP_INTERVAL;
+    r->move_state = 0;
+    r->move_target_x = def->x;
+    r->move_target_y = def->y;
+    r->move_progress = 0;
 }
 
 uint8_t actor_find_hostile_slot(const World *world, uint8_t x, uint8_t y)
@@ -76,8 +62,10 @@ uint8_t actor_find_hostile_slot(const World *world, uint8_t x, uint8_t y)
     if (!world) return NO_ACTOR_INDEX;
     for (i = 0; i < MAX_WORLD_ACTORS; i++) {
         if (world->actors[i].active &&
-            world->actors[i].x == x &&
-            world->actors[i].y == y) {
+            ((world->actors[i].x == x && world->actors[i].y == y) ||
+             (world->actors[i].move_state &&
+              world->actors[i].move_target_x == x &&
+              world->actors[i].move_target_y == y))) {
             return i;
         }
     }
@@ -86,24 +74,12 @@ uint8_t actor_find_hostile_slot(const World *world, uint8_t x, uint8_t y)
 
 const WorldActorDefinition *actor_find_at(const World *world, uint8_t x, uint8_t y)
 {
-    const WorldActorDefinition *defs;
-    uint8_t count, i, slot;
-
+    uint8_t i;
     if (!world) return NULL;
 
-    slot = actor_find_hostile_slot(world, x, y);
-    if (slot != NO_ACTOR_INDEX) {
-        /* Hostile defs are keyed by their stable ActorId (copied into the
-         * runtime slot), never by EntityId -- a scene may hold several
-         * actors of the same EntityId with different defs. */
-        return actor_find_def_by_actor_id(world->map_id, world->actors[slot].actor_id);
-    }
-
-    defs = actor_defs_for_map(world->map_id, &count);
-    for (i = 0; i < count; i++) {
-        if (!(defs[i].flags & ACTOR_FLAG_HOSTILE) &&
-            defs[i].x == x && defs[i].y == y) {
-            return &defs[i];
+    for (i = 0; i < g_static_actor_count; i++) {
+        if (g_static_actors[i].x == x && g_static_actors[i].y == y) {
+            return &g_static_actors[i];
         }
     }
     return NULL;
@@ -130,44 +106,62 @@ ActorEngageResult actor_engage(const WorldActorDefinition *actor, DialogueState 
 
 void actor_load_scene(World *world, MapId map_id, const GameState *state)
 {
-    const WorldActorDefinition *defs;
-    uint8_t count, i, slot;
+    static WorldActorTable s_load_tbl;
+    static WorldActorDefinition s_load_def;
+    uint8_t i, d, slot;
 
     if (!world) return;
-    defs = actor_defs_for_map(map_id, &count);
 
     for (slot = 0; slot < MAX_WORLD_ACTORS; slot++) {
         world->actors[slot].active = 0;
     }
+    g_static_actor_count = 0;
 
-    slot = 0;
-    for (i = 0; i < count && slot < MAX_WORLD_ACTORS; i++) {
-        if (defs[i].flags & ACTOR_FLAG_HOSTILE) {
-            if (defs[i].actor_id != 0 &&
-                game_world_actor_is_defeated(state, defs[i].actor_id)) {
-                continue;
+    if (!g_actor_tables) return;
+
+    for (i = 0; i < g_actor_table_count; i++) {
+        if (g_actor_bank != 0) {
+            banked_copy(g_actor_bank, &s_load_tbl, &g_actor_tables[i], sizeof(WorldActorTable));
+        } else {
+            s_load_tbl = g_actor_tables[i];
+        }
+
+        if (s_load_tbl.map_id == map_id) {
+            slot = 0;
+            for (d = 0; d < s_load_tbl.count; d++) {
+                if (g_actor_bank != 0) {
+                    banked_copy(g_actor_bank, &s_load_def, &s_load_tbl.defs[d], sizeof(WorldActorDefinition));
+                } else {
+                    s_load_def = s_load_tbl.defs[d];
+                }
+
+                if (s_load_def.actor_id != 0 && game_world_actor_is_defeated(state, s_load_def.actor_id)) {
+                    continue;
+                }
+                if (s_load_def.spawn_variable != 0 &&
+                    game_variable_get(state, (VariableId)s_load_def.spawn_variable) != s_load_def.spawn_value) {
+                    continue;
+                }
+
+                if (s_load_def.flags & ACTOR_FLAG_HOSTILE) {
+                    if (slot < MAX_WORLD_ACTORS) {
+                        actor_spawn(&world->actors[slot++], &s_load_def);
+                    }
+                } else if (g_static_actor_count < 4) {
+                    g_static_actors[g_static_actor_count++] = s_load_def;
+                }
             }
-            /* Conditional spawn: the definition may require a variable to
-             * equal a specific value (e.g. the final boss only after the
-             * quest is complete). */
-            if (defs[i].spawn_variable != 0 &&
-                game_variable_get(state, defs[i].spawn_variable) != defs[i].spawn_value) {
-                continue;
-            }
-            actor_spawn(&world->actors[slot], &defs[i]);
-            slot++;
+            break;
         }
     }
 }
 
 uint8_t actor_write_snapshot(const World *world, uint8_t *out, uint8_t max_actors)
 {
-    const WorldActorDefinition *defs;
-    uint8_t count, i, n = 0;
+    uint8_t i, n = 0;
     uint8_t slot;
 
     if (!world || !out || max_actors == 0) return 0;
-    defs = actor_defs_for_map(world->map_id, &count);
 
     /* hostile runtime actors */
     for (slot = 0; slot < MAX_WORLD_ACTORS && n < max_actors; slot++) {
@@ -181,12 +175,11 @@ uint8_t actor_write_snapshot(const World *world, uint8_t *out, uint8_t max_actor
     }
 
     /* friendly static definitions */
-    for (i = 0; i < count && n < max_actors; i++) {
-        if (defs[i].flags & ACTOR_FLAG_HOSTILE) continue;
-        out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 0] = (uint8_t)defs[i].id;
-        out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 1] = defs[i].x;
-        out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 2] = defs[i].y;
-        out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 3] = defs[i].facing;
+    for (i = 0; i < g_static_actor_count && n < max_actors; i++) {
+        out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 0] = (uint8_t)g_static_actors[i].id;
+        out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 1] = g_static_actors[i].x;
+        out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 2] = g_static_actors[i].y;
+        out[n * ACTOR_SNAPSHOT_ENTRY_SIZE + 3] = g_static_actors[i].facing;
         n++;
     }
     return n;

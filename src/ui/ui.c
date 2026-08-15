@@ -164,26 +164,22 @@ void ui_sprite_move(uint8_t px, uint8_t py)
  * display. */
 void ui_sprite_hide(void)
 {
-    hide_sprite(PLAYER_SPRITE_NUM);
+    uint8_t i;
+    for (i = 0; i <= MAX_WORLD_ACTORS; i++) {
+        hide_sprite(i);
+    }
     ui_sprite_begin_transition();
 }
 
-/* Hide the player sprite in real OAM right now, before the new screen's
- * full redraw runs.  The full redraw takes several display sweeps (the
- * screen blanks and redraws top-to-bottom); the hide must already be in real
- * OAM when it starts, or the sprite is shown at a stale position over the
- * wipe.  The intended final position is preserved in shadow OAM so the
- * frame-boundary commit reveals it on the new screen's first drawn frame. */
+/* Hide the player and actor sprites in real OAM right now, before the new
+ * screen's full redraw runs. */
 void ui_sprite_begin_transition(void)
 {
-    OAM_item_t *spr;
-    uint8_t sy;
-
-    spr = &shadow_OAM[PLAYER_SPRITE_NUM];
-    sy = spr->y;
-    spr->y = 0;                 /* hidden during the wipe */
+    uint8_t i;
+    for (i = 0; i <= MAX_WORLD_ACTORS; i++) {
+        shadow_OAM[i].y = 0;
+    }
     refresh_OAM();
-    spr->y = sy;                /* keep the final position for the commit */
 }
 
 /* DMA shadow OAM to real OAM.  Called once per frame from main.c right after
@@ -339,7 +335,7 @@ static void ui_draw_world_cell_ex(const World *world, uint8_t col, uint8_t row)
     }
 
     actor = actor_find_at(world, col, row);
-    if (actor) {
+    if (actor && !(actor->flags & ACTOR_FLAG_HOSTILE)) {
         tile_idx = (uint8_t)(ui_font_tile_base + (uint8_t)(actor->visual - ' '));
     } else {
         tile_idx = (uint8_t)(ui_font_tile_base + (uint8_t)(g_sem_map[t] - ' '));
@@ -352,7 +348,7 @@ static void ui_draw_world_cell_ex(const World *world, uint8_t col, uint8_t row)
     sx = (uint8_t)(col - world->scroll_x);
     sy = (uint8_t)(row - world->scroll_y);
     if (sx < WORLD_VIEW_W && sy < WORLD_VIEW_H) {
-        g_ui_screen_buf[sy][sx] = actor ? actor->visual : g_sem_map[t];
+        g_ui_screen_buf[sy][sx] = (actor && !(actor->flags & ACTOR_FLAG_HOSTILE)) ? actor->visual : g_sem_map[t];
     }
 }
 
@@ -361,12 +357,32 @@ static void ui_draw_world_cell(const World *world, uint8_t col, uint8_t row)
     ui_draw_world_cell_ex(world, col, row);
 }
 
-void ui_update_actor_pos(const World *world, uint8_t old_x, uint8_t old_y, uint8_t new_x, uint8_t new_y)
+void ui_draw_actors_sprites(const World *world)
 {
+    uint8_t slot;
+    const WorldActorRuntime *a;
+    uint8_t px, py;
+    uint8_t spr_num;
+
     if (!world) return;
-    VBK_REG = 0;
-    ui_draw_world_cell(world, old_x, old_y);
-    ui_draw_world_cell(world, new_x, new_y);
+
+    for (slot = 0; slot < MAX_WORLD_ACTORS; slot++) {
+        a = &world->actors[slot];
+        spr_num = (uint8_t)(1 + slot);
+        if (!a->active) {
+            hide_sprite(spr_num);
+            continue;
+        }
+        px = (uint8_t)(world_actor_px(a) - world->camera_px_x);
+        py = (uint8_t)(world_actor_py(a) - world->camera_px_y);
+
+        if (px < 160 && py < 96) {
+            move_sprite(spr_num, (uint8_t)(px + 8), (uint8_t)(py + 16));
+            set_sprite_tile(spr_num, (uint8_t)(ui_font_tile_base + (uint8_t)(a->visual - ' ')));
+        } else {
+            hide_sprite(spr_num);
+        }
+    }
 }
 
 /* Draw every cell in [c0,c1) x [r0,r1) into the tilemap ring. */
@@ -389,7 +405,9 @@ static void ui_draw_world_rect(const World *world, uint8_t c0, uint8_t c1,
 #ifdef DEBUG_BUILD
 static void ui_refill_semantic(const World *world)
 {
-    uint8_t x, y, col, row, tile;
+    uint8_t x, y, col, row, tile, slot;
+    const WorldActorRuntime *a;
+    uint8_t sx, sy;
 
     for (y = 0; y < WORLD_VIEW_H; y++) {
         for (x = 0; x < WORLD_VIEW_W; x++) {
@@ -397,6 +415,16 @@ static void ui_refill_semantic(const World *world)
             row = (uint8_t)(world->scroll_y + y);
             tile = g_tilemap_mirror[(row & 31) * 32 + (col & 31)];
             g_ui_screen_buf[y][x] = (char)((tile - ui_font_tile_base) + ' ');
+        }
+    }
+
+    for (slot = 0; slot < MAX_WORLD_ACTORS; slot++) {
+        a = &world->actors[slot];
+        if (!a->active) continue;
+        sx = (uint8_t)(a->x - world->scroll_x);
+        sy = (uint8_t)(a->y - world->scroll_y);
+        if (sx < WORLD_VIEW_W && sy < WORLD_VIEW_H) {
+            g_ui_screen_buf[sy][sx] = (char)a->visual;
         }
     }
 }
@@ -422,6 +450,7 @@ void ui_draw_world_map(const World *world)
     /* The ASCII @ is an OAM glyph, not a BG tile. */
     ui_sprite_move((uint8_t)(world_player_px(world) - world->camera_px_x),
                    (uint8_t)(world_player_py(world) - world->camera_px_y));
+    ui_draw_actors_sprites(world);
 }
 
 void ui_update_camera(const World *world)

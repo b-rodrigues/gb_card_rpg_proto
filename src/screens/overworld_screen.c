@@ -138,6 +138,7 @@ void overworld_screen_render(Game *g)
         s_prev_scroll_x = g->world.scroll_x;
         s_prev_scroll_y = g->world.scroll_y;
         ui_sprite_move(px, py);
+        ui_draw_actors_sprites(&g->world);
         rc->prev_player_x = px;
         rc->prev_player_y = py;
         rc->prev_dialogue_active = false;
@@ -148,6 +149,7 @@ void overworld_screen_render(Game *g)
 
     ui_update_camera(&g->world);
     ui_sprite_move(px, py);
+    ui_draw_actors_sprites(&g->world);
     rc->prev_player_x = px;
     rc->prev_player_y = py;
 }

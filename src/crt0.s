@@ -271,6 +271,8 @@ _banked_copy_tramp:
         ld      h, (hl)
         ld      l, a                ; hl = dst
         ld      a, (_g_bank_copy_n)
+        or      a
+        jr      z, banked_copy_done
         ld      c, a
  banked_copy_loop:
         ld      a, (de)             ; read src byte
@@ -279,6 +281,7 @@ _banked_copy_tramp:
         inc     hl
         dec     c
         jr      nz, banked_copy_loop
+ banked_copy_done:
         ld      a, #0x01
         ld      (0x2000), a          ; restore home bank 1 (see below)
         ld      (__current_bank), a

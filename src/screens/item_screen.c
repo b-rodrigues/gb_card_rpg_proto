@@ -106,51 +106,29 @@ static void menu_draw_status(Game *g, const MenuFrame *frame, char *buf)
     }
 }
 
-static uint8_t menu_str_len(const char *s, uint8_t max)
-{
-    uint8_t n = 0;
-    if (!s) return 0;
-    while (s[n] != '\0' && n < max) n++;
-    return n;
-}
-
-/* Draw one quest's status line under its name: "not started", an ACTIVE
- * progress counter ("monsters: 1/3") when the quest has one, or
- * "complete - <note>". */
 static void quest_draw_status(Game *g, const QuestDefinition *q, uint8_t y, char *buf)
 {
     QuestStatus st;
-    uint8_t x;
-    uint8_t l;
-    int16_t prog;
-
     if (!q) return;
     st = quest_status(&g->state, q);
 
     if (st == QUEST_STATUS_NOT_STARTED) {
-        ui_draw_text_line(0, y, "not started", 20);
+        ui_draw_text_line(0, y, "not started", 11);
     } else if (st == QUEST_STATUS_ACTIVE) {
         if (q->progress_variable != 0) {
-            x = menu_str_len(q->progress_label, 12);
-            ui_draw_text_line(0, y, q->progress_label, x);
-            ui_draw_text_line(x, y, ": ", 2);
-            x += 2;
-            prog = game_variable_get(&g->state, q->progress_variable);
-            ui_format_int(prog, buf);
-            l = menu_str_len(buf, 6);
-            ui_draw_text_line(x, y, buf, l);
-            x += l;
-            ui_draw_text_line(x, y, "/", 1);
-            x += 1;
+            ui_draw_text_line(0, y, q->progress_label, 8);
+            ui_draw_text_line(8, y, ": ", 2);
+            ui_format_int(game_variable_get(&g->state, q->progress_variable), buf);
+            ui_draw_text_line(10, y, buf, 1);
+            ui_draw_text_line(11, y, "/", 1);
             ui_format_int(q->progress_target, buf);
-            ui_draw_text_line(x, y, buf, menu_str_len(buf, 6));
+            ui_draw_text_line(12, y, buf, 1);
         } else {
-            ui_draw_text_line(0, y, "active", 20);
+            ui_draw_text_line(0, y, "active", 6);
         }
     } else {
         ui_draw_text_line(0, y, "complete - ", 11);
-        ui_draw_text_line(11, y, q->complete_note ? q->complete_note : "",
-                          menu_str_len(q->complete_note, 9));
+        ui_draw_text_line(11, y, q->complete_note ? q->complete_note : "", 9);
     }
 }
 
@@ -158,18 +136,13 @@ static void menu_draw_quest(Game *g, const MenuFrame *frame, char *buf)
 {
     uint8_t i;
     uint8_t ci = 2;
-    uint8_t y;
     const QuestDefinition *q;
 
-    /* Every quest in the engine's registry is listed automatically: name
-     * row, then status row.  Quest i occupies content rows (2+2i)/(3+2i). */
     for (i = 0; i < quest_count(); i++) {
         q = quest_at(i);
-        if (!q) break;
-        if (ci + 1 >= (uint8_t)(frame->bottom_row - frame->top_row)) break;
+        if (!q || (ci + 1 >= (uint8_t)(frame->bottom_row - frame->top_row))) break;
         menu_draw_content(frame, ci, q->name);
-        y = menu_row(frame, ci + 1);
-        quest_draw_status(g, q, y, buf);
+        quest_draw_status(g, q, menu_row(frame, ci + 1), buf);
         ci += 2;
     }
 }
@@ -179,9 +152,7 @@ static void menu_draw(Game *g)
     const InventoryState *inv = &g->state.inventory;
     MenuFrame frame;
     char buf[7];
-    uint8_t i;
-    uint8_t y;
-    uint8_t vis_count;
+    uint8_t i, y, vis_count;
 
     frame.title_row = 0;
     frame.top_row = 5;
@@ -214,11 +185,10 @@ static void menu_draw(Game *g)
     for (i = 0; i < vis_count; i++) {
         uint8_t ei = menu_visible_entry(inv, g->item_menu_tab, i);
         const ItemDefinition *def = item_get_def(inv->entries[ei].item_id);
-        const char *name = def ? def->name : "???";
         bool equipped = (g->state.equipment.weapon == inv->entries[ei].item_id);
         y = menu_row(&frame, i);
         ui_draw_text_line(0, y, (g->item_menu_index == i) ? ">" : " ", 1);
-        ui_draw_text_line(1, y, name, 8);
+        ui_draw_text_line(1, y, def ? def->name : "???", 8);
         if (def && def->kind == ITEM_KIND_CONSUMABLE) {
             ui_format_int((int16_t)inv->entries[ei].quantity, buf);
             ui_draw_text_line(10, y, "x", 1);
@@ -239,59 +209,44 @@ static void menu_draw(Game *g)
 
 void item_screen_update(Game *g)
 {
-    ItemId id;
-    uint8_t tab_changed = 0;
-
+    uint8_t vis_count;
     if (!g) return;
 
-    /* Tab navigation: SELECT (and LEFT/RIGHT) directly cycle the active
-     * tab, with the ">" marker giving immediate visible feedback. */
     if (input_pressed(INPUT_SELECT) || input_pressed(INPUT_RIGHT)) {
-        if ((uint8_t)(g->item_menu_tab + 1) < MENU_TAB_COUNT) {
-            g->item_menu_tab++;
-        } else {
-            g->item_menu_tab = MENU_TAB_ITEM;
-        }
+        g->item_menu_tab = (uint8_t)((g->item_menu_tab + 1) % MENU_TAB_COUNT);
         g->item_menu_index = 0;
-        tab_changed = 1;
+        g->render_cache.valid = false;
+        return;
     }
     if (input_pressed(INPUT_LEFT)) {
-        if (g->item_menu_tab > MENU_TAB_ITEM) {
-            g->item_menu_tab--;
-        } else {
-            g->item_menu_tab = MENU_TAB_STATUS;
-        }
+        g->item_menu_tab = (uint8_t)(g->item_menu_tab == 0 ? MENU_TAB_STATUS : g->item_menu_tab - 1);
         g->item_menu_index = 0;
-        tab_changed = 1;
-    }
-    if (tab_changed) {
         g->render_cache.valid = false;
         return;
     }
 
-    if (g->item_menu_tab == MENU_TAB_STATUS || g->item_menu_tab == MENU_TAB_QUEST) {
-        if (input_pressed(INPUT_B)) {
-            g->item_menu_index = 0;
-            g->item_menu_tab = MENU_TAB_ITEM;
-            screen_change(g, g->prev_screen);
-        }
+    if (input_pressed(INPUT_B)) {
+        g->item_menu_index = 0;
+        g->item_menu_tab = MENU_TAB_ITEM;
+        screen_change(g, g->prev_screen);
         return;
     }
 
-    if (menu_visible_count(&g->state.inventory, g->item_menu_tab) > 0) {
-        if (input_pressed(INPUT_UP)) {
-            if (g->item_menu_index > 0) g->item_menu_index--;
+    if (g->item_menu_tab >= MENU_TAB_QUEST) return;
+
+    vis_count = menu_visible_count(&g->state.inventory, g->item_menu_tab);
+    if (vis_count > 0) {
+        if (input_pressed(INPUT_UP) && g->item_menu_index > 0) {
+            g->item_menu_index--;
             g->render_cache.valid = false;
         }
-        if (input_pressed(INPUT_DOWN)) {
-            if ((uint8_t)(g->item_menu_index + 1) < menu_visible_count(&g->state.inventory, g->item_menu_tab)) {
-                g->item_menu_index++;
-            }
+        if (input_pressed(INPUT_DOWN) && (uint8_t)(g->item_menu_index + 1) < vis_count) {
+            g->item_menu_index++;
             g->render_cache.valid = false;
         }
         if (input_pressed(INPUT_A)) {
             uint8_t ei = menu_visible_entry(&g->state.inventory, g->item_menu_tab, g->item_menu_index);
-            id = g->state.inventory.entries[ei].item_id;
+            ItemId id = g->state.inventory.entries[ei].item_id;
             if (g->item_menu_tab == MENU_TAB_ITEM) {
                 if (item_use(&g->state, id, CHARACTER_HERO)) {
                     if (g->prev_screen == SCREEN_BATTLE) {
@@ -303,29 +258,18 @@ void item_screen_update(Game *g)
             } else {
                 item_equip(&g->state, id);
             }
-            if (g->item_menu_index >= menu_visible_count(&g->state.inventory, g->item_menu_tab)) {
-                uint8_t vc = menu_visible_count(&g->state.inventory, g->item_menu_tab);
-                if (vc > 0) {
-                    g->item_menu_index = (uint8_t)(vc - 1);
-                } else {
-                    g->item_menu_index = 0;
-                }
+            vis_count = menu_visible_count(&g->state.inventory, g->item_menu_tab);
+            if (g->item_menu_index >= vis_count) {
+                g->item_menu_index = (uint8_t)(vis_count > 0 ? vis_count - 1 : 0);
             }
             g->render_cache.valid = false;
         }
-    }
-
-    if (input_pressed(INPUT_B)) {
-        g->item_menu_index = 0;
-        g->item_menu_tab = MENU_TAB_ITEM;
-        screen_change(g, g->prev_screen);
     }
 }
 
 void item_screen_render(Game *g)
 {
     RenderCache *rc;
-
     if (!g) return;
     rc = &g->render_cache;
 

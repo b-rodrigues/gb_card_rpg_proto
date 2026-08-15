@@ -42,43 +42,21 @@ void world_load_map(World *w, MapId map_id, const GameState *state)
 
 void world_update_scroll(World *w)
 {
-    uint8_t player_px;
-    uint8_t player_py;
-    uint8_t max_x;
-    uint8_t max_y;
+    uint8_t px, py, max_x, max_y;
 
     if (!w) return;
 
-    player_px = world_player_px(w);
-    player_py = world_player_py(w);
+    px = world_player_px(w);
+    py = world_player_py(w);
 
-    /* Player-centered camera: keep the player at the view centre, clamped
-     * at the scene edges (so near an edge the player moves off-centre while
-     * the camera stays at the boundary).  The half-view in pixels is
-     * VIEW*4; the subtraction is guarded so it never underflows a byte. */
-    if (player_px < (uint8_t)(WORLD_VIEW_W * 4)) {
-        w->camera_px_x = 0;
-    } else {
-        w->camera_px_x = (uint8_t)(player_px - WORLD_VIEW_W * 4);
-    }
-    if (player_py < (uint8_t)(WORLD_VIEW_H * 4)) {
-        w->camera_px_y = 0;
-    } else {
-        w->camera_px_y = (uint8_t)(player_py - WORLD_VIEW_H * 4);
-    }
+    w->camera_px_x = (px < (uint8_t)(WORLD_VIEW_W * 4)) ? 0 : (uint8_t)(px - WORLD_VIEW_W * 4);
+    w->camera_px_y = (py < (uint8_t)(WORLD_VIEW_H * 4)) ? 0 : (uint8_t)(py - WORLD_VIEW_H * 4);
 
-    /* Clamp the view window to the scene bounds (smaller scenes never
-     * scroll). */
-    max_x = w->width > WORLD_VIEW_W ? (uint8_t)((w->width - WORLD_VIEW_W) * 8) : 0;
-    max_y = w->height > WORLD_VIEW_H ? (uint8_t)((w->height - WORLD_VIEW_H) * 8) : 0;
-    if (w->camera_px_x > max_x) {
-        w->camera_px_x = max_x;
-    }
-    if (w->camera_px_y > max_y) {
-        w->camera_px_y = max_y;
-    }
+    max_x = (w->width > WORLD_VIEW_W) ? (uint8_t)((w->width - WORLD_VIEW_W) << 3) : 0;
+    max_y = (w->height > WORLD_VIEW_H) ? (uint8_t)((w->height - WORLD_VIEW_H) << 3) : 0;
+    if (w->camera_px_x > max_x) w->camera_px_x = max_x;
+    if (w->camera_px_y > max_y) w->camera_px_y = max_y;
 
-    /* Derived tile camera for the renderer window and the snapshot. */
     w->scroll_x = (uint8_t)(w->camera_px_x >> 3);
     w->scroll_y = (uint8_t)(w->camera_px_y >> 3);
 }
@@ -106,13 +84,9 @@ void world_change_map(World *w, MapId map_id, uint8_t spawn_x, uint8_t spawn_y,
 bool world_is_walkable(const World *w, uint8_t x, uint8_t y)
 {
     uint8_t tile;
-    if (!w) return false;
-    if (x >= w->width || y >= w->height) return false;
+    if (!w || x >= w->width || y >= w->height) return false;
     tile = w->map[y][x];
-    if (tile == TILE_WALL || tile == TILE_BUILDING) {
-        return false;
-    }
-    return true;
+    return (tile != TILE_WALL && tile != TILE_BUILDING);
 }
 
 WorldMoveResult world_try_begin_move(World *w, int8_t dx, int8_t dy,
@@ -250,6 +224,30 @@ uint8_t world_player_py(const World *w)
     return py;
 }
 
+uint8_t world_actor_px(const WorldActorRuntime *a)
+{
+    uint8_t px;
+    if (!a) return 0;
+    px = (uint8_t)(a->x * 8);
+    if (a->move_state && a->move_target_x != a->x) {
+        if (a->move_target_x > a->x) px = (uint8_t)(px + a->move_progress);
+        else px = (uint8_t)(px - a->move_progress);
+    }
+    return px;
+}
+
+uint8_t world_actor_py(const WorldActorRuntime *a)
+{
+    uint8_t py;
+    if (!a) return 0;
+    py = (uint8_t)(a->y * 8);
+    if (a->move_state && a->move_target_y != a->y) {
+        if (a->move_target_y > a->y) py = (uint8_t)(py + a->move_progress);
+        else py = (uint8_t)(py - a->move_progress);
+    }
+    return py;
+}
+
 void world_on_battle_end(Game *g, bool victory)
 {
     World *w;
@@ -305,7 +303,6 @@ WorldMoveResult world_update_actors(World *w)
     WorldActorRuntime *a;
     int8_t dx, dy;
     uint8_t target_x, target_y, facing;
-    uint8_t old_x, old_y;
     uint8_t step;
 
     if (!w) return MOVE_RESULT_NONE;
@@ -316,11 +313,24 @@ WorldMoveResult world_update_actors(World *w)
             continue;
         }
 
+        /* If animating sub-tile move between tiles: */
+        if (a->move_state) {
+            a->move_progress++;
+            if (a->move_progress >= 8) {
+                a->x = a->move_target_x;
+                a->y = a->move_target_y;
+                a->move_state = 0;
+                a->move_progress = 0;
+                a->ai_timer = PATROL_STEP_INTERVAL;
+                telemetry_emit(EVENT_ACTOR_STATE_CHANGE, (uint8_t)a->id, a->x, a->y, a->facing);
+            }
+            continue;
+        }
+
         if (a->ai_timer > 0) {
             a->ai_timer--;
             continue;
         }
-        a->ai_timer = PATROL_STEP_INTERVAL;
 
         dx = 0;
         dy = 0;
@@ -350,12 +360,14 @@ WorldMoveResult world_update_actors(World *w)
 
         if (target_x == a->x && target_y == a->y) {
             a->facing = facing;
+            a->ai_timer = PATROL_STEP_INTERVAL;
             continue;
         }
 
         if (!world_is_walkable(w, target_x, target_y) ||
             w->map[target_y][target_x] == TILE_EXIT ||
             actor_find_at(w, target_x, target_y) != NULL) {
+            a->ai_timer = PATROL_STEP_INTERVAL;
             continue;
         }
 
@@ -366,14 +378,11 @@ WorldMoveResult world_update_actors(World *w)
             return MOVE_RESULT_ENCOUNTER;
         }
 
-        old_x = a->x;
-        old_y = a->y;
-        a->x = target_x;
-        a->y = target_y;
+        a->move_state = 1;
+        a->move_target_x = target_x;
+        a->move_target_y = target_y;
+        a->move_progress = 0;
         a->facing = facing;
-
-        ui_update_actor_pos(w, old_x, old_y, target_x, target_y);
-        telemetry_emit(EVENT_ACTOR_STATE_CHANGE, (uint8_t)a->id, target_x, target_y, facing);
     }
 
     return MOVE_RESULT_NONE;

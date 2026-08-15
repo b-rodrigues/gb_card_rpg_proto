@@ -75,7 +75,7 @@ typedef struct {
     uint8_t count;
 } WorldActorTable;
 
-void actor_register_tables(const WorldActorTable *tables, uint8_t count);
+void actor_register_tables(const WorldActorTable *tables, uint8_t count, uint8_t bank);
 
 /* Result of engaging an actor. */
 typedef enum {

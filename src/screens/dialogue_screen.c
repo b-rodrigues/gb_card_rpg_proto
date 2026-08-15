@@ -36,6 +36,9 @@ void dialogue_screen_render(Game *g)
             ui_draw_world_full(&g->world);
         }
         ui_draw_dialogue(&g->dialogue, g->world.scroll_x, g->world.scroll_y);
+        ui_sprite_move((uint8_t)(world_player_px(&g->world) - g->world.camera_px_x),
+                       (uint8_t)(world_player_py(&g->world) - g->world.camera_px_y));
+        ui_draw_actors_sprites(&g->world);
         telemetry_emit(EVENT_RENDER_DIALOGUE, (uint8_t)g->dialogue.id,
                        g->dialogue.current_line, 0, 0);
         rc->valid = true;

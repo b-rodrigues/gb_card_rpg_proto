@@ -148,6 +148,18 @@ def main():
     check("dialogue-window-hidden", not win_enabled,
           f"expected the HUD window disabled during dialogue, got LCDC=0x{lcdc:02X}")
 
+    # Advance once and verify the later line too.  The initial line is drawn
+    # during the screen transition; this catches redraws that only fail when
+    # the modal text changes on a live frame.
+    pb.button_press("a")
+    pb.tick()
+    pb.button_release("a")
+    for _ in range(30):
+        pb.tick()
+    second_line = background_row(pb.tilemap_background, 14, 0)
+    check("dialogue-second-line", "Watch for slimes." in second_line,
+          "expected the second dialogue line, got: " + second_line)
+
     print()
     if failures:
         print(f"{len(failures)} check(s) failed: {', '.join(failures)}")

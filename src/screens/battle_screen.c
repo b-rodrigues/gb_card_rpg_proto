@@ -72,7 +72,12 @@ void battle_screen_render(Game *g)
         g->battle.player.hp != rc->prev_player_hp ||
         g->battle.enemy.hp != rc->prev_enemy_hp ||
         g->battle.result != rc->prev_battle_result) {
+        /* HP and action text update several rows.  The write is too large to
+         * fit in the VBlank remainder after vsync(), so prevent the PPU from
+         * entering Mode 3 while the tilemap is being updated. */
+        ui_lcd_off();
         ui_update_battle(&g->battle);
+        ui_lcd_on();
         rc->prev_battle_turn = g->battle.turn;
         rc->prev_player_hp = g->battle.player.hp;
         rc->prev_enemy_hp = g->battle.enemy.hp;

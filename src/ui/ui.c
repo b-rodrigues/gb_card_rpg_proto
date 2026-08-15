@@ -271,7 +271,8 @@ void ui_format_int(int16_t value, char *out)
  * anchored semantic g_ui_screen_buf (harness get_screen_buf) is filled for
  * visible cells.  Written directly -- not through set_bkg_tiles -- to avoid
  * pulling the GBDK .set_xy_* helpers into the non-bankable _HOME area. */
-static void ui_draw_world_cell(const World *world, uint8_t col, uint8_t row)
+static void ui_draw_world_cell_ex(const World *world, uint8_t col, uint8_t row,
+                                  uint8_t hero_x, uint8_t hero_y)
 {
     uint8_t t;
     uint8_t tile_idx;
@@ -287,8 +288,7 @@ static void ui_draw_world_cell(const World *world, uint8_t col, uint8_t row)
         t = world->map[row][col];
     }
 
-    player_cell = (col == world->player.position.x &&
-                   row == world->player.position.y);
+    player_cell = (col == hero_x && row == hero_y);
     actor = player_cell ? NULL : actor_find_at(world, col, row);
     if (player_cell) {
         tile_idx = (uint8_t)(ui_font_tile_base + (uint8_t)('@' - ' '));
@@ -308,6 +308,12 @@ static void ui_draw_world_cell(const World *world, uint8_t col, uint8_t row)
         g_ui_screen_buf[sy][sx] = player_cell ? '@' :
                                    (actor ? actor->visual : g_sem_map[t]);
     }
+}
+
+static void ui_draw_world_cell(const World *world, uint8_t col, uint8_t row)
+{
+    ui_draw_world_cell_ex(world, col, row,
+                          world->player.position.x, world->player.position.y);
 }
 
 /* Draw every cell in [c0,c1) x [r0,r1) into the tilemap ring. */
@@ -460,13 +466,13 @@ void ui_update_player_position(const World *world, uint8_t old_x, uint8_t old_y,
 {
     if (!world) return;
 
-    /* Sub-tile movement needs no background write.  At a tile commit, redraw
-     * only the old and new cells so the @ moves without a full-screen wipe. */
+    /* Redraw old cell (erases '@' and restores terrain/actor) and new cell
+     * (draws '@') so hero position stays anchored without a full redraw. */
     if (old_x == new_x && old_y == new_y) return;
 
     VBK_REG = 0;
-    ui_draw_world_cell(world, old_x, old_y);
-    ui_draw_world_cell(world, new_x, new_y);
+    ui_draw_world_cell_ex(world, old_x, old_y, new_x, new_y);
+    ui_draw_world_cell_ex(world, new_x, new_y, new_x, new_y);
 }
 
 static void ui_put_char(uint8_t x, uint8_t y, char ch)

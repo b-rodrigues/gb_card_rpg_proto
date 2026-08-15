@@ -107,6 +107,7 @@ void overworld_screen_render(Game *g)
 {
     RenderCache *rc;
     uint8_t px, py;
+    uint8_t curr_player_tile_x, curr_player_tile_y;
 
     if (!g) return;
     rc = &g->render_cache;
@@ -151,17 +152,20 @@ void overworld_screen_render(Game *g)
 
     ui_update_camera(&g->world);
 
-    /* Sub-tile movement only changes the camera/sprite position.  The ASCII
-     * @ moves when the canonical tile position commits, using world
-     * coordinates rather than camera-relative pixels. */
-    if (g->world.player.position.x != s_prev_player_tile_x ||
-        g->world.player.position.y != s_prev_player_tile_y) {
+    /* Compute current player tile from sub-tile pixel position rounded to the
+     * nearest tile midpoint (+4).  This updates the hero '@' symbol at the
+     * midpoint of movement steps so it tracks the camera smoothly without
+     * drifting or freezing. */
+    curr_player_tile_x = (uint8_t)((world_player_px(&g->world) + 4) >> 3);
+    curr_player_tile_y = (uint8_t)((world_player_py(&g->world) + 4) >> 3);
+
+    if (curr_player_tile_x != s_prev_player_tile_x ||
+        curr_player_tile_y != s_prev_player_tile_y) {
         ui_update_player_position(&g->world,
                                    s_prev_player_tile_x, s_prev_player_tile_y,
-                                   g->world.player.position.x,
-                                   g->world.player.position.y);
-        s_prev_player_tile_x = g->world.player.position.x;
-        s_prev_player_tile_y = g->world.player.position.y;
+                                   curr_player_tile_x, curr_player_tile_y);
+        s_prev_player_tile_x = curr_player_tile_x;
+        s_prev_player_tile_y = curr_player_tile_y;
     }
 
     if (px != rc->prev_player_x || py != rc->prev_player_y) {

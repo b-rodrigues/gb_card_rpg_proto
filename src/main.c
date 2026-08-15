@@ -30,6 +30,8 @@ volatile uint8_t g_boot_phase = 0;
 
 int main(void)
 {
+    *(volatile uint8_t *)0x2000 = 1;
+    *(volatile uint8_t *)0x3000 = 0;
     g_boot_phase = 1;
 
     if (!g_harness_mode) {

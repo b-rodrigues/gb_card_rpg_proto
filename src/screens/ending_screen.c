@@ -5,24 +5,28 @@
 
 /* Final ending screen: shown after the Lord of Slimes is defeated.  A or
  * START restarts the game. */
+static const char * const s_ending_lines[9] = {
+    "      THE END       ",
+    "--------------------",
+    "",
+    "The Hero cleared",
+    "the land of slimes!",
+    "Now peace has",
+    "returned!",
+    "Thank you for",
+    "playing!"
+};
+
 static void ending_draw(void)
 {
-    MenuFrame frame;
-
-    frame.title = "THE END";
-    frame.title_row = 1;
-    frame.top_row = 4;
-    frame.bottom_row = 15;
-    frame.boxed = false;
-
-    menu_draw_frame(&frame);
-    menu_draw_content(&frame, 0, "The Hero cleared");
-    menu_draw_content(&frame, 1, "the land of slimes!");
-    menu_draw_content(&frame, 2, "Now peace has");
-    menu_draw_content(&frame, 3, "returned!");
-    menu_draw_content(&frame, 4, "Thank you for");
-    menu_draw_content(&frame, 5, "playing!");
-    menu_draw_content(&frame, 10, "[A] RESTART");
+    uint8_t i;
+    ui_clear_screen();
+    for (i = 0; i < 9; i++) {
+        if (s_ending_lines[i][0]) {
+            ui_draw_text_line(0, (uint8_t)(1 + i), s_ending_lines[i], 20);
+        }
+    }
+    ui_draw_text_line(0, 14, "[A] RESTART", 20);
 }
 
 void ending_screen_update(Game *g)

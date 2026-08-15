@@ -35,6 +35,13 @@ typedef enum {
     BATTLE_BAT = 2
 } BattleId;
 
+/* Overworld autonomous patrol/AI behavior type. */
+typedef enum {
+    AI_NONE          = 0,
+    AI_PATROL_CIRCLE = 1,   /* Clockwise 2x2 circle around spawn (Bats) */
+    AI_PATROL_CROSS  = 2    /* + cross pattern around spawn (Slimes) */
+} ActorAiType;
+
 /* Static, scene-owned actor configuration.  No mutable gameplay state.
  * actor_id is the stable persistent instance id (ActorId) used to track
  * defeat/lifecycle in GameState.world; it must be unique across scenes. */
@@ -51,6 +58,7 @@ typedef struct {
     uint8_t shop_id;             /* which shop this actor runs (0 = none) */
     DialogueId dialogue_id;
     BattleId battle_id;
+    ActorAiType ai_type;
     uint8_t hp;                  /* hostile actors only */
     uint8_t max_hp;              /* hostile actors only */
     uint8_t gold_reward;         /* amount granted on defeat (hostile only) */
@@ -67,7 +75,7 @@ typedef struct {
     uint8_t count;
 } WorldActorTable;
 
-void actor_register_tables(const WorldActorTable *tables, uint8_t count);
+void actor_register_tables(const WorldActorTable *tables, uint8_t count, uint8_t bank);
 
 /* Result of engaging an actor. */
 typedef enum {

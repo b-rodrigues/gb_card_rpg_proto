@@ -43,17 +43,9 @@ static const SceneDefinition g_scenes[] = {
         g_castle_exits, (uint8_t)(sizeof(g_castle_exits)/sizeof(g_castle_exits[0])) }
 };
 
-#define NUM_SCENES (sizeof(g_scenes) / sizeof(g_scenes[0]))
-
 const SceneDefinition *scene_definition_for_map(MapId map_id)
 {
-    uint8_t i;
-    for (i = 0; i < NUM_SCENES; i++) {
-        if (g_scenes[i].map_id == map_id) {
-            return &g_scenes[i];
-        }
-    }
-    return NULL;
+    return (map_id <= MAP_CASTLE) ? &g_scenes[map_id] : NULL;
 }
 
 const SceneExit *scene_exit_at(const SceneDefinition *def, uint8_t x, uint8_t y)
@@ -70,66 +62,41 @@ const SceneExit *scene_exit_at(const SceneDefinition *def, uint8_t x, uint8_t y)
 
 /* Fill terrain features for a scene.  A direct switch (not a function
  * pointer) so the code stays in bank 0 and works under the harness. */
+static const uint8_t s_forest_trees[] = {4,2, 5,2, 4,3, 10,6, 11,6, 9,7, 14,2, 15,2, 3,8, 8,9, 13,9};
+
 static void scene_fill_terrain(World *w, MapId map_id)
 {
-    uint8_t x, y, i;
+    uint8_t x, y;
 
-    switch (map_id) {
-        case MAP_FIELD:
-            break;   /* open field */
-
-        case MAP_TOWN:
-            for (y = 3; y <= 6; y++) {
-                for (x = 4; x <= 8; x++) {
-                    w->map[y][x] = TILE_BUILDING;
-                }
-                for (x = 12; x <= 16; x++) {
-                    w->map[y][x] = TILE_BUILDING;
-                }
+    if (map_id == MAP_TOWN || map_id == MAP_CASTLE) {
+        uint8_t y_max = (map_id == MAP_TOWN) ? 6 : 8;
+        uint8_t x_min = (map_id == MAP_TOWN) ? 4 : 3;
+        uint8_t l_max = (map_id == MAP_TOWN) ? 8 : 6;
+        uint8_t r_min = (map_id == MAP_TOWN) ? 12 : 13;
+        for (y = 3; y <= y_max; y++) {
+            for (x = x_min; x <= 16; x++) {
+                if (x <= l_max || x >= r_min) w->map[y][x] = TILE_BUILDING;
             }
-            break;
-
-        case MAP_FOREST: {
-            static const uint8_t trees[][2] = {{4,2},{5,2},{4,3},{10,6},{11,6},
-                                               {9,7},{14,2},{15,2},{3,8},{8,9},{13,9}};
-            for (i = 0; i < sizeof(trees)/sizeof(trees[0]); i++) {
-                w->map[trees[i][1]][trees[i][0]] = TILE_WALL;
-            }
-            break;
         }
-
-        case MAP_MOUNTAIN_PASS:
-            for (y = 0; y < w->height; y++) {
-                for (x = 0; x < w->width; x++) {
-                    if (x <= 3 || x >= 16) {
-                        w->map[y][x] = TILE_WALL;
-                    } else if (y % 4 == 2 && (x == 9 || x == 10)) {
-                        w->map[y][x] = TILE_WALL;   /* pinch point */
-                    }
+    } else if (map_id == MAP_FOREST) {
+        for (y = 0; y < sizeof(s_forest_trees); y += 2) {
+            w->map[s_forest_trees[y+1]][s_forest_trees[y]] = TILE_WALL;
+        }
+    } else if (map_id == MAP_MOUNTAIN_PASS) {
+        for (y = 0; y < w->height; y++) {
+            for (x = 0; x < w->width; x++) {
+                if (x <= 3 || x >= 16 || (y % 4 == 2 && (x == 9 || x == 10))) {
+                    w->map[y][x] = TILE_WALL;
                 }
             }
-            break;
-
-        case MAP_CASTLE:
-            for (y = 3; y <= 8; y++) {
-                for (x = 3; x <= 6; x++) {
-                    w->map[y][x] = TILE_BUILDING;
-                }
-                for (x = 13; x <= 16; x++) {
-                    w->map[y][x] = TILE_BUILDING;
-                }
-            }
-            break;
-
-        default:
-            break;
+        }
     }
 }
 
 void scene_load_tiles(World *w, MapId map_id)
 {
     const SceneDefinition *def;
-    uint8_t x, y, i;
+    uint8_t x, y;
 
     if (!w) return;
     def = scene_definition_for_map(map_id);
@@ -137,39 +104,25 @@ void scene_load_tiles(World *w, MapId map_id)
 
     for (y = 0; y < w->height; y++) {
         for (x = 0; x < w->width; x++) {
-            if (y == 0 || y == w->height - 1 || x == 0 || x == w->width - 1) {
-                w->map[y][x] = TILE_WALL;
-            } else {
-                w->map[y][x] = TILE_FLOOR;
-            }
+            w->map[y][x] = (y == 0 || y == w->height - 1 || x == 0 || x == w->width - 1) ? TILE_WALL : TILE_FLOOR;
         }
     }
 
     scene_fill_terrain(w, map_id);
 
-    for (i = 0; i < def->exit_count; i++) {
-        w->map[def->exits[i].gate_y][def->exits[i].gate_x] = TILE_EXIT;
+    for (x = 0; x < def->exit_count; x++) {
+        w->map[def->exits[x].gate_y][def->exits[x].gate_x] = TILE_EXIT;
     }
 }
 
+/* MapId and SceneId 1:1 identity mappings (MAP_FIELD==SCENE_FIELD .. MAP_CASTLE==SCENE_CASTLE).
+ * Range checked to guarantee valid values within [0..MAP_CASTLE]. */
 MapId scene_id_to_map(SceneId scene)
 {
-    switch (scene) {
-        case SCENE_TOWN:          return MAP_TOWN;
-        case SCENE_FOREST:        return MAP_FOREST;
-        case SCENE_MOUNTAIN_PASS: return MAP_MOUNTAIN_PASS;
-        case SCENE_CASTLE:        return MAP_CASTLE;
-        default:                  return MAP_FIELD;
-    }
+    return (scene <= SCENE_CASTLE) ? (MapId)scene : MAP_FIELD;
 }
 
 SceneId map_to_scene_id(MapId map)
 {
-    switch (map) {
-        case MAP_TOWN:          return SCENE_TOWN;
-        case MAP_FOREST:        return SCENE_FOREST;
-        case MAP_MOUNTAIN_PASS: return SCENE_MOUNTAIN_PASS;
-        case MAP_CASTLE:        return SCENE_CASTLE;
-        default:                return SCENE_FIELD;
-    }
+    return (map <= MAP_CASTLE) ? (SceneId)map : SCENE_FIELD;
 }

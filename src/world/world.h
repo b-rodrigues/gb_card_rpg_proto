@@ -67,6 +67,9 @@ typedef enum {
     TILE_BUILDING = 3
 } TileType;
 
+/* Frames between autonomous patrol steps for hostile actors (~0.53 seconds). */
+#define PATROL_STEP_INTERVAL 32
+
 /* Mutable runtime state for a spawned World Actor.  Static actor
  * configuration lives in WorldActorDefinition; hostile actors are spawned
  * into World.actors by actor_load_scene().  actor_id is the persistent
@@ -84,6 +87,16 @@ typedef struct {
     uint8_t gold_reward;         /* copied from the definition */
     uint8_t reward_currency;     /* copied from the definition */
     const char *display_name;    /* copied from the definition */
+    uint8_t visual;              /* ASCII char: 'S', 'B', etc. */
+    uint8_t spawn_x;             /* patrol anchor origin */
+    uint8_t spawn_y;
+    uint8_t ai_type;             /* ActorAiType */
+    uint8_t ai_step;             /* step index in patrol cycle */
+    uint8_t ai_timer;            /* countdown to next patrol step */
+    uint8_t move_state;          /* 0 = idle, 1 = moving between tiles */
+    uint8_t move_target_x;
+    uint8_t move_target_y;
+    uint8_t move_progress;       /* 0..7 sub-tile pixels */
 } WorldActorRuntime;
 
 typedef struct {
@@ -145,10 +158,18 @@ WorldMoveResult world_try_begin_move(World *w, int8_t dx, int8_t dy,
                                      const GameState *state);
 WorldMoveResult world_update_move(World *w, const GameState *state);
 
+/* Advance autonomous patrol AI for all active hostile actors in the scene.
+ * If an actor steps into the player, sets encounter_actor_index and returns
+ * MOVE_RESULT_ENCOUNTER. */
+WorldMoveResult world_update_actors(World *w);
+
 /* Renderer pixel position (tile*8 plus the sub-tile walk progress) of the
  * player sprite.  Valid whenever the player is not animating a move. */
 uint8_t world_player_px(const World *w);
 uint8_t world_player_py(const World *w);
+
+uint8_t world_actor_px(const WorldActorRuntime *a);
+uint8_t world_actor_py(const WorldActorRuntime *a);
 
 void world_on_battle_end(Game *g, bool victory);
 

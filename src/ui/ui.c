@@ -137,7 +137,13 @@ void ui_hud_hide(void)
  * render positions it via ui_sprite_move(). */
 void ui_sprite_init(void)
 {
-    set_sprite_data(PLAYER_SPRITE_TILE_ID, 1, player_sprite_tile);
+    uint16_t i;
+    for (i = 0; i < (96 * 16); i++) {
+        ((volatile uint8_t *)0x8000)[i] = ((volatile uint8_t *)0x9000)[i];
+    }
+    for (i = 0; i < 16; i++) {
+        ((volatile uint8_t *)0x8000)[PLAYER_SPRITE_TILE_ID * 16 + i] = player_sprite_tile[i];
+    }
     set_sprite_tile(PLAYER_SPRITE_NUM, PLAYER_SPRITE_TILE_ID);
     SPRITES_8x8;
     SHOW_SPRITES;
@@ -164,26 +170,22 @@ void ui_sprite_move(uint8_t px, uint8_t py)
  * display. */
 void ui_sprite_hide(void)
 {
-    hide_sprite(PLAYER_SPRITE_NUM);
+    uint8_t i;
+    for (i = 0; i <= MAX_WORLD_ACTORS; i++) {
+        hide_sprite(i);
+    }
     ui_sprite_begin_transition();
 }
 
-/* Hide the player sprite in real OAM right now, before the new screen's
- * full redraw runs.  The full redraw takes several display sweeps (the
- * screen blanks and redraws top-to-bottom); the hide must already be in real
- * OAM when it starts, or the sprite is shown at a stale position over the
- * wipe.  The intended final position is preserved in shadow OAM so the
- * frame-boundary commit reveals it on the new screen's first drawn frame. */
+/* Hide the player and actor sprites in real OAM right now, before the new
+ * screen's full redraw runs. */
 void ui_sprite_begin_transition(void)
 {
-    OAM_item_t *spr;
-    uint8_t sy;
-
-    spr = &shadow_OAM[PLAYER_SPRITE_NUM];
-    sy = spr->y;
-    spr->y = 0;                 /* hidden during the wipe */
+    uint8_t i;
+    for (i = 0; i <= MAX_WORLD_ACTORS; i++) {
+        shadow_OAM[i].y = 0;
+    }
     refresh_OAM();
-    spr->y = sy;                /* keep the final position for the commit */
 }
 
 /* DMA shadow OAM to real OAM.  Called once per frame from main.c right after
@@ -287,25 +289,27 @@ static void ui_draw_text_line_ring(uint8_t x, uint8_t y, const char *text,
 
 void ui_format_int(int16_t value, char *out)
 {
-    char tmp[7];
+    char tmp[6];
     uint8_t i = 0;
     uint8_t j = 0;
-    int32_t mag;
-    int16_t digit;
+    uint16_t uval;
 
     if (!out) return;
-    mag = (value < 0) ? -(int32_t)value : (int32_t)value;
-
-    if (mag == 0) {
-        tmp[i++] = '0';
-    }
-    while (mag > 0) {
-        digit = (int16_t)(mag % 10);
-        tmp[i++] = (char)('0' + digit);
-        mag /= 10;
-    }
     if (value < 0) {
-        tmp[i++] = '-';
+        out[j++] = '-';
+        uval = (uint16_t)(-value);
+    } else {
+        uval = (uint16_t)value;
+    }
+
+    if (uval == 0) {
+        out[j++] = '0';
+        out[j] = '\0';
+        return;
+    }
+    while (uval > 0) {
+        tmp[i++] = (char)('0' + (uint8_t)(uval % 10));
+        uval /= 10;
     }
     while (i > 0) {
         out[j++] = tmp[--i];
@@ -337,7 +341,7 @@ static void ui_draw_world_cell_ex(const World *world, uint8_t col, uint8_t row)
     }
 
     actor = actor_find_at(world, col, row);
-    if (actor) {
+    if (actor && !(actor->flags & ACTOR_FLAG_HOSTILE)) {
         tile_idx = (uint8_t)(ui_font_tile_base + (uint8_t)(actor->visual - ' '));
     } else {
         tile_idx = (uint8_t)(ui_font_tile_base + (uint8_t)(g_sem_map[t] - ' '));
@@ -350,13 +354,41 @@ static void ui_draw_world_cell_ex(const World *world, uint8_t col, uint8_t row)
     sx = (uint8_t)(col - world->scroll_x);
     sy = (uint8_t)(row - world->scroll_y);
     if (sx < WORLD_VIEW_W && sy < WORLD_VIEW_H) {
-        g_ui_screen_buf[sy][sx] = actor ? actor->visual : g_sem_map[t];
+        g_ui_screen_buf[sy][sx] = (actor && !(actor->flags & ACTOR_FLAG_HOSTILE)) ? actor->visual : g_sem_map[t];
     }
 }
 
 static void ui_draw_world_cell(const World *world, uint8_t col, uint8_t row)
 {
     ui_draw_world_cell_ex(world, col, row);
+}
+
+void ui_draw_actors_sprites(const World *world)
+{
+    uint8_t slot;
+    const WorldActorRuntime *a;
+    uint8_t px, py;
+    uint8_t spr_num;
+
+    if (!world) return;
+
+    for (slot = 0; slot < MAX_WORLD_ACTORS; slot++) {
+        a = &world->actors[slot];
+        spr_num = (uint8_t)(1 + slot);
+        if (!a->active) {
+            hide_sprite(spr_num);
+            continue;
+        }
+        px = (uint8_t)(world_actor_px(a) - world->camera_px_x);
+        py = (uint8_t)(world_actor_py(a) - world->camera_px_y);
+
+        if (px < 160 && py < 96) {
+            move_sprite(spr_num, (uint8_t)(px + 8), (uint8_t)(py + 16));
+            set_sprite_tile(spr_num, (uint8_t)(ui_font_tile_base + (uint8_t)(a->visual - ' ')));
+        } else {
+            hide_sprite(spr_num);
+        }
+    }
 }
 
 /* Draw every cell in [c0,c1) x [r0,r1) into the tilemap ring. */
@@ -379,7 +411,9 @@ static void ui_draw_world_rect(const World *world, uint8_t c0, uint8_t c1,
 #ifdef DEBUG_BUILD
 static void ui_refill_semantic(const World *world)
 {
-    uint8_t x, y, col, row, tile;
+    uint8_t x, y, col, row, tile, slot;
+    const WorldActorRuntime *a;
+    uint8_t sx, sy;
 
     for (y = 0; y < WORLD_VIEW_H; y++) {
         for (x = 0; x < WORLD_VIEW_W; x++) {
@@ -387,6 +421,16 @@ static void ui_refill_semantic(const World *world)
             row = (uint8_t)(world->scroll_y + y);
             tile = g_tilemap_mirror[(row & 31) * 32 + (col & 31)];
             g_ui_screen_buf[y][x] = (char)((tile - ui_font_tile_base) + ' ');
+        }
+    }
+
+    for (slot = 0; slot < MAX_WORLD_ACTORS; slot++) {
+        a = &world->actors[slot];
+        if (!a->active) continue;
+        sx = (uint8_t)(a->x - world->scroll_x);
+        sy = (uint8_t)(a->y - world->scroll_y);
+        if (sx < WORLD_VIEW_W && sy < WORLD_VIEW_H) {
+            g_ui_screen_buf[sy][sx] = (char)a->visual;
         }
     }
 }
@@ -412,6 +456,7 @@ void ui_draw_world_map(const World *world)
     /* The ASCII @ is an OAM glyph, not a BG tile. */
     ui_sprite_move((uint8_t)(world_player_px(world) - world->camera_px_x),
                    (uint8_t)(world_player_py(world) - world->camera_px_y));
+    ui_draw_actors_sprites(world);
 }
 
 void ui_update_camera(const World *world)
@@ -466,6 +511,7 @@ static void ui_hud_num2(uint8_t x, uint8_t y, uint8_t val)
 void ui_draw_overworld_hud(const World *world)
 {
     const char *label;
+    uint8_t r;
 
     if (!world) return;
 
@@ -489,9 +535,7 @@ void ui_draw_overworld_hud(const World *world)
     ui_hud_num2(15, 1, world->player.hp);
     ui_hud_put_char(17, 1, '/');
     ui_hud_num2(18, 1, world->player.max_hp);
-    ui_hud_text_line(2, "", 20);
-    ui_hud_text_line(3, "", 20);
-    ui_hud_text_line(4, "", 20);
+    for (r = 2; r <= 4; r++) ui_hud_text_line(r, "", 20);
     ui_hud_text_line(5, " [D-PAD] MOVE HERO", 20);
 }
 
@@ -567,6 +611,7 @@ void ui_draw_battle_full(const Battle *battle)
 
 void ui_update_battle(const Battle *battle)
 {
+    const char *msg;
     if (!battle) return;
 
     /* Keep HP readouts current as damage is dealt/received */
@@ -574,42 +619,35 @@ void ui_update_battle(const Battle *battle)
     ui_draw_hp_row(10, battle->player.hp, battle->player.max_hp);
 
     if (battle->result == BATTLE_RESULT_VICTORY) {
-        ui_draw_text_line(0, 15, " VICTORY! PRESS [A]", 20);
+        msg = " VICTORY! PRESS [A]";
     } else if (battle->result == BATTLE_RESULT_DEFEAT) {
-        ui_draw_text_line(0, 15, " DEFEATED! PRESS [A]", 20);
+        msg = " DEFEATED! PRESS [A]";
     } else if (battle->result == BATTLE_RESULT_FLED) {
-        ui_draw_text_line(0, 15, " FLED! PRESS [A]", 20);
+        msg = " FLED! PRESS [A]";
     } else if (battle->turn == BATTLE_TURN_PLAYER) {
-        ui_draw_text_line(0, 15, " [A] ATTACK  [B] RUN", 20);
+        msg = " [A] ATTACK  [B] RUN";
     } else {
-        ui_draw_text_line(0, 15, " ENEMY TURN...", 20);
+        msg = " ENEMY TURN...";
     }
+    ui_draw_text_line(0, 15, msg, 20);
 }
 
 void ui_draw_dialogue(const DialogueState *dialogue, uint8_t scroll_x, uint8_t scroll_y)
 {
+    uint8_t y;
     if (!dialogue || !dialogue->active) return;
     if (dialogue->current_line >= dialogue->line_count) return;
 
     /* Dialogue box occupies dedicated modal overlay region: rows 12-17 (6 rows, 20 columns) */
     ui_draw_text_line_ring(0, 12, "+------------------+", 20, scroll_x, scroll_y);
-
-    ui_put_char_ring(0, 13, '|', scroll_x, scroll_y);
+    for (y = 13; y <= 16; y++) {
+        ui_put_char_ring(0, y, '|', scroll_x, scroll_y);
+        ui_put_char_ring(19, y, '|', scroll_x, scroll_y);
+    }
     ui_draw_text_line_ring(1, 13, dialogue->speaker ? dialogue->speaker : "", 18, scroll_x, scroll_y);
-    ui_put_char_ring(19, 13, '|', scroll_x, scroll_y);
-
-    ui_put_char_ring(0, 14, '|', scroll_x, scroll_y);
     ui_draw_text_line_ring(1, 14, dialogue->lines[dialogue->current_line], 18, scroll_x, scroll_y);
-    ui_put_char_ring(19, 14, '|', scroll_x, scroll_y);
-
-    ui_put_char_ring(0, 15, '|', scroll_x, scroll_y);
     ui_draw_text_line_ring(1, 15, "", 18, scroll_x, scroll_y);
-    ui_put_char_ring(19, 15, '|', scroll_x, scroll_y);
-
-    ui_put_char_ring(0, 16, '|', scroll_x, scroll_y);
     ui_draw_text_line_ring(1, 16, " [A] CONTINUE", 18, scroll_x, scroll_y);
-    ui_put_char_ring(19, 16, '|', scroll_x, scroll_y);
-
     ui_draw_text_line_ring(0, 17, "+------------------+", 20, scroll_x, scroll_y);
 }
 
@@ -618,13 +656,8 @@ void ui_draw_game_over(uint8_t choice)
     ui_clear_screen();
     ui_draw_text_line(0, 3, "    GAME OVER", 20);
     ui_draw_text_line(0, 8, "   CONTINUE?", 20);
-    if (choice == 0) {
-        ui_draw_text_line(0, 11, "> YES", 20);
-        ui_draw_text_line(0, 12, "  NO", 20);
-    } else {
-        ui_draw_text_line(0, 11, "  YES", 20);
-        ui_draw_text_line(0, 12, "> NO", 20);
-    }
+    ui_draw_text_line(0, 11, choice == 0 ? "> YES" : "  YES", 20);
+    ui_draw_text_line(0, 12, choice == 0 ? "  NO" : "> NO", 20);
     ui_draw_text_line(0, 16, " [A] CONFIRM", 20);
 }
 

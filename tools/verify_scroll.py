@@ -108,17 +108,17 @@ def main():
     # World struct field offsets relative to g_game (verified against the
     # debug ROM): Game = screen(1) + prev_screen(1) + GameState(197)
     # + World{ width,height,map_id,encounter_index,map_changed (5), player
-    # Entity (7), actors[4]*14 (56), map[24][40] (960), camera_px (2),
+    # Entity (7), actors[4]*24 (96), map[24][40] (960), camera_px (2),
     # scroll (2), move state (5) }.
     POS_X = game_addr + 204
     POS_Y = game_addr + 205
-    CAM_X = game_addr + 1227
-    CAM_Y = game_addr + 1228
-    SCROLL_X = game_addr + 1229
-    SCROLL_Y = game_addr + 1230
-    MOVE_STATE = game_addr + 1231
-    MOVE_TARGET_X = game_addr + 1232
-    MOVE_PROGRESS = game_addr + 1234
+    CAM_X = game_addr + 1267
+    CAM_Y = game_addr + 1268
+    SCROLL_X = game_addr + 1269
+    SCROLL_Y = game_addr + 1270
+    MOVE_STATE = game_addr + 1271
+    MOVE_TARGET_X = game_addr + 1272
+    MOVE_PROGRESS = game_addr + 1274
 
     # Shadow-OAM slot 0 = the player sprite (y, x).  Read before the frame's
     # ui_sprite_commit so it always reflects the latest game_render.

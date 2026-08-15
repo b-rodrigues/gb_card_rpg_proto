@@ -150,6 +150,10 @@ void debug_state_snapshot(void)
     if (!&g_game) return;
     st = &g_game.state;
 
+    for (i = 0; i < STATE_SNAP_TOTAL_SIZE; i++) {
+        b[i] = 0;
+    }
+
     b[0] = STATE_SNAP_VERSION_BYTE;
     for (i = 0; i < MAX_STATE_FLAGS / 8; i++) {
         b[STATE_SNAP_FLAGS_OFFSET + i] = st->flags.bytes[i];
@@ -169,53 +173,37 @@ void debug_state_snapshot(void)
     }
 
     b[STATE_SNAP_PARTY_OFFSET] = st->party.count;
-    for (i = 0; i < MAX_PARTY_MEMBERS; i++) {
+    for (i = 0; i < st->party.count && i < MAX_PARTY_MEMBERS; i++) {
         n = STATE_SNAP_PARTY_OFFSET + 1 + i * STATE_SNAP_PARTY_ENTRY_SIZE;
-        if (i < st->party.count) {
-            b[n]     = (uint8_t)st->party.members[i].id;
-            b[n + 1] = st->party.members[i].hp;
-            b[n + 2] = st->party.members[i].max_hp;
-        } else {
-            b[n] = 0; b[n + 1] = 0; b[n + 2] = 0;
-        }
+        b[n]     = (uint8_t)st->party.members[i].id;
+        b[n + 1] = st->party.members[i].hp;
+        b[n + 2] = st->party.members[i].max_hp;
     }
 
     b[STATE_SNAP_INVENTORY_OFFSET] = st->inventory.count;
-    for (i = 0; i < 16; i++) {
+    for (i = 0; i < st->inventory.count && i < 16; i++) {
         n = STATE_SNAP_INVENTORY_OFFSET + 1 + i * STATE_SNAP_INVENTORY_ENTRY_SIZE;
-        if (i < st->inventory.count) {
-            b[n]     = (uint8_t)st->inventory.entries[i].item_id;
-            b[n + 1] = st->inventory.entries[i].quantity;
-        } else {
-            b[n] = 0; b[n + 1] = 0;
-        }
+        b[n]     = (uint8_t)st->inventory.entries[i].item_id;
+        b[n + 1] = st->inventory.entries[i].quantity;
     }
 
     b[STATE_SNAP_WORLD_OFFSET] = st->world.count;
-    for (i = 0; i < 16; i++) {
+    for (i = 0; i < st->world.count && i < 16; i++) {
         n = STATE_SNAP_WORLD_OFFSET + 1 + i * STATE_SNAP_WORLD_ENTRY_SIZE;
-        if (i < st->world.count) {
-            b[n]     = (uint8_t)(st->world.actors[i].actor_id & 0xFF);
-            b[n + 1] = (uint8_t)((st->world.actors[i].actor_id >> 8) & 0xFF);
-            b[n + 2] = st->world.actors[i].state;
-        } else {
-            b[n] = 0; b[n + 1] = 0; b[n + 2] = 0;
-        }
+        b[n]     = (uint8_t)(st->world.actors[i].actor_id & 0xFF);
+        b[n + 1] = (uint8_t)((st->world.actors[i].actor_id >> 8) & 0xFF);
+        b[n + 2] = st->world.actors[i].state;
     }
 
     b[STATE_SNAP_PROGRESSION_COUNT_OFF] = st->progression.count;
-    for (i = 0; i < MAX_PROGRESSION_TARGETS; i++) {
+    for (i = 0; i < st->progression.count && i < MAX_PROGRESSION_TARGETS; i++) {
         n = STATE_SNAP_PROGRESSION_ENTRY_OFF + i * STATE_SNAP_PROGRESSION_ENTRY_SIZE;
-        if (i < st->progression.count) {
-            b[n]     = st->progression.entries[i].target.type;
-            b[n + 1] = (uint8_t)(st->progression.entries[i].target.id & 0xFF);
-            b[n + 2] = (uint8_t)((st->progression.entries[i].target.id >> 8) & 0xFF);
-            b[n + 3] = st->progression.entries[i].state.level;
-            b[n + 4] = (uint8_t)(st->progression.entries[i].state.progress & 0xFF);
-            b[n + 5] = (uint8_t)((st->progression.entries[i].state.progress >> 8) & 0xFF);
-        } else {
-            b[n] = 0; b[n + 1] = 0; b[n + 2] = 0; b[n + 3] = 0; b[n + 4] = 0; b[n + 5] = 0;
-        }
+        b[n]     = st->progression.entries[i].target.type;
+        b[n + 1] = (uint8_t)(st->progression.entries[i].target.id & 0xFF);
+        b[n + 2] = (uint8_t)((st->progression.entries[i].target.id >> 8) & 0xFF);
+        b[n + 3] = st->progression.entries[i].state.level;
+        b[n + 4] = (uint8_t)(st->progression.entries[i].state.progress & 0xFF);
+        b[n + 5] = (uint8_t)((st->progression.entries[i].state.progress >> 8) & 0xFF);
     }
 
     b[STATE_SNAP_EQUIPMENT_OFF] = (uint8_t)st->equipment.weapon;

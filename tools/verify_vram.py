@@ -44,6 +44,8 @@ BG_TM = 0x9800
 VIEW_ROWS = 12
 VIEW_COLS = 20
 TARGET_HITS = 30
+PLAYER_TILE = [0x3C, 0x3C, 0x7E, 0x7E, 0x66, 0x66, 0x7E, 0x7E,
+               0x3C, 0x3C, 0x18, 0x18, 0x3C, 0x3C, 0x7E, 0x7E]
 
 failures = []
 
@@ -177,6 +179,24 @@ def main():
         if len(mismatches) > 8:
             detail += f"; ... (+{len(mismatches) - 8} more)"
         check("bg-mirror-match (ring tilemap == writes)", not mismatches, detail)
+
+        # The player sprite tile (PLAYER_SPRITE_TILE_ID 102, physical
+        # 0x8660) must be loaded into sprite-addressable VRAM, or the OAM
+        # sprite renders as an invisible empty tile.  Regression for commit
+        # 152d0c1, which pointed the sprite at the console font's '@' glyph
+        # (physical 0x9200 -- outside the sprite-addressable 0x8000 block).
+        tile_ok = True
+        bad = []
+        for i in range(16):
+            v = cmd(f"r/1 0x{0x8660 + i:04X}")
+            vv = re.findall(r"0x([0-9A-Fa-f]+)", v)
+            vb = int(vv[-1], 16) if len(vv) >= 2 else None
+            if vb != PLAYER_TILE[i]:
+                bad.append((i, vb))
+        detail = "; ".join(f"byte {i} vram={v:02X}" for i, v in bad[:8])
+        if len(bad) > 8:
+            detail += f"; ... (+{len(bad) - 8} more)"
+        check("player-sprite-tile (VRAM 0x8660 == tile data)", not bad, detail)
     finally:
         proc.kill()
 

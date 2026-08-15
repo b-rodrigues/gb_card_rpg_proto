@@ -92,6 +92,11 @@ def shadow_oam(sess):
     return (sess._memread(0xC000), sess._memread(0xC001))
 
 
+def shadow_sprite_tile(sess):
+    """Sprite tile byte from shadow OAM slot 0 (y, x, tile, attr)."""
+    return sess._memread(0xC002)
+
+
 def verify_battle_transition(sess):
     print("== Battle transition (first_encounter) ==")
     sess.load_scenario(load_scenario(sess, "first_encounter.json"))
@@ -100,6 +105,7 @@ def verify_battle_transition(sess):
     # 1. Overworld steady: player at (13,8), camera (24,16) ->
     #    OAM x = 13*8+8-24 = 88, y = 8*8+16-16 = 64.
     check("overworld @ sprite position (shadow OAM)", (64, 88), shadow_oam(sess))
+    check("overworld sprite tile (shadow OAM)", 102, shadow_sprite_tile(sess))
 
     # 2. Walk right into the slime at (14,8): the encounter is decided once
     #    the hold-to-move commits the tile (MOVE_FRAMES=8).  The sprite is

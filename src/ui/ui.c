@@ -126,8 +126,8 @@ void ui_hud_hide(void)
  * render positions it via ui_sprite_move(). */
 void ui_sprite_init(void)
 {
-    set_sprite_tile(PLAYER_SPRITE_NUM,
-                    (uint8_t)(ui_font_tile_base + (uint8_t)('@' - ' ')));
+    set_sprite_data(PLAYER_SPRITE_TILE_ID, 1, player_sprite_tile);
+    set_sprite_tile(PLAYER_SPRITE_NUM, PLAYER_SPRITE_TILE_ID);
     SPRITES_8x8;
     SHOW_SPRITES;
     hide_sprite(PLAYER_SPRITE_NUM);

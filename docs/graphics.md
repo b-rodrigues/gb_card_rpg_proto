@@ -49,9 +49,18 @@ renderer rewiring below.
 * OAM sprite engine for the player, NPCs, and enemies (40 sprite limit).
 * CGB palettes (BG + OBJ) with a DMG grayscale fallback; reset `VBK_REG = 0`
   after attribute writes (AGENTS.md §38).
+* CGB OBJ palettes must be set explicitly via `set_sprite_palette()`. The CGB
+  boot ROM leaves object colors uninitialized and `OBP0`/`OBP1` are
+  Non-CGB-Mode-only registers, so a sprite without an explicit OBJ palette
+  renders with emulator-dependent garbage (AGENTS.md §38.1).
 * Harness-safe: no VBlank waits in harness paths (`g_harness_mode` skips
   vsync; `ui_init` turns the LCD off before `font_load`) — AGENTS.md §52.6.
 * Keep incremental redraws for player movement / HUD (AGENTS.md §36).
+
+Hardware reference: local Pan Docs checkout at
+`/home/brodrigues/Documents/repos/pandocs` (`src/Palettes.md`,
+`src/Power_Up_Sequence.md`).  Note: CRAM reads return `0xFF` during Mode 3,
+which is why mGBA-debugger `OCPD` reads are unreliable for palette checks.
 
 ### Sprite transition-hide timing rule
 

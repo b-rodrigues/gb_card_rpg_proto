@@ -1380,6 +1380,36 @@ after writing tile attributes to VRAM Bank 1.
 
 Do not assume CGB hardware when running on DMG.
 
+### 38.1 CGB object palettes are NOT initialized by the boot ROM
+
+Per Pan Docs (`src/Palettes.md`, "LCD Color Palettes"): in CGB mode the boot
+ROM leaves all object colors uninitialized ("somewhat random/unreliable",
+aside from the unused byte of OBJ0 color #0).  `FF48–FF49` (`OBP0`/`OBP1`)
+are **Non-CGB-Mode only** registers; on CGB hardware they do not drive sprite
+colors at all.
+
+Consequence: a sprite without an explicit `set_sprite_palette()` renders with
+emulator-dependent garbage from uninitialized CRAM.  This bit the hero: the
+ROM is CGB-only (header `0x143 = 0xC0`) and wrote `OBP0_REG = 0xE4`, yet the
+hero rendered purple (SameBoy), brown (PyBoy CGB), or white (some viewers)
+until `set_sprite_palette()` was added in `ui_init()`.
+
+Rule: every visible sprite must be given an explicit CGB OBJ palette, guarded
+by `_cpu == CGB_TYPE`, alongside the BG palette:
+
+```c
+if (_cpu == CGB_TYPE) {
+    set_bkg_palette(0, 1, cgb_palette);
+    set_sprite_palette(0, 1, cgb_sprite_palette);   /* required */
+}
+```
+
+The hero tile's ink is color index 3 (both bit planes set), so entry 3 of the
+sprite palette controls the hero color.
+
+Reference: local Pan Docs checkout at `/home/brodrigues/Documents/repos/pandocs`
+(`src/Palettes.md`, `src/Power_Up_Sequence.md`).
+
 ---
 
 # 39. SDCC / GBDK C89 Rules

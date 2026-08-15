@@ -197,10 +197,15 @@ void ui_lcd_on(void)
 void ui_clear_screen(void)
 {
     uint8_t x, y;
+    /* Always select VRAM bank 0 before tilemap writes: on CGB, VBK_REG = 1
+     * selects the CGB attribute bank and writes land there instead of the
+     * tile-index bank.  Written directly -- not through gotoxy/putchar --
+     * so full-screen clears are a tight VRAM loop that fits in VBlank. */
+    VBK_REG = 0;
     for (y = 0; y < 18; y++) {
         for (x = 0; x < 20; x++) {
-            gotoxy(x, y);
-            putchar(' ');
+            ((volatile uint8_t *)0x9800)[y * 32 + x] =
+                ui_font_tile_base;
             g_ui_screen_buf[y][x] = ' ';
         }
         g_ui_screen_buf[y][20] = '\0';
@@ -210,22 +215,21 @@ void ui_clear_screen(void)
 void ui_draw_text_line(uint8_t x, uint8_t y, const char *text, uint8_t max_chars)
 {
     uint8_t i = 0;
+    uint8_t ended;
     char ch;
-    gotoxy(x, y);
-    if (text) {
-        while (text[i] != '\0' && i < max_chars) {
-            ch = text[i];
-            putchar((int)ch);
-            if (y < 18 && (x + i) < 20) {
-                g_ui_screen_buf[y][x + i] = ch;
-            }
-            i++;
-        }
-    }
+    if (y >= 18) return;
+    VBK_REG = 0;  /* tile-index bank, not the CGB attribute bank */
+    ended = (text == NULL);
     while (i < max_chars) {
-        putchar(' ');
-        if (y < 18 && (x + i) < 20) {
-            g_ui_screen_buf[y][x + i] = ' ';
+        /* Track end-of-string with a flag: re-checking text[i] after a '\0'
+         * would read the NEXT byte (i was already incremented) and could
+         * bleed into the adjacent ROM string packed after this one. */
+        if (!ended && text[i] == '\0') ended = 1;
+        ch = ended ? ' ' : text[i];
+        if ((x + i) < 20) {
+            ((volatile uint8_t *)0x9800)[y * 32 + x + i] =
+                (uint8_t)(ui_font_tile_base + (uint8_t)(ch - ' '));
+            g_ui_screen_buf[y][x + i] = ch;
         }
         i++;
     }
@@ -318,13 +322,18 @@ void ui_draw_world_map(const World *world)
     uint8_t y;
     if (!world) return;
 
-    /* Full ring window around the camera: VIEW_W+1 columns x VIEW_H+1 rows
-     * (the extra column/row covers the SCX/SCY sub-tile offset so no stale
-     * tiles show at the display edges), then the semantic row terminators. */
-    ui_draw_world_rect(world, world->scroll_x,
-                       (uint8_t)(world->scroll_x + WORLD_VIEW_W + 1),
-                       world->scroll_y,
-                       (uint8_t)(world->scroll_y + WORLD_VIEW_H + 1));
+    /* Draw the ENTIRE map into the ring, not just the camera window.  The
+     * ring is 32 columns and every scene is <= 32 wide (FIELD=32, the rest
+     * are 20), so the whole map fits at the wrapped (col & 31) addresses and
+     * the camera window is just a SCX/SCY slice of it.  A window-only
+     * repaint is wrong after a screen transition: ui_clear_screen() blanks
+     * ring cols 0..19 to the font space tile, and the cells outside the
+     * current window were never redrawn -- so NPC/enemy/floor glyphs there
+     * stayed blank until the camera scrolled or a fresh full redraw happened
+     * (e.g. the town guard vanishing until you talked to the mayor again).
+     * Out-of-map cells draw floor, so the ring is fully consistent
+     * regardless of where the camera is. */
+    ui_draw_world_rect(world, 0, world->width, 0, world->height);
     for (y = 0; y < WORLD_VIEW_H; y++) {
         g_ui_screen_buf[y][WORLD_VIEW_W] = '\0';
     }
@@ -503,9 +512,10 @@ void ui_update_player_position(const World *world, uint8_t old_px, uint8_t old_p
 
 static void ui_put_char(uint8_t x, uint8_t y, char ch)
 {
-    gotoxy(x, y);
-    putchar((int)ch);
     if (y < 18 && x < 20) {
+        VBK_REG = 0;  /* tile-index bank, not the CGB attribute bank */
+        ((volatile uint8_t *)0x9800)[y * 32 + x] =
+            (uint8_t)(ui_font_tile_base + (uint8_t)(ch - ' '));
         g_ui_screen_buf[y][x] = ch;
     }
 }
@@ -590,37 +600,21 @@ void ui_draw_dialogue(const DialogueState *dialogue)
     /* Dialogue box occupies dedicated modal overlay region: rows 12-17 (6 rows, 20 columns) */
     ui_draw_text_line(0, 12, "+------------------+", 20);
 
-    gotoxy(0, 13);
-    putchar('|');
-    g_ui_screen_buf[13][0] = '|';
+    ui_put_char(0, 13, '|');
     ui_draw_text_line(1, 13, dialogue->speaker ? dialogue->speaker : "", 18);
-    gotoxy(19, 13);
-    putchar('|');
-    g_ui_screen_buf[13][19] = '|';
+    ui_put_char(19, 13, '|');
 
-    gotoxy(0, 14);
-    putchar('|');
-    g_ui_screen_buf[14][0] = '|';
+    ui_put_char(0, 14, '|');
     ui_draw_text_line(1, 14, dialogue->lines[dialogue->current_line], 18);
-    gotoxy(19, 14);
-    putchar('|');
-    g_ui_screen_buf[14][19] = '|';
+    ui_put_char(19, 14, '|');
 
-    gotoxy(0, 15);
-    putchar('|');
-    g_ui_screen_buf[15][0] = '|';
+    ui_put_char(0, 15, '|');
     ui_draw_text_line(1, 15, "", 18);
-    gotoxy(19, 15);
-    putchar('|');
-    g_ui_screen_buf[15][19] = '|';
+    ui_put_char(19, 15, '|');
 
-    gotoxy(0, 16);
-    putchar('|');
-    g_ui_screen_buf[16][0] = '|';
+    ui_put_char(0, 16, '|');
     ui_draw_text_line(1, 16, " [A] CONTINUE", 18);
-    gotoxy(19, 16);
-    putchar('|');
-    g_ui_screen_buf[16][19] = '|';
+    ui_put_char(19, 16, '|');
 
     ui_draw_text_line(0, 17, "+------------------+", 20);
 }

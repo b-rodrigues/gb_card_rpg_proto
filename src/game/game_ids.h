@@ -82,4 +82,19 @@ typedef enum {
     CURRENCY_ID_GOLD = 1
 } CurrencyIdNamed;
 
+/* ── Banked content ────────────────────────────────────────────────
+ * The event and dialogue content tables are compiled into MBC5 ROM bank
+ * GAME_CONTENT_BANK (see events_content.c / dialogue_content.c, which use
+ * `#pragma bank 2`).  Bank 2 is used because the project links with -yo8:
+ * bank 0 legitimately spans the full 32 KB (file 0x0000-0x7FFF), so bank 1
+ * (file 0x4000-0x7FFF) overlaps bank 0's second half and sdldgb's
+ * "Multiple write" overwrites the tables with bank-0 code.  Bank 2
+ * (file 0x8000-0xBFFF) is clear.  The engine reads the tables through WRAM
+ * scratch copies (core/event.c, core/dialogue.c, banked_copy in crt0.s), so
+ * no gameplay code ever reads banked data directly.  The *_COUNT values are
+ * compile-time-asserted against the tables in the content files. */
+#define GAME_CONTENT_BANK 2
+#define GAME_EVENT_COUNT 12
+#define GAME_DIALOGUE_COUNT 12
+
 #endif /* GAME_IDS_H */

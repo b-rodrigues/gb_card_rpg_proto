@@ -23,7 +23,7 @@ src/screens/overworld, battle, dialogue,   quests.c      quest registry
             item, shop, ending, ...        shops.c       per-shop stock lists
 src/ui/     shared menu frame, drawing
 src/input/  joypad abstraction
-src/audio/  music (VBlank-driven ISR)
+src/audio/  music (timer-driven ISR)
 src/debug/  telemetry, scenarios, rng, assertions
 ```
 

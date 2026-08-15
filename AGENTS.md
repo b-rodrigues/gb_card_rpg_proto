@@ -1248,24 +1248,44 @@ Tests should assert audio state semantically rather than attempting to analyze r
 
 ---
 
-# 35. Hardware VBlank Sound Timing
+# 35. Hardware Timer Sound Timing (music clock)
 
 Never update music step timers directly inside the main `while(1)` loop.
 
 Main-loop CPU variations can cause music to play at variable tempos between menus and gameplay.
 
-Music must run on the **hardware VBlank interrupt**, driven by a dedicated
-RAM-resident ISR installed by the custom CRT0:
+Music must run on the **hardware Timer interrupt** (TIMA overflow), driven by
+a dedicated RAM-resident ISR installed by the custom CRT0:
 
-* `src/crt0.s` rewrites the VBlank vector (`0x0040`) to `JP 0xC900` (WRAM,
-  always mapped regardless of ROM bank).
-* At boot `init` copies a small ISR (`vbl_isr`) from ROM to WRAM `0xC900`
-  and enables VBlank IE (`IE |= 0x01`).  The ISR calls `_audio_update`
+* `src/crt0.s` patches the timer vector (`0x0050`) to `JP 0xC900` (WRAM,
+  always mapped regardless of ROM bank), and the VBlank vector (`0x0040`) to
+  a plain `reti` (VBlank IE is off).
+* At boot `init` copies a small ISR (`timer_isr`) from ROM to WRAM `0xC900`
+  and enables **timer-only IE** (`IE = 0x04`).  The ISR calls `_audio_update`
   directly (a baked-in `call`, so no function pointers / banked-call
   helpers) and `reti`s.
+* `audio_init()` programs the timer: `TMA = 0`, `TAC = TACF_START | TACF_65KHZ`
+  (65536 Hz clock) → TIMA overflows at **256 Hz**, independent of CPU/frame
+  pacing.  This is a hard requirement, not a style choice:
+
+  > VBlank is a PPU mode (`STAT.md`).  Every screen/map transition performs a
+  > full redraw with the LCD **off** (`ui_lcd_off()`/`ui_lcd_on()` in
+  > `src/core/game.c`), and Pan Docs `LCDC.md` says the screen stays blank
+  > for the first frame after re-enable — during those 1-2 frames **no
+  > VBlank interrupt fires at all**, so a VBlank-driven scheduler stalls the
+  > music while the APU keeps ringing (the audible 1-2 frame "stop" on every
+  > gate crossing / dialogue / shop / menu transition).  The timer keeps
+  > counting throughout, so the music clock is decoupled from the LCD.
+  > The only things that disturb the timer rate are CGB double-speed mode
+  > and writes to `DIV` — this game does neither (verified by grep), so
+  > 256 Hz is stable.
+
 * `audio_update`/`play_note` and the note tables must stay in the **fixed
   bank 0** (`< 0x4000`) so the ISR's `call` target and table reads are
   always mapped.
+* Tempos are expressed in **timer ticks** (`audio_update`): OVERWORLD 43
+  ticks/note (~6 notes/sec), BATTLE 17 ticks/note (~15 notes/sec) — these
+  preserve the old VBlank-tick tempos (10 and 4 at ~59.73 fps).
 * `main.c` calls `audio_init()` then `enable_interrupts()` (enables IME);
   the ISR and IE are already set up by CRT0.
 
@@ -1379,6 +1399,36 @@ VBK_REG = 0;
 after writing tile attributes to VRAM Bank 1.
 
 Do not assume CGB hardware when running on DMG.
+
+### 38.1 CGB object palettes are NOT initialized by the boot ROM
+
+Per Pan Docs (`src/Palettes.md`, "LCD Color Palettes"): in CGB mode the boot
+ROM leaves all object colors uninitialized ("somewhat random/unreliable",
+aside from the unused byte of OBJ0 color #0).  `FF48–FF49` (`OBP0`/`OBP1`)
+are **Non-CGB-Mode only** registers; on CGB hardware they do not drive sprite
+colors at all.
+
+Consequence: a sprite without an explicit `set_sprite_palette()` renders with
+emulator-dependent garbage from uninitialized CRAM.  This bit the hero: the
+ROM is CGB-only (header `0x143 = 0xC0`) and wrote `OBP0_REG = 0xE4`, yet the
+hero rendered purple (SameBoy), brown (PyBoy CGB), or white (some viewers)
+until `set_sprite_palette()` was added in `ui_init()`.
+
+Rule: every visible sprite must be given an explicit CGB OBJ palette, guarded
+by `_cpu == CGB_TYPE`, alongside the BG palette:
+
+```c
+if (_cpu == CGB_TYPE) {
+    set_bkg_palette(0, 1, cgb_palette);
+    set_sprite_palette(0, 1, cgb_sprite_palette);   /* required */
+}
+```
+
+The hero tile's ink is color index 3 (both bit planes set), so entry 3 of the
+sprite palette controls the hero color.
+
+Reference: local Pan Docs checkout at `/home/brodrigues/Documents/repos/pandocs`
+(`src/Palettes.md`, `src/Power_Up_Sequence.md`).
 
 ---
 
@@ -1965,10 +2015,10 @@ RAM-resident and copied by CRT0 at boot. The harness never runs that copy.
 Keep `_HOME` in ROM (52.5) and avoid harness-exercised paths that depend on
 RAM-resident library code.
 
-The one RAM-resident section the custom CRT0 itself copies is the VBlank
-ISR (see §35): `crt0.s` `init` copies `vbl_isr` from ROM to WRAM `0xC900`
-and enables VBlank IE.  The harness skips this (it never enables interrupts),
-so the ISR never runs under the harness.
+The one RAM-resident section the custom CRT0 itself copies is the timer ISR
+(see §35): `crt0.s` `init` copies `timer_isr` from ROM to WRAM `0xC900`
+and enables timer IE (`IE = 0x04`; VBlank IE is off).  The harness skips this
+(it never enables interrupts), so the ISR never runs under the harness.
 
 ## 52.12 Scenario state ordering
 
@@ -2388,3 +2438,91 @@ The non-bankable `_HOME` area must stay below `0x8000` (CPU addresses
 `0x8000+` alias VRAM).  Keep `_CODE` (fixed bank) as small as practical and
 track the budget in the roadmap; every substantial feature should be checked
 against `make memmap`.
+
+---
+
+# 56. Headless Screenshot Walkthrough Capture
+
+The game screen is the player-facing interface; the semantic debug interface
+is the development-agent-facing one (§7).  Sometimes a human or agent still
+needs to see the *rendered* game without booting an emulator.  For that,
+`make screenshots` plays a deterministic walkthrough headlessly and saves the
+frames to `screenshots/*.png`.
+
+## 56.1 Command
+
+```bash
+make screenshots
+```
+
+Builds the release ROM if needed and runs:
+
+```bash
+python3 tools/capture_walkthrough.py
+```
+
+Output: raw 160×144 PNGs in `screenshots/`, one per milestone.  The directory
+is committed (like the ROMs) so a reviewer can inspect the current look from
+the commit/PR without booting anything.
+
+## 56.2 Mechanics
+
+* Headless PyBoy (`window="null"`) boots the **real release ROM** — no debug
+  ROM, no harness mode, no scenario loader.  What is captured is exactly what
+  a player would see.
+* The player entity is located in WRAM via its deterministic boot pattern
+  (same technique as `tools/vram_dialogue_check.py`); the walk is
+  **position-based**, not press-count based: each step is a single short
+  press edge and a wait for the tile commit, and a dropped press is re-pressed
+  so the route self-corrects (PyBoy button delays are lossy).
+* Full-screen transitions eat input for ~10-40 frames (the FIELD→TOWN gate
+  crossing wipes the display blank for ~54 frames and swallows START for
+  ~40; shop/dialogue close swallows it for ~10).  A bare press-then-sleep
+  lands in that dead window, and a dropped shop-close `B` makes `START`
+  *close the shop* instead of opening the quick screen.  Every screen change
+  is therefore **state-verified, not time-expected**, and retried on failure:
+  * the overworld is the only screen with the HUD window layer enabled
+    (`LCDC` bit 5), so dialogue/shop/menu presence is checked by reading that
+    bit (`window_enabled`) after each interaction;
+  * the quick screen's active tab is verified by the `^` caret position
+    (tile column 0/5/10/15 = ITEM/EQUIP/QUEST/STATUS on the row-3 tile row)
+    and `RIGHT` is repeated until the target caret appears.
+* Frames are saved with PyBoy's `screen.image` (headless framebuffer render).
+* Two fresh sessions are used: Walk A (overworld → Town → dialogue → shop →
+  quick screen) and Walk B (slime battle on the Field), so persistent state
+  never bleeds between milestones.
+* Determinism is verified: the walk's position/caret/window checks make the
+  12 frames byte-identical across repeated runs.
+
+## 56.3 Milestones
+
+```text
+00-boot-field        overworld at spawn with the HUD
+01-field-scrolled    FIELD with the camera scrolled (SCX > 0)
+02-town-arrived      TOWN just inside the east gate (camera at origin)
+03-guard-dialogue    dialogue box over the scrolled town (camera offset)
+04-dialogue-next     second dialogue line
+05-shop              shopkeeper shop screen
+06-item-menu         START quick screen (ITEM tab)
+07-quests-tab        QUEST tab
+08-status-tab        STATUS tab
+09-battle            slime encounter (battle screen)
+10-battle-attack     after a player attack (damage dealt)
+11-battle-run        after fleeing (result line)
+```
+
+## 56.4 Rules
+
+* **Screenshots are a visual-review aid only.**  They are not assertions and
+  must never gate CI.  Semantic state, telemetry, and the scenario harness
+  (`make test-harness`) remain authoritative (§7, §40).  Prefer a scenario
+  assertion over a screenshot for any behavior that has a semantic
+  representation.
+* The milestone list should grow when a feature visibly changes the screen
+  (a new screen, a new tab, a reworked battle view).  Keep each milestone
+  reachable by position-based walking; do not add a milestone that requires
+  a non-deterministic sequence (e.g. surviving random damage rolls).
+* Colors come from PyBoy's renderer and may differ slightly from SameBoy;
+  layout and placement are what the frames are for.  The dialogue-box frame
+  (`03-*`) is the ground-truth check for camera-scroll overlay alignment,
+  alongside the VRAM assertion in `make vram-dialogue`.

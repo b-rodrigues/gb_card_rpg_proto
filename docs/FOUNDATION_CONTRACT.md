@@ -6,7 +6,7 @@ the contract every contributor and agent must respect.
 
 ## This repository provides
 
-* Game Boy runtime (custom CRT0, MBC5, VBlank-driven audio, deterministic
+* Game Boy runtime (custom CRT0, MBC5, timer-driven audio, deterministic
   input)
 * RPG persistent state (`GameState`): scene, party, inventory, flags,
   variables, currency, persistent world actors, progression, equipment
@@ -15,7 +15,7 @@ the contract every contributor and agent must respect.
 * Items, inventory mechanics, equipment, shops
 * Battle foundation (combatants, turn flow, results back to `GameState`)
 * Battery-backed save/load of `GameState` (versioned format)
-* Audio (music tracks, hardware-VBlank ISR)
+* Audio (music tracks, hardware-timer ISR)
 * UI (menu frame, HUD) and screens (overworld, battle, dialogue, item, shop,
   game-over, ending, thanks)
 * Deterministic debug harness: scenarios, input injection, frame stepping,

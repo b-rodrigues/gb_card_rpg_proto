@@ -28,8 +28,15 @@
  *   bytes 85..132      : up to 16 world entries x {actor_id_lo, actor_id_hi, state}
  *   byte  133          : progression count
  *   bytes 134..181     : up to 8 progression x {type, id_lo, id_hi, level, prog_lo, prog_hi}
+ *   byte  182          : equipment weapon
+ *   byte  183          : overworld camera scroll_x (tiles)
+ *   byte  184          : overworld camera scroll_y (tiles)
+ *   byte  185          : world width (scene tile columns)
+ *   byte  186          : world height (scene tile rows)
+ *   byte  187          : overworld camera pixel x (camera_px_x)
+ *   byte  188          : overworld camera pixel y (camera_px_y)
  */
-#define STATE_SNAP_VERSION_BYTE    0x03
+#define STATE_SNAP_VERSION_BYTE    0x05
 #define STATE_SNAP_FLAGS_OFFSET    1
 #define STATE_SNAP_FLAGS_SIZE      8
 #define STATE_SNAP_VARIABLES_OFFSET  9
@@ -47,7 +54,13 @@
 #define STATE_SNAP_PROGRESSION_ENTRY_OFF 134
 #define STATE_SNAP_PROGRESSION_ENTRY_SIZE 6
 #define STATE_SNAP_EQUIPMENT_OFF 182
-#define STATE_SNAP_TOTAL_SIZE        183
+#define STATE_SNAP_SCROLL_X_OFF  183
+#define STATE_SNAP_SCROLL_Y_OFF  184
+#define STATE_SNAP_WORLD_WIDTH_OFF  185
+#define STATE_SNAP_WORLD_HEIGHT_OFF 186
+#define STATE_SNAP_CAMERA_PX_X_OFF  187
+#define STATE_SNAP_CAMERA_PX_Y_OFF  188
+#define STATE_SNAP_TOTAL_SIZE        189
 
 /* Scenario initial-state descriptor (g_scen_state_buf) layout (version 0x02).
  * Written by the host STATE_LOAD command and applied by scenario_load_state().

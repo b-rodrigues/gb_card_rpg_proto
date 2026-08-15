@@ -2,6 +2,8 @@
         .module crt0
         .globl  _main
         .globl  _audio_update
+        .globl  _g_harness_mode
+        .globl  _oam_dma_init
         .globl  __cpu
         .globl  __is_GBA
         .globl  _cpu
@@ -17,8 +19,8 @@
         .db     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
         .db     0xE9, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x22, 0x0D, 0x20, 0xFC, 0xC9, 0xFF, 0xFF, 0xFF
         .db     0x1A, 0x22, 0x13, 0x0D, 0x20, 0xFA, 0xC9, 0xFF, 0xF3, 0xC3, 0xCD, 0x77, 0xFF, 0xFF, 0xFF, 0xFF
-        .db     0xC3, 0x00, 0xC9, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xC3, 0x6E, 0x77, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
-        .db     0xFB, 0xF5, 0xE5, 0xC3, 0xB8, 0x77, 0x80, 0x00, 0xF5, 0xE5, 0x21, 0x7F, 0xC3, 0xC3, 0x80, 0x00
+        .db     0xD9, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xC3, 0x6E, 0x77, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
+        .db     0xC3, 0x00, 0xC9, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xF5, 0xE5, 0x21, 0x7F, 0xC3, 0xC3, 0x80, 0x00
         .db     0xF5, 0xE5, 0x21, 0xAE, 0xC3, 0xC3, 0x80, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
         .db     0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80
         .db     0xC5, 0xD5, 0x2A, 0xB6, 0x28, 0x0B, 0xE5, 0x3A, 0x6E, 0x67, 0xE7, 0xE1, 0x23, 0x18, 0xF3, 0xE8
@@ -67,12 +69,17 @@ clear_loop:
         ld      a, #0xC0
         ld      (__shadow_OAM_base + 1), a   ; high byte 0xC0
 
-        ; Copy the RAM-resident VBlank ISR into WRAM (always mapped,
-        ; independent of ROM banking).  IE is enabled here; IME is enabled
-        ; later by main() -> enable_interrupts().
-        ld      hl, #vbl_isr
+        ; Copy the RAM-resident timer ISR into WRAM (always mapped,
+        ; independent of ROM banking).  Music runs on the hardware timer
+        ; (TIMA overflow at 256 Hz; TAC/TMA programmed by audio_init), NOT
+        ; on VBlank: VBlank is a PPU mode, so the VBlank interrupt cannot
+        ; fire during the LCD-off full redraws that every screen/map
+        ; transition performs -- a VBlank-driven music clock stalls for 1-2
+        ; frames per transition (see AGENTS.md Music contract).  IE is set
+        ; here; IME is enabled later by main() -> enable_interrupts().
+        ld      hl, #timer_isr
         ld      de, #0xC900
-        ld      bc, #(vbl_isr_end - vbl_isr)
+        ld      bc, #(timer_isr_end - timer_isr)
 copy_isr:
         ld      a, (hl)
         inc     hl
@@ -82,8 +89,15 @@ copy_isr:
         ld      a, b
         or      c
         jr      nz, copy_isr
-        ldh     a, (0xFFFF)
-        or      #0x01
+
+        ; Copy the OAM DMA routine into HRAM (0xFF80).
+        call    _oam_dma_init
+
+        ; Timer-only IE: TIMA overflow -> INT 0x50 -> JP 0xC900.  VBlank,
+        ; STAT, Serial, and Joypad interrupts stay disabled; nothing in the
+        ; game uses them (vsync()/wait_vbl_done() are LY-polled, OAM DMA and
+        ; refresh_OAM() are self-contained).
+        ld      a, #0x04
         ldh     (0xFFFF), a
 
         jp      _main
@@ -104,12 +118,11 @@ copy_isr:
 .wait_vbl_done:
 .vsync:
         ldh     a, (0xFF44)
-        cp      #0x91
-        jr      nz, vsync_wait
-        ret
+        cp      #0x90
+        jr      z, .vsync                    ; if already at LY 144, wait until it passes
 vsync_wait:
         ldh     a, (0xFF44)
-        cp      #0x91
+        cp      #0x90
         jr      nz, vsync_wait
         ret
 
@@ -117,18 +130,51 @@ vsync_wait:
 .call_hl:
         jp      (hl)
 
+; OAM DMA routine template copied to HRAM 0xFF80.
+; Must run entirely from HRAM (0xFF80-0xFFFE) because Game Boy hardware
+; locks ROM and WRAM during OAM DMA (160 microseconds).
+dma_copy_src:
+        ldh     (0x46), a                    ; initiate OAM DMA (0xFF46) from base in A
+        ld      a, #0x28                     ; ~40 * 4 cycles (~160 microseconds)
+dma_copy_wait:
+        dec     a
+        jr      nz, dma_copy_wait
+        ret
+dma_copy_src_end:
+
+        ; C-callable initializer to copy the DMA routine into HRAM 0xFF80.
+        ; Called by crt0 init and ui_init() so both real boot and harness boot
+        ; paths have the DMA routine resident in HRAM.
+        .globl  _oam_dma_init
+_oam_dma_init:
+        ld      hl, #dma_copy_src
+        ld      de, #0xFF80
+        ld      bc, #(dma_copy_src_end - dma_copy_src)
+copy_dma_loop:
+        ld      a, (hl)
+        inc     hl
+        ld      (de), a
+        inc     de
+        dec     bc
+        ld      a, b
+        or      c
+        jr      nz, copy_dma_loop
+        ret
+
         ; refresh_OAM() copies shadow OAM (WRAM base 0xC000) to real OAM
-        ; (0xFE00) via OAM DMA.  GBDK's stock crt0 (which defines this) is
-        ; not linked (-no-crt), so we provide the C API here.  Must stay in
-        ; bank 0 so the RAM-resident ISR's baked-in call target is mapped.
+        ; (0xFE00) via OAM DMA.  OAM DMA locks the external bus, so the
+        ; transfer loop executes from HRAM 0xFF80.  Interrupts are disabled
+        ; (di) during the transfer so the 256 Hz timer ISR cannot fire
+        ; mid-DMA and attempt to access locked ROM/WRAM.
         .globl  _refresh_OAM
 _refresh_OAM:
+        di
         ld      a, #0xC0                    ; shadow OAM lives at 0xC000
-        ldh     (0xFF46), a                  ; initiate OAM DMA
-        ld      a, #0x28                     ; ~40 * 4 cycles
-refresh_oam_wait:
-        dec     a
-        jr      nz, refresh_oam_wait
+        call    0xFF80                      ; execute DMA loop in HRAM
+        ld      a, (_g_harness_mode)
+        or      a
+        ret     nz
+        ei
         ret
 
         .globl  .reset
@@ -151,11 +197,12 @@ refresh_oam_wait:
 _add_VBL:
         ret
 
-; RAM-resident VBlank ISR: copied to WRAM 0xC900 by init and entered via
-; the VBlank vector (0x0040 -> JP 0xC900).  Calls audio_update() directly;
+; RAM-resident timer ISR: copied to WRAM 0xC900 by init and entered via
+; the timer vector (0x0050 -> JP 0xC900).  Fires at 256 Hz (TIMA overflow;
+; TAC/TMA programmed by audio_init()).  Calls audio_update() directly;
 ; audio.c must remain in the fixed bank 0 so the baked-in call target is
 ; always mapped.  Saves af/bc/de/hl (SDCC clobber set).
-vbl_isr:
+timer_isr:
         push    af
         push    bc
         push    de
@@ -166,13 +213,111 @@ vbl_isr:
         pop     bc
         pop     af
         reti
-vbl_isr_end:
+timer_isr_end:
 
 _display_off:
         jp      .display_off
 _wait_vbl_done:
 _vsync:
         jp      .vsync
+
+; ── Banked-content copy trampoline ─────────────────────────────────
+; Copies `n` bytes from a banked ROM source to a WRAM destination while
+; running entirely from WRAM, so the MBC5 bank switch (rROMB0 at 0x2000)
+; is safe regardless of which ROM bank the fixed-bank caller currently
+; maps.  A bank switch executed from switchable ROM (0x4000+) unmaps the
+; very instruction stream doing the switch; WRAM is always mapped.  The
+; body is copied from ROM to the linker-allocated _g_banked_tramp buffer
+; (WRAM) by _banked_copy_init (see §52.11/§35: like the timer ISR, it must
+; be RAM-resident because the harness skips CRT0; game_init calls the init
+; so it runs in both real boot and harness boot paths).
+;
+; No-arg entry: the C wrapper banked_copy() (src/core/banked.c) stores the
+; four arguments into _DATA globals (g_bank_copy_bank/dst/src/n) before
+; calling, so this trampoline never parses SDCC's stack layout.  The bank
+; register is always restored to the project's home bank 1 before returning.
+; The body is wrapped in di/ei: the timer ISR (WRAM 0xC900) could otherwise
+; fire mid-copy while ROMB points at a content bank.  The ISR only calls the
+; fixed-bank audio code (safe today), but the guard removes the whole class
+; of future ISR/banked-content regressions at a sub-scanline cost.
+;
+; Home bank is 1, NOT 0: the project links with -yo8, so the fixed-bank
+; _CODE/_HOME area spans file 0x0000-0x7FFF and the second half (file
+; 0x4000-0x7FFF, containing the SDCC runtime helpers and library code) is
+; reached at CPU 0x4000-0x7FFF with ROMB=1 (crt0.s init stores
+; __current_bank = 1).  Bank 0 (file 0x0000-0x3FFF) only covers the fixed
+; region; with ROMB=0, CPU 0x4000+ reads bank 0's first half (file
+; 0x0000-0x3FFF) and every fixed-bank call above 0x4000 executes garbage.
+        .globl  _g_bank_copy_bank
+        .globl  _g_bank_copy_dst
+        .globl  _g_bank_copy_src
+        .globl  _g_bank_copy_n
+_banked_copy_tramp:
+        di                            ; no ISR while the MBC5 bank is switched
+        xor     a
+        ld      (0x3000), a          ; MBC5 ROM bank high byte = 0
+        ld      a, (_g_bank_copy_bank)
+        ld      (0x2000), a          ; select ROM bank
+        ld      hl, #_g_bank_copy_src
+        ld      a, (hl)
+        inc     hl
+        ld      h, (hl)
+        ld      l, a                ; hl = g_bank_copy_src
+        ld      d, h
+        ld      e, l                ; de = src
+        ld      hl, #_g_bank_copy_dst
+        ld      a, (hl)
+        inc     hl
+        ld      h, (hl)
+        ld      l, a                ; hl = dst
+        ld      a, (_g_bank_copy_n)
+        ld      c, a
+ banked_copy_loop:
+        ld      a, (de)             ; read src byte
+        ld      (hl), a             ; write dst byte
+        inc     de
+        inc     hl
+        dec     c
+        jr      nz, banked_copy_loop
+        ld      a, #0x01
+        ld      (0x2000), a          ; restore home bank 1 (see below)
+        ld      (__current_bank), a
+        ld      a, (_g_harness_mode)
+        or      a
+        ret     nz
+        ei                            ; home bank restored, interrupts safe again
+        ret
+ _banked_copy_tramp_end:
+
+; ROM stub for the C wrapper (src/core/banked.c): jumps into the WRAM
+; trampoline.  The trampoline's WRAM home is the linker-allocated C buffer
+; _g_banked_tramp (src/core/banked.c), so its address is resolved by the
+; linker rather than hardcoded.  Runs from the fixed bank and switches
+; nothing, so it is safe regardless of the caller's address.
+        .globl  _g_banked_tramp
+        .globl  _banked_copy_run
+_banked_copy_run:
+        ld      hl, #_g_banked_tramp
+        jp      (hl)
+
+; Copies the trampoline body from ROM into the _g_banked_tramp buffer.
+; Called once from game_init() so both real hardware and the harness have it
+; resident before any banked content is read.
+        .globl  _banked_copy_init
+_banked_copy_init:
+        ld      hl, #_banked_copy_tramp
+        ld      de, #_g_banked_tramp
+        ld      bc, #(_banked_copy_tramp_end - _banked_copy_tramp)
+banked_copy_init_loop:
+        ld      a, (hl)
+        inc     hl
+        ld      (de), a
+        inc     de
+        dec     bc
+        ld      a, b
+        or      c
+        jr      nz, banked_copy_init_loop
+        ret
 
         .area   _HOME
 

@@ -7,6 +7,10 @@
     {
       "type": "press",
       "button": "LEFT"
+    },
+    {
+      "type": "wait",
+      "frames": 8
     }
   ],
   "assertions": [

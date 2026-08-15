@@ -1,6 +1,10 @@
 #include <gb/gb.h>
 #include "input.h"
 
+#ifdef DEBUG_BUILD
+extern volatile uint8_t g_harness_mode;
+#endif
+
 /* InputButton bits MUST equal GBDK joypad()'s J_* bits, otherwise the real
  * game's controls diverge from what the harness tests (g_inp_mask uses
  * 1 << InputButton while release input uses joypad()'s layout).  A mismatch
@@ -50,18 +54,23 @@ void input_reset(void)
 
 void input_update(void)
 {
+#ifdef DEBUG_BUILD
+    uint8_t physical_pad_state;
+#endif
     prev_pad_state = pad_state;
 #ifdef DEBUG_BUILD
+    /* Debug builds must remain playable outside the harness.  The harness
+     * writes g_inp_mask for deterministic one-frame presses, while mGBA,
+     * Gambatte, and a human controller provide normal joypad input.  The
+     * harness skips CRT0 and controls frames through the debugger, so do not
+     * call the hardware joypad path there. */
+    physical_pad_state = g_harness_mode ? 0 : joypad();
     if (g_inp_mask != 0) {
         injected_pad_state = g_inp_mask;
         g_inp_mask = 0;
     }
-    if (injected_pad_state != 0) {
-        pad_state = injected_pad_state;
-        injected_pad_state = 0;
-        return;
-    }
-    pad_state = 0;
+    pad_state = physical_pad_state | injected_pad_state;
+    injected_pad_state = 0;
 #else
     pad_state = joypad() | injected_pad_state;
     injected_pad_state = 0;

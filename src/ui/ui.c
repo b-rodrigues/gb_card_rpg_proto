@@ -9,6 +9,14 @@
 
 char g_ui_screen_buf[18][21];
 
+#ifdef DEBUG_BUILD
+/* Mirror of the background tilemap ring (0x9800), written alongside every
+ * ring write, so the harness can assert the actual rendered map (mGBA's
+ * debugger cannot read VRAM).  DEBUG-only: 1 KB of WRAM the release does
+ * not carry. */
+uint8_t g_tilemap_mirror[32 * 32];
+#endif
+
 /* GBDK console .mode byte (defined in crt0.s _DATA). Bit 2 is M_NO_SCROLL. */
 extern uint8_t console_mode;
 
@@ -17,11 +25,32 @@ static void ui_draw_num2(uint8_t x, uint8_t y, uint8_t val);
 
 static font_t ibm_font;
 
+/* First VRAM tile the console font occupies.  font_t is a *handle* (a RAM
+ * pointer to a {first_tile, font_ptr} entry, value 0xCD74), not a tile
+ * base: using it directly (ibm_font + ch) renders tiles at 0x74+ch, i.e.
+ * unloaded VRAM.  Cached from the handle at ui_init; the IBM font's
+ * first_tile is 0.
+ *
+ * The console font packs its glyphs starting at space (0x20), so the tile
+ * for char `ch` is base + (ch - ' ') -- never base + ch, which renders the
+ * glyph for (ch + 0x20) instead.  Every tilemap write below applies that
+ * offset. */
+static uint8_t ui_font_tile_base;
+
 static const palette_color_t cgb_palette[4] = {
     RGB8(255, 255, 255),
     RGB8(170, 170, 170),
     RGB8(85, 85, 85),
     RGB8(0, 0, 0)
+};
+
+/* Player-sprite ramp: entry 3 (the hero ink color) is light grey so the
+ * hero is visible against the white floor on CGB. */
+static const palette_color_t cgb_sprite_palette[4] = {
+    RGB8(255, 255, 255),
+    RGB8(255, 255, 255),
+    RGB8(255, 255, 255),
+    RGB8(170, 170, 170)
 };
 
 /* ── Player sprite ─────────────────────────────────────────────────
@@ -30,7 +59,13 @@ static const palette_color_t cgb_palette[4] = {
 #include "gfx/player_sprite_tile.h"
 
 #define PLAYER_SPRITE_NUM 0
-#define PLAYER_SPRITE_TILE_ID 0
+#define PLAYER_SPRITE_TILE_ID 102
+
+/* ASCII semantic char per TileType (0..3): '.', '#', '>', 'B'.  The
+ * overworld renders these via the console font (ui_font_tile_base + (ch -
+ * ' ')); this branch is ASCII-only -- real terrain tiles live on the gfx
+ * branch. */
+static const char g_sem_map[4] = { '.', '#', '>', 'B' };
 
 void ui_init(void)
 {
@@ -41,9 +76,11 @@ void ui_init(void)
      * during single-stepping. */
     LCDC_REG &= ~0x80;
 
+    oam_dma_init();
     font_init();
     ibm_font = font_load(font_ibm);
     font_set(ibm_font);
+    ui_font_tile_base = ((pmfont_handle)ibm_font)->first_tile;
 
     /* Disable GBDK console auto-scroll.  When putchar() advances the cursor
      * past the bottom-right tile, the console normally scrolls the whole
@@ -59,11 +96,37 @@ void ui_init(void)
     /* Set CGB Palette 0 if running on CGB hardware */
     if (_cpu == CGB_TYPE) {
         set_bkg_palette(0, 1, cgb_palette);
+        set_sprite_palette(0, 1, cgb_sprite_palette);
     }
 
     SHOW_BKG;
+
+    /* HUD window layer: the window uses tilemap 0x9C00 (LCDC bit 6) so the
+     * SCX/SCY-scrolled BG map (0x9800) is separate from the fixed HUD.
+     * WX=7 puts the window at the display left edge; the window stays
+     * disabled until ui_hud_show() (overworld) enables it, and
+     * ui_hud_hide() disables it on every other screen. */
+    LCDC_REG |= 0x40;   /* window tilemap base 0x9C00 */
+    WX_REG = 7;
+    WY_REG = 96;
+
     ui_sprite_init();
     DISPLAY_ON;
+}
+
+/* Show the HUD window at the bottom of the display (the overworld only).
+ * The window is always enabled while the HUD is visible; its tilemap
+ * (0x9C00) holds the HUD. */
+void ui_hud_show(void)
+{
+    SHOW_WIN;
+    WY_REG = 96;
+}
+
+/* Hide the HUD window (every screen but the overworld). */
+void ui_hud_hide(void)
+{
+    HIDE_WIN;
 }
 
 /* Load the player sprite tile and enable the OAM sprite.  Called from
@@ -81,16 +144,17 @@ void ui_sprite_init(void)
     hide_sprite(PLAYER_SPRITE_NUM);
 }
 
-/* Position the player sprite over background tile (map_x, map_y).
- * Hardware OAM coordinates are offset +8/+16 from the visible tile grid
- * (GBDK's move_sprite takes raw OAM coordinates, not screen tiles); a
- * valid position (y >= 16) also un-hides the sprite.  Only shadow OAM is
- * written here; ui_sprite_commit() (called once at the end of every frame)
- * DMAs it to real OAM at the frame boundary, so the displayed sprite is
- * always in the correct state for the current screen. */
-void ui_sprite_move(uint8_t map_x, uint8_t map_y)
+/* Position the player sprite at pixel coordinate (px, py), where a tile at
+ * (tx, ty) is at (tx*8, ty*8).  Hardware OAM coordinates are offset +8/+16
+ * from the visible pixel grid (GBDK's move_sprite takes raw OAM
+ * coordinates, not screen tiles); a valid position (y >= 16) also un-hides
+ * the sprite.  Only shadow OAM is written here; ui_sprite_commit() (called
+ * once at the end of every frame) DMAs it to real OAM at the frame boundary,
+ * so the displayed sprite is always in the correct state for the current
+ * screen. */
+void ui_sprite_move(uint8_t px, uint8_t py)
 {
-    move_sprite(PLAYER_SPRITE_NUM, (uint8_t)(map_x * 8 + 8), (uint8_t)(map_y * 8 + 16));
+    move_sprite(PLAYER_SPRITE_NUM, (uint8_t)(px + 8), (uint8_t)(py + 16));
 }
 
 /* Hide the player sprite (OAM Y = 0).  Called on transitions away from the
@@ -131,13 +195,28 @@ void ui_sprite_commit(void)
     refresh_OAM();
 }
 
+void ui_lcd_off(void)
+{
+    LCDC_REG &= ~0x80;
+}
+
+void ui_lcd_on(void)
+{
+    LCDC_REG |= 0x80;
+}
+
 void ui_clear_screen(void)
 {
     uint8_t x, y;
+    /* Always select VRAM bank 0 before tilemap writes: on CGB, VBK_REG = 1
+     * selects the CGB attribute bank and writes land there instead of the
+     * tile-index bank.  Written directly -- not through gotoxy/putchar --
+     * so full-screen clears are a tight VRAM loop that fits in VBlank. */
+    VBK_REG = 0;
     for (y = 0; y < 18; y++) {
         for (x = 0; x < 20; x++) {
-            gotoxy(x, y);
-            putchar(' ');
+            ((volatile uint8_t *)0x9800)[y * 32 + x] =
+                ui_font_tile_base;
             g_ui_screen_buf[y][x] = ' ';
         }
         g_ui_screen_buf[y][20] = '\0';
@@ -147,22 +226,60 @@ void ui_clear_screen(void)
 void ui_draw_text_line(uint8_t x, uint8_t y, const char *text, uint8_t max_chars)
 {
     uint8_t i = 0;
+    uint8_t ended;
     char ch;
-    gotoxy(x, y);
-    if (text) {
-        while (text[i] != '\0' && i < max_chars) {
-            ch = text[i];
-            putchar((int)ch);
-            if (y < 18 && (x + i) < 20) {
-                g_ui_screen_buf[y][x + i] = ch;
-            }
-            i++;
-        }
-    }
+    if (y >= 18) return;
+    VBK_REG = 0;  /* tile-index bank, not the CGB attribute bank */
+    ended = (text == NULL);
     while (i < max_chars) {
-        putchar(' ');
-        if (y < 18 && (x + i) < 20) {
-            g_ui_screen_buf[y][x + i] = ' ';
+        /* Track end-of-string with a flag: re-checking text[i] after a '\0'
+         * would read the NEXT byte (i was already incremented) and could
+         * bleed into the adjacent ROM string packed after this one. */
+        if (!ended && text[i] == '\0') ended = 1;
+        ch = ended ? ' ' : text[i];
+        if ((x + i) < 20) {
+            ((volatile uint8_t *)0x9800)[y * 32 + x + i] =
+                (uint8_t)(ui_font_tile_base + (uint8_t)(ch - ' '));
+            g_ui_screen_buf[y][x + i] = ch;
+        }
+        i++;
+    }
+}
+
+/* Camera-offset variants of ui_put_char/ui_draw_text_line for the dialogue
+ * box, which overlays the frozen (SCX/SCY-scrolled) overworld: the screen
+ * anchor is the modal rows 12-17, but the ring must hold them at
+ * ((y+scroll)&31) so the PPU, which reads ring row (scroll + R) & 31 at
+ * screen row R, actually displays the box where it should be.  g_ui_screen_buf
+ * stays screen-anchored, so the harness semantic rows are unchanged.  Safe
+ * for every current map (18 rows -> scroll_y <= 6 -> box rows <= 23; FIELD
+ * scroll_x <= 12 -> box cols <= 31), so the & 31 wrap is belt-and-braces. */
+static void ui_put_char_ring(uint8_t x, uint8_t y, char ch, uint8_t ox, uint8_t oy)
+{
+    if (y < 18 && x < 20) {
+        VBK_REG = 0;  /* tile-index bank, not the CGB attribute bank */
+        ((volatile uint8_t *)0x9800)[((y + oy) & 31) * 32 + ((x + ox) & 31)] =
+            (uint8_t)(ui_font_tile_base + (uint8_t)(ch - ' '));
+        g_ui_screen_buf[y][x] = ch;
+    }
+}
+
+static void ui_draw_text_line_ring(uint8_t x, uint8_t y, const char *text,
+                                   uint8_t max_chars, uint8_t ox, uint8_t oy)
+{
+    uint8_t i = 0;
+    uint8_t ended;
+    char ch;
+    if (y >= 18) return;
+    VBK_REG = 0;  /* tile-index bank, not the CGB attribute bank */
+    ended = (text == NULL);
+    while (i < max_chars) {
+        if (!ended && text[i] == '\0') ended = 1;
+        ch = ended ? ' ' : text[i];
+        if ((x + i) < 20) {
+            ((volatile uint8_t *)0x9800)[((y + oy) & 31) * 32 + ((x + ox + i) & 31)] =
+                (uint8_t)(ui_font_tile_base + (uint8_t)(ch - ' '));
+            g_ui_screen_buf[y][x + i] = ch;
         }
         i++;
     }
@@ -196,43 +313,154 @@ void ui_format_int(int16_t value, char *out)
     out[j] = '\0';
 }
 
-void ui_draw_world_map(const World *world)
+/* One world cell into the 32x32 background tilemap ring at the wrapped
+ * address (the PPU reads the background at SCX/SCY = the absolute camera
+ * pixel position, so the ring must hold the world tiles at (world & 31)).
+ * An actor's font char overlays its terrain tile; both stay in the ring so
+ * the cell is correct whenever it scrolls back into view.  The screen-
+ * anchored semantic g_ui_screen_buf (harness get_screen_buf) is filled for
+ * visible cells.  Written directly -- not through set_bkg_tiles -- to avoid
+ * pulling the GBDK .set_xy_* helpers into the non-bankable _HOME area. */
+static void ui_draw_world_cell_ex(const World *world, uint8_t col, uint8_t row)
 {
-    uint8_t x, y;
     uint8_t t;
-    char tile_ch;
+    uint8_t tile_idx;
+    uint8_t sx;
+    uint8_t sy;
     const WorldActorDefinition *actor;
-    const SceneExit *ex;
+    volatile uint8_t *tilemap = (volatile uint8_t *)0x9800;
 
-    if (!world) return;
-
-    /* The player is no longer painted into the background at all (see
-     * ui_sprite_move): background tiles are drawn for every cell, including
-     * the player's own cell, and the OAM sprite sits visually on top of it.
-     * This is the actual BG-tilemap / OAM-sprite split a real Game Boy
-     * renderer uses; it just happens that the "tilemap" here is still the
-     * ASCII console font. */
-    for (y = 0; y < WORLD_VIEW_HEIGHT; y++) {
-        for (x = 0; x < WORLD_WIDTH; x++) {
-            actor = actor_find_at(world, x, y);
-            if (actor) {
-                tile_ch = actor->visual;
-            } else {
-                t = world->map[y][x];
-                if (t == TILE_WALL) tile_ch = '#';
-                else if (t == TILE_BUILDING) tile_ch = 'B';
-                else if (t == TILE_EXIT) {
-                    ex = scene_exit_at(scene_definition_for_map(world->map_id), x, y);
-                    tile_ch = ex ? ex->tile_char : '.';
-                } else tile_ch = '.';
-            }
-            gotoxy(x, y);
-            putchar(tile_ch);
-            g_ui_screen_buf[y][x] = tile_ch;
-        }
+    if (col >= world->width || row >= world->height) {
+        t = TILE_FLOOR;
+    } else {
+        t = world->map[row][col];
     }
 
-    ui_sprite_move(world->player.position.x, world->player.position.y);
+    actor = actor_find_at(world, col, row);
+    if (actor) {
+        tile_idx = (uint8_t)(ui_font_tile_base + (uint8_t)(actor->visual - ' '));
+    } else {
+        tile_idx = (uint8_t)(ui_font_tile_base + (uint8_t)(g_sem_map[t] - ' '));
+    }
+    tilemap[(row & 31) * 32 + (col & 31)] = tile_idx;
+#ifdef DEBUG_BUILD
+    g_tilemap_mirror[(row & 31) * 32 + (col & 31)] = tile_idx;
+#endif
+
+    sx = (uint8_t)(col - world->scroll_x);
+    sy = (uint8_t)(row - world->scroll_y);
+    if (sx < WORLD_VIEW_W && sy < WORLD_VIEW_H) {
+        g_ui_screen_buf[sy][sx] = actor ? actor->visual : g_sem_map[t];
+    }
+}
+
+static void ui_draw_world_cell(const World *world, uint8_t col, uint8_t row)
+{
+    ui_draw_world_cell_ex(world, col, row);
+}
+
+/* Draw every cell in [c0,c1) x [r0,r1) into the tilemap ring. */
+static void ui_draw_world_rect(const World *world, uint8_t c0, uint8_t c1,
+                               uint8_t r0, uint8_t r1)
+{
+    uint8_t col, row;
+    VBK_REG = 0;   /* the tilemap ring lives in VRAM bank 0 */
+    for (row = r0; row < r1; row++) {
+        for (col = c0; col < c1; col++) {
+            ui_draw_world_cell(world, col, row);
+        }
+    }
+}
+
+/* Refill the semantic view from the tilemap ring mirror (DEBUG-only).  The
+ * ring/mirror is the ground truth of what is rendered; every cell is an
+ * ASCII console-font tile (terrain and actors both draw via the font), so
+ * decoding back to a char is base + tile_index - ui_font_tile_base. */
+#ifdef DEBUG_BUILD
+static void ui_refill_semantic(const World *world)
+{
+    uint8_t x, y, col, row, tile;
+
+    for (y = 0; y < WORLD_VIEW_H; y++) {
+        for (x = 0; x < WORLD_VIEW_W; x++) {
+            col = (uint8_t)(world->scroll_x + x);
+            row = (uint8_t)(world->scroll_y + y);
+            tile = g_tilemap_mirror[(row & 31) * 32 + (col & 31)];
+            g_ui_screen_buf[y][x] = (char)((tile - ui_font_tile_base) + ' ');
+        }
+    }
+}
+#endif
+
+void ui_draw_world_map(const World *world)
+{
+    uint8_t y;
+    if (!world) return;
+
+    /* Populate the entire 32-column x 18-row background ring during LCD-safe
+     * full map redraw. Field: all 32 x 18 cells. Smaller maps: col 20..31 are
+     * filled with floor tiles in ui_draw_world_cell. */
+    ui_draw_world_rect(world, 0, 32, 0, 18);
+    for (y = 0; y < WORLD_VIEW_H; y++) {
+        g_ui_screen_buf[y][WORLD_VIEW_W] = '\0';
+    }
+
+#ifdef DEBUG_BUILD
+    ui_refill_semantic(world);
+#endif
+
+    /* The ASCII @ is an OAM glyph, not a BG tile. */
+    ui_sprite_move((uint8_t)(world_player_px(world) - world->camera_px_x),
+                   (uint8_t)(world_player_py(world) - world->camera_px_y));
+}
+
+void ui_update_camera(const World *world)
+{
+    if (!world) return;
+    SCX_REG = world->camera_px_x;
+    SCY_REG = world->camera_px_y;
+#ifdef DEBUG_BUILD
+    ui_refill_semantic(world);
+#endif
+}
+
+/* Write one char to the HUD window tilemap (0x9C00) row `y` (0-5, displayed
+ * at screen rows 12-17) and mirror it into the semantic g_ui_screen_buf.
+ * The console font packs its glyphs starting at space, so char `ch` is tile
+ * base + (ch - ' ').  Callers pass in-range coordinates (x < 20, y < 6). */
+static void ui_hud_put_char(uint8_t x, uint8_t y, char ch)
+{
+    ((volatile uint8_t *)0x9C00)[y * 32 + x] = (uint8_t)(ui_font_tile_base + (uint8_t)(ch - ' '));
+    g_ui_screen_buf[12 + y][x] = ch;
+}
+
+static void ui_hud_text_line(uint8_t y, const char *text, uint8_t max_chars)
+{
+    uint8_t i = 0;
+    char ch;
+    while (text && text[i] != '\0' && i < max_chars) {
+        ch = text[i];
+        ui_hud_put_char(i, y, ch);
+        i++;
+    }
+    while (i < max_chars) {
+        ui_hud_put_char(i, y, ' ');
+        i++;
+    }
+}
+
+/* Draw a value right-aligned in a 2-wide field (space padded) into the HUD
+ * window row `y`. */
+static void ui_hud_num2(uint8_t x, uint8_t y, uint8_t val)
+{
+    char c;
+    if (val >= 10) {
+        c = '0' + (val / 10);
+    } else {
+        c = ' ';
+    }
+    ui_hud_put_char(x, y, c);
+    ui_hud_put_char(x + 1, y, '0' + (val % 10));
 }
 
 void ui_draw_overworld_hud(const World *world)
@@ -240,6 +468,11 @@ void ui_draw_overworld_hud(const World *world)
     const char *label;
 
     if (!world) return;
+
+    /* The HUD lives in the WINDOW layer (0x9C00, VRAM bank 0).  Force the
+     * VRAM bank select to 0 first so the tilemap writes land in bank 0 (not
+     * the CGB attribute bank). */
+    VBK_REG = 0;
 
     switch (world->map_id) {
         case MAP_TOWN:          label = "MAP: TOWN | HP:";  break;
@@ -249,15 +482,17 @@ void ui_draw_overworld_hud(const World *world)
         default:                label = "MAP: FIELD| HP:";  break;
     }
 
-    ui_draw_text_line(0, 12, "====================", 20);
-    ui_draw_text_line(0, 13, label, 15);
-    ui_draw_num2(15, 13, world->player.hp);
-    ui_put_char(17, 13, '/');
-    ui_draw_num2(18, 13, world->player.max_hp);
-    ui_draw_text_line(0, 14, "", 20);
-    ui_draw_text_line(0, 15, "", 20);
-    ui_draw_text_line(0, 16, "", 20);
-    ui_draw_text_line(0, 17, " [D-PAD] MOVE HERO", 20);
+    /* The HUD lives in the WINDOW layer (0x9C00), so the SCX/SCY-scrolled
+     * background map never carries it.  Window row y -> screen row 12+y. */
+    ui_hud_text_line(0, "====================", 20);
+    ui_hud_text_line(1, label, 15);
+    ui_hud_num2(15, 1, world->player.hp);
+    ui_hud_put_char(17, 1, '/');
+    ui_hud_num2(18, 1, world->player.max_hp);
+    ui_hud_text_line(2, "", 20);
+    ui_hud_text_line(3, "", 20);
+    ui_hud_text_line(4, "", 20);
+    ui_hud_text_line(5, " [D-PAD] MOVE HERO", 20);
 }
 
 void ui_draw_world_full(const World *world)
@@ -266,26 +501,15 @@ void ui_draw_world_full(const World *world)
     ui_clear_screen();
     ui_draw_world_map(world);
     ui_draw_overworld_hud(world);
-}
-
-void ui_update_player_position(const World *world, uint8_t old_x, uint8_t old_y, uint8_t new_x, uint8_t new_y)
-{
-    /* The background never encodes the player (see ui_draw_world_map), so
-     * there is nothing to erase/redraw at old_x/old_y any more -- moving
-     * the OAM sprite is the whole update.  old_x/old_y are kept in the
-     * signature so callers (RenderCache in overworld_screen.c) don't need
-     * to change. */
-    (void)old_x;
-    (void)old_y;
-    if (!world) return;
-    ui_sprite_move(new_x, new_y);
+    ui_hud_show();
 }
 
 static void ui_put_char(uint8_t x, uint8_t y, char ch)
 {
-    gotoxy(x, y);
-    putchar((int)ch);
     if (y < 18 && x < 20) {
+        VBK_REG = 0;  /* tile-index bank, not the CGB attribute bank */
+        ((volatile uint8_t *)0x9800)[y * 32 + x] =
+            (uint8_t)(ui_font_tile_base + (uint8_t)(ch - ' '));
         g_ui_screen_buf[y][x] = ch;
     }
 }
@@ -362,47 +586,31 @@ void ui_update_battle(const Battle *battle)
     }
 }
 
-void ui_draw_dialogue(const DialogueState *dialogue)
+void ui_draw_dialogue(const DialogueState *dialogue, uint8_t scroll_x, uint8_t scroll_y)
 {
     if (!dialogue || !dialogue->active) return;
     if (dialogue->current_line >= dialogue->line_count) return;
 
     /* Dialogue box occupies dedicated modal overlay region: rows 12-17 (6 rows, 20 columns) */
-    ui_draw_text_line(0, 12, "+------------------+", 20);
+    ui_draw_text_line_ring(0, 12, "+------------------+", 20, scroll_x, scroll_y);
 
-    gotoxy(0, 13);
-    putchar('|');
-    g_ui_screen_buf[13][0] = '|';
-    ui_draw_text_line(1, 13, dialogue->speaker ? dialogue->speaker : "", 18);
-    gotoxy(19, 13);
-    putchar('|');
-    g_ui_screen_buf[13][19] = '|';
+    ui_put_char_ring(0, 13, '|', scroll_x, scroll_y);
+    ui_draw_text_line_ring(1, 13, dialogue->speaker ? dialogue->speaker : "", 18, scroll_x, scroll_y);
+    ui_put_char_ring(19, 13, '|', scroll_x, scroll_y);
 
-    gotoxy(0, 14);
-    putchar('|');
-    g_ui_screen_buf[14][0] = '|';
-    ui_draw_text_line(1, 14, dialogue->lines[dialogue->current_line], 18);
-    gotoxy(19, 14);
-    putchar('|');
-    g_ui_screen_buf[14][19] = '|';
+    ui_put_char_ring(0, 14, '|', scroll_x, scroll_y);
+    ui_draw_text_line_ring(1, 14, dialogue->lines[dialogue->current_line], 18, scroll_x, scroll_y);
+    ui_put_char_ring(19, 14, '|', scroll_x, scroll_y);
 
-    gotoxy(0, 15);
-    putchar('|');
-    g_ui_screen_buf[15][0] = '|';
-    ui_draw_text_line(1, 15, "", 18);
-    gotoxy(19, 15);
-    putchar('|');
-    g_ui_screen_buf[15][19] = '|';
+    ui_put_char_ring(0, 15, '|', scroll_x, scroll_y);
+    ui_draw_text_line_ring(1, 15, "", 18, scroll_x, scroll_y);
+    ui_put_char_ring(19, 15, '|', scroll_x, scroll_y);
 
-    gotoxy(0, 16);
-    putchar('|');
-    g_ui_screen_buf[16][0] = '|';
-    ui_draw_text_line(1, 16, " [A] CONTINUE", 18);
-    gotoxy(19, 16);
-    putchar('|');
-    g_ui_screen_buf[16][19] = '|';
+    ui_put_char_ring(0, 16, '|', scroll_x, scroll_y);
+    ui_draw_text_line_ring(1, 16, " [A] CONTINUE", 18, scroll_x, scroll_y);
+    ui_put_char_ring(19, 16, '|', scroll_x, scroll_y);
 
-    ui_draw_text_line(0, 17, "+------------------+", 20);
+    ui_draw_text_line_ring(0, 17, "+------------------+", 20, scroll_x, scroll_y);
 }
 
 void ui_draw_game_over(uint8_t choice)

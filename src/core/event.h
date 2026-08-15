@@ -88,8 +88,11 @@ typedef struct {
 #define EVENT_MAP_ANY 0xFF
 
 /* Register the game's event table.  The engine is generic; the game layer
- * supplies its content table at boot (see src/game/events.c). */
-void event_init(const EventDefinition *table, uint8_t count);
+ * supplies its content table at boot (see src/game/events.c).  `bank`
+ * names the MBC5 ROM bank the table lives in (0 = fixed bank 0); a non-zero
+ * bank is read through a WRAM scratch copy via banked_copy(), so the banked
+ * layout is invisible to callers. */
+void event_init(const EventDefinition *table, uint8_t count, uint8_t bank);
 
 /* Resolve the first matching INTERACT event for the given actor and run its
  * actions.  Returns the engage result the screen should act on:

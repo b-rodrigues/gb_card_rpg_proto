@@ -26,7 +26,9 @@ VALID_ASSERTION_TYPES = {
     "event_occurred", "event_not_occurred", "dialogue_active", "dialogue_line", "dialogue_id",
     "screen_row", "screen_row_not_contains", "actor_at",
     "flag", "variable", "inventory", "party_hp", "party_level", "actor_state",
-    "currency", "progression_level", "progression_progress", "attack"
+    "currency", "progression_level", "progression_progress", "attack",
+    "camera", "scroll_x", "scroll_y", "world_width", "world_height",
+    "camera_px_x", "camera_px_y", "scx", "scy", "tilemap_cell"
 }
 
 VALID_ENTITY_IDS = set(ENTITY_ID_MAP.values())
@@ -166,6 +168,8 @@ def run_scenario(scenario):
                 session.press(act.get("button", "A"))
             elif act_type == "wait":
                 session.wait(act.get("frames", 1))
+            elif act_type == "hold":
+                session.hold(act.get("button", "A"), act.get("frames", 8))
             elif act_type == "interact":
                 # Semantic interaction: the player must already be adjacent
                 # and facing the target (set via initial_state); press A.
@@ -214,6 +218,14 @@ def run_scenario(scenario):
         snap = session.snapshot()
         state_snap = session.state_snapshot()
         telemetry = session.get_telemetry()
+
+        # Background scroll registers (SCX=0xFF43, SCY=0xFF42) + tilemap ring
+        # mirror (render-alignment assertions; mGBA cannot read VRAM, so the
+        # ROM mirrors the ring).
+        scx = session._memread(0xFF43)
+        scy = session._memread(0xFF42)
+        has_tilemap_assert = any(a.get("type") == "tilemap_cell" for a in scenario.get("assertions", []))
+        tilemap_mirror = session.get_tilemap_mirror() if has_tilemap_assert else None
 
         # Check if any assertion needs logical screen buffer
         has_screen_assert = any(a.get("type") in ("screen_row", "screen_row_not_contains") for a in scenario.get("assertions", []))
@@ -277,6 +289,63 @@ def run_scenario(scenario):
         elif a_type == "player_facing":
             actual = snap.get("player_facing", "UNKNOWN")
             passed = (actual == expected)
+
+        elif a_type == "camera":
+            exp_x = a.get("expected_x")
+            exp_y = a.get("expected_y")
+            act_x = state_snap.get("scroll_x")
+            act_y = state_snap.get("scroll_y")
+            actual = f"({act_x},{act_y})"
+            expected = f"({exp_x},{exp_y})"
+            passed = (act_x == exp_x and act_y == exp_y)
+
+        elif a_type == "scroll_x":
+            actual = state_snap.get("scroll_x")
+            passed = (actual == int(expected))
+            actual = f"scroll_x={actual}"
+
+        elif a_type == "scroll_y":
+            actual = state_snap.get("scroll_y")
+            passed = (actual == int(expected))
+            actual = f"scroll_y={actual}"
+
+        elif a_type == "world_width":
+            actual = state_snap.get("world_width")
+            passed = (actual == int(expected))
+            actual = f"world_width={actual}"
+
+        elif a_type == "world_height":
+            actual = state_snap.get("world_height")
+            passed = (actual == int(expected))
+            actual = f"world_height={actual}"
+
+        elif a_type == "camera_px_x":
+            actual = state_snap.get("camera_px_x")
+            passed = (actual == int(expected))
+            actual = f"camera_px_x={actual}"
+
+        elif a_type == "camera_px_y":
+            actual = state_snap.get("camera_px_y")
+            passed = (actual == int(expected))
+            actual = f"camera_px_y={actual}"
+
+        elif a_type == "scx":
+            actual = scx
+            passed = (actual == int(expected))
+            actual = f"scx={actual}"
+
+        elif a_type == "scy":
+            actual = scy
+            passed = (actual == int(expected))
+            actual = f"scy={actual}"
+
+        elif a_type == "tilemap_cell":
+            world_row = a.get("row", 0)
+            world_col = a.get("col", 0)
+            idx = (world_row & 31) * 32 + (world_col & 31)
+            actual = tilemap_mirror[idx] if tilemap_mirror is not None else None
+            passed = (actual == int(expected))
+            actual = f"tilemap[{world_col},{world_row}]={actual}"
 
         elif a_type == "music_track":
             actual = snap.get("music_track", "UNKNOWN")
@@ -491,6 +560,11 @@ def format_state(snap, state_snap):
     lines.append(f"SCENE={scene}")
     lines.append("PLAYER=({},{}) FACING={}".format(
         snap.get("player_x"), snap.get("player_y"), snap.get("player_facing")))
+    if state_snap:
+        lines.append("CAMERA=({},{}) PX=({},{}) WORLD={}x{}".format(
+            state_snap.get("scroll_x"), state_snap.get("scroll_y"),
+            state_snap.get("camera_px_x"), state_snap.get("camera_px_y"),
+            state_snap.get("world_width"), state_snap.get("world_height")))
 
     flags = sorted((state_snap or {}).get("flags", []))
     lines.append("FLAGS: " + (" ".join(flags) if flags else "(none)"))

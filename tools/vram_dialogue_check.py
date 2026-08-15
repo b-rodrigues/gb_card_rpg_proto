@@ -1,0 +1,233 @@
+#!/usr/bin/env python3
+"""Dialogue-box placement ground-truth check (PyBoy).
+
+On this ASCII-only branch the dialogue box is drawn into the BACKGROUND
+tilemap (0x9800) at screen rows 12-17 via the console font -- the
+window-layer dialogue box (f77ec9b) is a gfx-branch change.  The dialogue
+overlays the frozen, camera-scrolled overworld (SCX/SCY are kept during
+SCREEN_DIALOGUE), so the box is written at ring rows (12 + scroll_y)..(17 +
+scroll_y) and the PPU shows it at screen rows 12-17.  The box must be
+present, clean (no map tiles inside it), and the HUD window must be
+disabled while the dialogue is up.
+
+This boots the real release ROM headlessly, walks to the town guard (camera
+scrolled, SCY > 0), triggers the dialogue by bumping the guard, and decodes
+the actual BACKGROUND tilemap:
+
+  1. dialogue-bg-box: the box is present in the background at screen rows
+     12-17 at the expected shape (+ border, speaker, line, [A] CONTINUE).
+  2. dialogue-clean: the box contains only dialogue text -- no map tiles
+     mixed in.
+  3. dialogue-window-hidden: the HUD window is disabled during dialogue.
+  4. dialogue-second-line: pressing A advances to the later dialogue line.
+
+The walk is POSITION-based, not press-count based.  PyBoy's fixed button
+delays are lossy (an 8-tick hold drops ~30% of presses), and hold-to-move
+commits a fresh move on the same frame the previous one lands (a held
+button overshoots by one tile on walkable ground).  Instead, each step is a
+single 1-tick press edge followed by a wait for the tile commit; the player
+position is read back from WRAM after every press, so a dropped press is
+re-pressed and the route self-corrects.
+
+Run inside the Nix dev shell:
+    nix develop --command python3 tools/vram_dialogue_check.py [--rom PATH]
+
+Exits non-zero if any check fails.
+"""
+
+import argparse
+import os
+import sys
+
+ROM_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "..", "build", "rpg_card_proto.gb")
+
+# Player Entity layout: position{x,y}, hp, max_hp, active, facing, id.
+# Located by scanning WRAM for the deterministic boot pattern (FIELD spawn
+# (4,4), hero 10/10, active, facing DOWN, id PLAYER) rather than hardcoding
+# the g_game offset (which shifts with the _DATA layout on each build).
+PLAYER_BOOT = bytes([4, 4, 10, 10, 1, 1, 1])
+WRAM_BASE = 0xC000
+WRAM_SIZE = 0x2000
+
+failures = []
+
+
+def check(label, ok, detail=""):
+    status = "PASS" if ok else "FAIL"
+    print(f"[{status}] {label}" + (f" -- {detail}" if detail and not ok else ""))
+    if not ok:
+        failures.append(label)
+
+
+def raw_id(tm, x, y):
+    ident = tm.tile_identifier(x, y)
+    return ident - 256 if ident >= 256 else ident
+
+
+def background_row(bg, screen_y, scroll_y, ncols=20):
+    """Decode a BACKGROUND row into a string.  PyBoy's tilemap_background
+    indexes the absolute 32x32 tilemap ring; the ring holds world tiles at
+    wrapped (world & 31) addresses, and the visible row `screen_y` shows
+    ring row (scroll_y + screen_y) & 31 (the camera scrolls the ring)."""
+    row = ""
+    for x in range(ncols):
+        t = raw_id(bg, x, (screen_y + scroll_y) & 31)
+        if t >= 128:
+            row += "#"
+        elif t == 0:
+            row += " "
+        else:
+            row += chr(0x20 + t)
+    return row
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__,
+                                  formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--rom", default=ROM_DEFAULT, help="ROM to boot (release build by default)")
+    ap.add_argument("--frames", type=int, default=300,
+                     help="frames to run before sampling (default: 300, ~5s past boot)")
+    args = ap.parse_args()
+
+    if not os.path.isfile(args.rom):
+        print(f"error: ROM not found: {args.rom}", file=sys.stderr)
+        print("Build it first (make release).", file=sys.stderr)
+        return 1
+
+    try:
+        from pyboy import PyBoy
+    except ImportError:
+        print("error: pyboy not installed. `nix develop` (it is in the dev shell).", file=sys.stderr)
+        return 1
+
+    pb = PyBoy(args.rom, window="null")
+    for _ in range(args.frames):
+        pb.tick()
+
+    # Locate the player's position field in WRAM from the boot pattern.
+    pos_addr = None
+    wram = bytes(pb.memory[i] for i in range(WRAM_BASE, WRAM_BASE + WRAM_SIZE))
+    idx = wram.find(PLAYER_BOOT)
+    if idx < 0:
+        print("error: could not locate the player entity in WRAM after boot",
+              file=sys.stderr)
+        return 1
+    pos_addr = WRAM_BASE + idx
+
+    def pos():
+        return (pb.memory[pos_addr], pb.memory[pos_addr + 1])
+
+    def walk(btn, is_goal, budget=2000):
+        """Discrete one-tile presses until is_goal() holds.  Each press is a
+        4-tick edge (short enough that the 8-frame move commits after the
+        release, so exactly one tile) followed by a wait for the commit; a
+        press that produced no movement (dropped by PyBoy) is retried, so
+        the route converges regardless of host timing.  Returns whether the
+        goal was reached within the frame budget."""
+        for _ in range(budget):
+            if is_goal():
+                return True
+            x0, y0 = pos()
+            pb.button_press(btn)
+            for _ in range(4):
+                pb.tick()
+            pb.button_release(btn)
+            for _ in range(24):
+                pb.tick()
+                if pos() != (x0, y0):
+                    break
+        return is_goal()
+
+    def press(btn, settle=12):
+        """A 4-tick button press.  The game reads the physical joypad each
+        frame, and PyBoy applies queued events at frame boundaries, so a
+        one-tick press can miss the input_update window entirely (a stale
+        previous edge is never re-seen); a 4-tick hold guarantees the edge
+        lands inside a frame."""
+        pb.button_press(btn)
+        for _ in range(4):
+            pb.tick()
+        pb.button_release(btn)
+        for _ in range(settle):
+            pb.tick()
+
+    x, y = pos()
+    print(f"boot: player at ({x},{y}) (WRAM 0x{pos_addr:04X})")
+
+    # FIELD (4,4) -> east wall (30,4) -> south (30,7) -> east gate (31,7) ->
+    # TOWN (2,7) -> (2,8) -> west of the guard at (9,8).  The camera scrolls
+    # throughout (SCY > 0 in TOWN, y=8 keeps the ring scrolled vertically).
+    ok = walk("right", lambda: pos()[0] == 30)
+    ok = walk("down", lambda: pos()[1] == 7) and ok
+    ok = walk("right", lambda: pos()[0] == 2) and ok
+    ok = walk("down", lambda: pos()[1] == 8) and ok
+    ok = walk("right", lambda: pos()[0] == 9) and ok
+
+    x, y = pos()
+    print(f"guard approach: player at ({x},{y})")
+    if not ok:
+        print("warning: walk did not reach the guard; sampling anyway")
+
+    # Bump the guard at (10,8): a blocked RIGHT press engages the dialogue.
+    press("right")
+
+    win = pb.tilemap_window
+    bg = pb.tilemap_background
+
+    # On this ASCII-only branch the dialogue box is drawn into the
+    # BACKGROUND tilemap (console putchar) at screen rows 12-17, offset into
+    # the 32x32 ring by the frozen camera: ring rows (12+scroll_y)..(17+scroll_y),
+    # ring cols (scroll_x..scroll_x+19).  The window-layer dialogue box
+    # (f77ec9b) is a gfx-branch change.  The box must still be present,
+    # clean (no map tiles inside it), and the window must stay disabled
+    # (HUD hidden during dialogue).  Read the scroll from the SCY/SCX
+    # registers: a dialogue opened with a scrolled camera (SCY > 0) is the
+    # exact case this branch regressed on, so the walk must reach it.
+    scroll_y = pb.memory[0xFF42] >> 3
+    check("dialogue-camera-scrolled", scroll_y > 0,
+          "expected the walk to reach a scrolled camera (SCY>0) so the box "
+          f"placement is exercised with an offset, got scroll_y={scroll_y}")
+
+    box = [background_row(bg, 12 + wy, scroll_y) for wy in range(6)]
+    lcdc = pb.memory[0xFF40]
+    win_enabled = bool(lcdc & 0x20)
+
+    # ── 1. Dialogue box present in the BACKGROUND at the expected shape ──
+    top_ok = box[0].startswith("+") and box[0].endswith("+")
+    bottom_ok = box[5].startswith("+") and box[5].endswith("+")
+    continue_ok = "[A] CONTINUE" in box[4]
+    check("dialogue-bg-box", top_ok and bottom_ok and continue_ok,
+          "expected the box (+ borders, [A] CONTINUE) in background rows "
+          f"12-17 at the scrolled ring offset (scroll_y={scroll_y}), got: "
+          + " / ".join(box))
+
+    # ── 2. Box is clean: no map tiles (>= 128) inside it ───────────────
+    dirty = any(t >= 128 for wy in range(6)
+                for t in (raw_id(bg, x, (12 + scroll_y + wy) & 31)
+                          for x in range(20)))
+    check("dialogue-clean", not dirty,
+          f"map tiles leaked into the dialogue box (rows: {box[1:5]})")
+
+    # ── 3. Window disabled during dialogue (HUD is overworld-only) ──────
+    check("dialogue-window-hidden", not win_enabled,
+          f"expected the HUD window disabled during dialogue, got LCDC=0x{lcdc:02X}")
+
+    # Advance once and verify the later line too.  The initial line is drawn
+    # during the screen transition; this catches redraws that only fail when
+    # the modal text changes on a live frame.
+    press("a", settle=30)
+    second_line = background_row(pb.tilemap_background, 14, scroll_y)
+    check("dialogue-second-line", "Watch for slimes." in second_line,
+          "expected the second dialogue line, got: " + second_line)
+
+    print()
+    if failures:
+        print(f"{len(failures)} check(s) failed: {', '.join(failures)}")
+        return 1
+    print("All dialogue-box VRAM checks passed.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

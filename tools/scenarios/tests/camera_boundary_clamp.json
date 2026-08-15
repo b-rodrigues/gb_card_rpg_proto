@@ -1,0 +1,62 @@
+{
+  "name": "camera_boundary_clamp",
+  "test": true,
+  "description": "Walk the player to the far SE corner of the Field (30,16); the player-centered camera clamps at the scene boundary (scroll 12,6 = width-20 and height-12 tiles) so it never scrolls past the map edge while the player continues to the corner",
+  "scenario_id": "CAMERA_BOUNDARY_CLAMP",
+  "actions": [
+    {
+      "type": "hold",
+      "button": "RIGHT",
+      "frames": 16
+    },
+    {
+      "type": "wait",
+      "frames": 4
+    },
+    {
+      "type": "hold",
+      "button": "DOWN",
+      "frames": 72
+    },
+    {
+      "type": "wait",
+      "frames": 8
+    }
+  ],
+  "assertions": [
+    {
+      "type": "game_state",
+      "expected": "OVERWORLD"
+    },
+    {
+      "type": "player_position",
+      "expected_x": 30,
+      "expected_y": 16
+    },
+    {
+      "type": "camera",
+      "expected_x": 12,
+      "expected_y": 6
+    },
+    {
+      "type": "scroll_x",
+      "expected": 12
+    },
+    {
+      "type": "scroll_y",
+      "expected": 6
+    }
+  ],
+  "initial_state": {
+    "scene": "FIELD",
+    "player": {
+      "x": 28,
+      "y": 7,
+      "facing": "RIGHT"
+    },
+    "seed": 1000,
+    "flags": {
+      "ARRIVED_TOWN": true
+    }
+  }
+}

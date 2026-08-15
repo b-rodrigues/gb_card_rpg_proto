@@ -29,7 +29,7 @@ OBJS_DEBUG = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/debug/%.o,$(SRCS))
 # Emulator detection
 EMULATOR ?= $(shell command -v sameboy 2>/dev/null || command -v mgba-sdl 2>/dev/null || command -v mgba-qt 2>/dev/null || command -v mgba 2>/dev/null || echo "")
 
-.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot lint memmap verify-oam gfx clean
+.PHONY: all release debug run run-debug test test-harness test-scenario state roundtrip screenshot screenshots lint memmap verify-oam verify-vram verify-scroll verify-music verify-endurance vram-check vram-text vram-dialogue gfx clean
 
 all: $(TARGET)
 
@@ -75,14 +75,21 @@ $(BUILD_DIR)/debug/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 $(GB_LITE) $(SM83_LITE): $(OBJS) $(OBJS_DEBUG) | $(BUILD_DIR)
 	python3 tools/make_lite_libs.py $(BUILD_DIR)
 
+# The VBlank ISR is copied to WRAM 0xC900 by crt0.s.  sdldgb auto-places
+# _DATA at 0xC0A0 (after shadow OAM) and ignores ABS .org reservations, so
+# _DATA is pinned at 0xC940 to keep every C symbol above the reserved
+# 0xC900-0xC93F ISR region.  Without this, g_boot_phase/g_harness_mode land
+# at 0xC89A-C89B and get corrupted by the fixed-layout WRAM (blank screen).
+LDFLAGS = -Wl-b_DATA=0xC940
+
 $(TARGET): gfx $(OBJS) build/crt0.o $(GB_LITE) $(SM83_LITE) | $(BUILD_DIR)
-	$(CC) -no-crt -Wm-yc -Wl-yt0x19 -Wl-yo8 -o $@ build/crt0.o $(OBJS) $(GB_LITE) $(SM83_LITE)
-	@$(RGBFIX) -C -m 0x1b -r 2 -t "GBCARDRPG" $@ 2>/dev/null || true
+	$(CC) -no-crt -Wm-yc -Wl-yt0x19 -Wl-yo8 $(LDFLAGS) -o $@ build/crt0.o $(OBJS) $(GB_LITE) $(SM83_LITE)
+	@$(RGBFIX) -v -C -m 0x1b -r 2 -t "GBCARDRPG" $@
 
 $(TARGET_DEBUG): gfx $(OBJS_DEBUG) build/crt0.o $(GB_LITE) $(SM83_LITE) | $(BUILD_DIR)
-	$(CC) -no-crt -Wm-yc -Wl-yt0x19 -Wl-yo8 -Wl-m -Wl-j -Wl-y -o $@ build/crt0.o $(OBJS_DEBUG) $(GB_LITE) $(SM83_LITE)
+	$(CC) -no-crt -Wm-yc -Wl-yt0x19 -Wl-yo8 $(LDFLAGS) -Wl-m -Wl-j -Wl-y -o $@ build/crt0.o $(OBJS_DEBUG) $(GB_LITE) $(SM83_LITE)
 	@python3 tools/make_sym.py $(BUILD_DIR)/rpg_card_proto_debug.noi $(BUILD_DIR)/rpg_card_proto_debug.sym
-	@$(RGBFIX) -C -m 0x1b -r 2 -t "GBCARDRPG" $@ 2>/dev/null || true
+	@$(RGBFIX) -v -C -m 0x1b -r 2 -t "GBCARDRPG" $@
 
 build/crt0.o: src/crt0.s | $(BUILD_DIR)
 	sdasgb -o $@ $<
@@ -127,10 +134,65 @@ roundtrip: debug
 screenshot: $(TARGET)
 	@bash tools/screenshot.sh $(BUILD_DIR)/screenshot.png $(TARGET)
 
+# Headless gameplay walkthrough screenshots for visual review without booting
+# the ROM (see tools/capture_walkthrough.py and AGENTS.md §56).  Boots the
+# real release ROM in headless PyBoy, walks deterministically to each
+# milestone, and saves raw 160x144 PNGs into screenshots/.  Visual review
+# only -- semantic telemetry stays authoritative.  Manual only; not part of
+# the CI chain.
+screenshots: $(TARGET)
+	@python3 tools/capture_walkthrough.py
+
 # Verify the player sprite's real-OAM transition-hide across screen changes
 # and scene (map) changes via the mGBA debugger (see tools/verify_oam.py).
 verify-oam: debug
 	@python3 tools/verify_oam.py
+
+# Verify real-boot VRAM writes land (vsync-before-render + LCD-off boot
+# redraw): boots the debug ROM WITHOUT harness mode and compares the real
+# background ring against the WRAM mirror (see tools/verify_vram.py).
+verify-vram: debug
+	@python3 tools/verify_vram.py
+
+# Verify camera scrolling invariants (0 VRAM writes during scroll, 2 writes on
+# tile commit, no blank floor cells, hero anchored, no LCD-off frames).
+verify-scroll: debug
+	@python3 tools/verify_scroll.py
+
+# Verify the music clock never stalls across screen/map transitions: boots the
+# debug ROM WITHOUT harness mode (real interrupts) and walks FIELD -> TOWN and
+# a guard dialogue round-trip, asserting g_audio_ticks advances every sampled
+# frame (timer-driven clock; VBlank stalls 1-2 frames per LCD-off redraw).
+verify-music: debug
+	@python3 tools/verify_music.py
+
+# Endurance stress test: 60 seconds (3600 frames) of continuous gameplay with
+# real timer-driven audio and OAM DMA to assert long-running stability.
+verify-endurance: release debug
+	@python3 tools/verify_endurance.py
+
+# Font/VRAM pixel ground truth via PyBoy (see tools/vram_check.py).  Boots the
+# real release ROM headlessly and reads VRAM directly -- the one place a
+# pixel-level check is the correct tool (the char->tile mapping has no
+# semantic representation).  Manual only; not part of the CI chain.
+vram-check: release
+	@python3 tools/vram_check.py
+
+# Text-layer ground truth via PyBoy (see tools/vram_text_check.py): asserts
+# generic text lands on the always-displayed BACKGROUND (0x9800), not the
+# overworld-only WINDOW (0x9C00), by opening the ITEM menu with START and
+# reading real VRAM.  Manual only; not part of the CI chain.
+vram-text: release
+	@python3 tools/vram_text_check.py
+
+# Dialogue-box placement ground truth via PyBoy (see
+# tools/vram_dialogue_check.py): asserts the dialogue box renders in the
+# BACKGROUND tilemap (0x9800) at screen rows 12-17, written into the
+# scrolled ring at (12 + scroll_y)..(17 + scroll_y) so it cannot shift with
+# the camera or pollute the map ("text from other scenes").  Manual only;
+# not part of the CI chain.
+vram-dialogue: release
+	@python3 tools/vram_dialogue_check.py
 
 # Print a reproducible memory budget (code/WRAM usage, _HOME headroom vs the
 # 0x8000 ceiling).  Exits non-zero if a documented invariant is violated.

@@ -33,8 +33,7 @@ typedef struct {
 } DialogueState;
 
 void dialogue_init(DialogueState *d);
-void dialogue_register(const DialogueDefinition *table, uint8_t count);
-const DialogueDefinition *dialogue_get_def(DialogueId id);
+void dialogue_register(const DialogueDefinition *table, uint8_t count, uint8_t bank);
 void dialogue_start(DialogueState *d, DialogueId id, const char *speaker, const char **lines, uint8_t count);
 void dialogue_start_def(DialogueState *d, DialogueId id);
 bool dialogue_next(DialogueState *d);

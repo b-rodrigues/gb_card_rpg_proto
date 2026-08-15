@@ -9,6 +9,7 @@
 #include "rpg/progression.h"
 #include "rpg/party.h"
 #include "rpg/items.h"
+#include "banked.h"
 
 void game_render_reset(Game *g)
 {
@@ -40,6 +41,10 @@ void game_render_reset(Game *g)
 void game_init(Game *g)
 {
     if (!g) return;
+    /* Install the WRAM banked-copy trampoline before any banked content
+     * (event/dialogue tables) can be read.  Runs here rather than in CRT0
+     * init because the harness jumps straight to main(). */
+    banked_copy_init();
     g->frame = 0;
     g->game_over_choice = 0;
     g->shop_id = 1;
@@ -102,6 +107,7 @@ void game_update(Game *g)
 void game_render(Game *g)
 {
     RenderCache *rc;
+    uint8_t full_redraw;
 
     if (!g) return;
     rc = &g->render_cache;
@@ -129,9 +135,22 @@ void game_render(Game *g)
      * so the sprite is NOT re-hidden every frame.  That per-frame re-hide
      * (from the old 255 prev_map_id sentinel) made the sprite invisible
      * for the whole fight/discussion on real hardware. */
-    if (!rc->valid || rc->prev_screen != g->screen ||
-        g->world.map_id != rc->prev_map_id) {
+    full_redraw = (!rc->valid || rc->prev_screen != g->screen ||
+                   g->world.map_id != rc->prev_map_id);
+    if (full_redraw) {
         ui_sprite_begin_transition();
+        /* A full redraw is much larger than the part of VBlank remaining
+         * after vsync() returns.  Keeping the LCD on here makes the PPU drop
+         * the tail of the tilemap writes in modes 2/3, which produces
+         * garbled menus, incomplete maps, and eventually a white screen.
+         * Disable the LCD for the complete transaction instead.  This is
+         * also required for the boot redraw, which runs before the first
+         * main-loop vsync().  Re-enable it before returning so the next
+         * iteration can synchronize normally. */
+        ui_lcd_off();
+        screen_render(g);
+        ui_lcd_on();
+        return;
     }
     screen_render(g);
 }

@@ -22,7 +22,7 @@ _DATA (WRAM)                :  1224 B  @ 0xC0A0-0xC568  headroom to 0xE000: 6808
   catalog, quest registry, shop stock).  `_CODE` grows with every feature and
   with content tables.
 * **`_HOME`** (1863 B): boot-critical code that must stay below `0x8000` —
-  the VBlank ISR trampoline path (`_audio_update`), `_joypad`, `_set_bkg_data`
+  the timer ISR trampoline path (`_audio_update`), `_joypad`, `_set_bkg_data`
   and other non-bankable library routines.  This is the tightest budget:
   only 907 B of headroom.  Keep it there; do not grow it casually.
 * Banked ROM (banks 1-7): currently unused by gameplay code (everything links
@@ -42,7 +42,7 @@ _DATA (WRAM)                :  1224 B  @ 0xC0A0-0xC568  headroom to 0xE000: 6808
 
 ### HRAM / VRAM / stack
 
-* HRAM: only the VBlank ISR uses it transiently.
+* HRAM: only the timer ISR uses it transiently.
 * VRAM: currently holds the console font (ASCII prototype).  The graphics
   pipeline (see `docs/graphics.md`) will consume the 8 KB BG tilemap +
   tilesets + OAM (40 sprites) budgets.

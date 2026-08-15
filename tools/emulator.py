@@ -108,7 +108,9 @@ SCENARIO_IDS = {
     "OVERWORLD_BOOT": 15, "DIALOGUE_BOOT": 16, "BATTLE_BOOT": 17,
     "GAME_OVER_BOOT": 18, "THANKS_BOOT": 19, "FOREST_BOOT": 20,
     "MOUNTAIN_PASS_BOOT": 21, "CASTLE_BOOT": 22, "TOWN_BOOT": 23,
-    "ACTOR_COLLISION_BLOCKING": 24, "ACTOR_SHOPKEEPER": 25, "ACTOR_BAT": 26
+    "ACTOR_COLLISION_BLOCKING": 24, "ACTOR_SHOPKEEPER": 25, "ACTOR_BAT": 26,
+    "LARGE_MAP_SCROLL": 27, "FIELD_EAST_SCROLL": 28, "CAMERA_BOUNDARY_CLAMP": 29,
+    "SCROLL_RENDER_ALIGNMENT": 30, "START_SWALLOWS_MAP_COMMIT": 31
 }
 
 # ── Declarative initial-state descriptor ─────────────────────────────
@@ -642,6 +644,26 @@ class EmulatorSession:
         time.sleep(0.005)
         self.step(1)
 
+    def hold(self, button, frames):
+        """Hold a button down for N frames.
+
+        The ROM consumes g_inp_mask once per frame (edge-triggered, see
+        AGENTS.md 52.10), so a single press() only registers for one frame.
+        A hold rewrites g_inp_mask before every stepped frame, keeping
+        input_held() true throughout -- the overworld's hold-to-move path.
+        The mask is cleared on the last frame, so the button releases after
+        exactly ``frames`` frames of held input.
+        """
+        btn_upper = button.upper()
+        if btn_upper not in self.button_masks:
+            raise ValueError(f"Unknown button '{button}'")
+        mask = self.button_masks[btn_upper]
+        addr = self.get_symbol("g_inp_mask")
+        for i in range(frames):
+            self._memwrite(addr, mask)
+            time.sleep(0.005)
+            self.step(1)
+
     # ── Scenario loading ────────────────────────────────────────────
 
     def load_scenario(self, scenario):
@@ -715,10 +737,10 @@ class EmulatorSession:
             return parsed
         return self.current_snapshot
 
-    # Extended RPG state snapshot: parses g_state_snap_buf (183 bytes,
+    # Extended RPG state snapshot: parses g_state_snap_buf (189 bytes,
     # layout in src/debug/telemetry.h STATE_SNAP_*).
-    STATE_SNAP_SIZE = 183
-    STATE_SNAP_VERSION = 3
+    STATE_SNAP_SIZE = 189
+    STATE_SNAP_VERSION = 5
     STATE_SNAP_FLAGS_OFF = 1
     STATE_SNAP_FLAGS_SIZE = 8
     STATE_SNAP_VARIABLES_OFF = 9
@@ -735,6 +757,12 @@ class EmulatorSession:
     STATE_SNAP_PROGRESSION_ENTRY_OFF = 134
     STATE_SNAP_PROGRESSION_ENTRY_SIZE = 6
     STATE_SNAP_EQUIPMENT_OFF = 182
+    STATE_SNAP_SCROLL_X_OFF = 183
+    STATE_SNAP_SCROLL_Y_OFF = 184
+    STATE_SNAP_WORLD_WIDTH_OFF = 185
+    STATE_SNAP_WORLD_HEIGHT_OFF = 186
+    STATE_SNAP_CAMERA_PX_X_OFF = 187
+    STATE_SNAP_CAMERA_PX_Y_OFF = 188
 
     def state_snapshot(self):
         """Read g_state_snap_buf and return the canonical GameState as a dict."""
@@ -833,6 +861,12 @@ class EmulatorSession:
             "world": world,
             "progression": progression,
             "equipment": equipment,
+            "scroll_x": buf[self.STATE_SNAP_SCROLL_X_OFF],
+            "scroll_y": buf[self.STATE_SNAP_SCROLL_Y_OFF],
+            "world_width": buf[self.STATE_SNAP_WORLD_WIDTH_OFF],
+            "world_height": buf[self.STATE_SNAP_WORLD_HEIGHT_OFF],
+            "camera_px_x": buf[self.STATE_SNAP_CAMERA_PX_X_OFF],
+            "camera_px_y": buf[self.STATE_SNAP_CAMERA_PX_Y_OFF],
         }
 
     # ── Debug actions (semantic harness operations) ──────────────────
@@ -888,6 +922,14 @@ class EmulatorSession:
                 "battle": info.get("battle", "NONE"),
             })
         return actors
+
+    def get_tilemap_mirror(self):
+        """Read the g_tilemap_mirror ring (DEBUG build; mGBA cannot read VRAM,
+        so the ROM mirrors each background-tilemap write into WRAM).  Indexed
+        by (world_row & 31) * 32 + (world_col & 31); values are ASCII
+        console-font tile indices (ui_font_tile_base + (ch - ' '))."""
+        addr = self.get_symbol("g_tilemap_mirror")
+        return [self._memread(addr + i) for i in range(32 * 32)]
 
     def get_screen_buf(self):
         """Read 18×20 characters from g_ui_screen_buf."""

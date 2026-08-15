@@ -35,7 +35,7 @@ void dialogue_screen_render(Game *g)
         if (rc->prev_screen != SCREEN_OVERWORLD) {
             ui_draw_world_full(&g->world);
         }
-        ui_draw_dialogue(&g->dialogue);
+        ui_draw_dialogue(&g->dialogue, g->world.scroll_x, g->world.scroll_y);
         telemetry_emit(EVENT_RENDER_DIALOGUE, (uint8_t)g->dialogue.id,
                        g->dialogue.current_line, 0, 0);
         rc->valid = true;
@@ -49,7 +49,12 @@ void dialogue_screen_render(Game *g)
     /* Dialogue line or id changed: redraw the box. */
     if (g->dialogue.current_line != rc->prev_dialogue_line ||
         g->dialogue.id != rc->prev_dialogue_id) {
-        ui_draw_dialogue(&g->dialogue);
+        /* A line redraw writes the full six-row modal box.  It is larger
+         * than the remaining VBlank budget, so keep the PPU away from VRAM
+         * for the whole write or the later rows become garbled. */
+        ui_lcd_off();
+        ui_draw_dialogue(&g->dialogue, g->world.scroll_x, g->world.scroll_y);
+        ui_lcd_on();
         telemetry_emit(EVENT_RENDER_DIALOGUE, (uint8_t)g->dialogue.id,
                        g->dialogue.current_line, 0, 0);
         rc->prev_dialogue_line = g->dialogue.current_line;

@@ -27,6 +27,28 @@ testable, save/load works, and the memory budget is understood.
 
 ### NEXT
 
+- **Camera / scroll — B1 + B2 DONE**: scenes are parameterized, the
+  overworld has a pixel camera (`World.camera_px_x/y`, `world_update_scroll`
+  follows the player smoothly and clamps to scene bounds; exposed in the
+  snapshot as `scroll_x/y` = camera_px/8).  FIELD is 32x18; covered by
+  `large_map_scroll` + `field_east_scroll`.  B2 rendered the terrain as real
+  GB tiles (`src/gfx/world_tiles.h`) into the 0x9800 tilemap.
+- **Camera / scroll — B3 + B4 DONE**: the overworld background scrolls
+  smoothly with SCX/SCY (set every frame from the pixel camera; the tile
+  window is redrawn only when the camera crosses a tile boundary).  The HUD
+  moved to the WINDOW layer (0x9C00, `ui_hud_show/hide`, toggled in
+  screen_change) so it stays fixed under the scroll; HUD tiles use the
+  console font base (`ibm_font + ch`).  B4 made the camera player-centred
+  (`camera_px = player_px - view/2`, clamped at the scene edges); covered by
+  `large_map_scroll`, `field_east_scroll` and `camera_boundary_clamp`.
+  Render verification: the overworld background uses a 32-column background ring
+  (populated across all 32 columns x 18 rows during LCD-safe full map redraws,
+  with unused columns in <32-wide maps filled with floor tiles). Camera scrolling
+  only updates SCX/SCY (0 VRAM writes during movement). Tile commits execute
+  exactly 2 VRAM writes inside VBlank (restore old tile, draw hero '@'). The
+  debug build mirrors the ring into `g_tilemap_mirror` (WRAM) so the harness can
+  assert the rendered map (mGBA cannot read VRAM); `scroll_render_alignment`
+  verifies SCX/SCY-vs-ring alignment, and the snapshot exposes `camera_px_x/y`.
 - Graphics pipeline (tile/sprite renderer, DMG+CGB, screen rewiring, asset
   converter + validation) — spec'd in `docs/graphics.md`; the `sprites`
   branch has landed the player OAM sprite + the `png2gb.py` PNG→tileset

@@ -497,21 +497,13 @@ void ui_draw_world_full(const World *world)
     ui_hud_show();
 }
 
-void ui_update_player_position(const World *world, uint8_t old_px, uint8_t old_py, uint8_t new_px, uint8_t new_py)
+void ui_update_player_position(const World *world, uint8_t old_x, uint8_t old_y,
+                               uint8_t new_x, uint8_t new_y)
 {
-    uint8_t old_x;
-    uint8_t old_y;
-    uint8_t new_x;
-    uint8_t new_y;
-
     if (!world) return;
 
     /* Sub-tile movement needs no background write.  At a tile commit, redraw
      * only the old and new cells so the @ moves without a full-screen wipe. */
-    old_x = (uint8_t)((old_px + world->camera_px_x) >> 3);
-    old_y = (uint8_t)((old_py + world->camera_px_y) >> 3);
-    new_x = (uint8_t)((new_px + world->camera_px_x) >> 3);
-    new_y = (uint8_t)((new_py + world->camera_px_y) >> 3);
     if (old_x == new_x && old_y == new_y) return;
 
     VBK_REG = 0;

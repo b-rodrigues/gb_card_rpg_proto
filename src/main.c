@@ -60,7 +60,7 @@ int main(void)
              * game_render.  Incremental tilemap writes then land in VBlank;
              * full redraws explicitly disable the LCD in game_render because
              * they are larger than the remaining VBlank budget.  GBDK's
-             * vsync() busy-waits for LY == 145 (the second VBlank scanline).
+             * vsync() busy-waits for LY == 144 (the first VBlank scanline).
              * The PPU silently ignores VRAM writes during LCD modes 2/3. */
             vsync();
         }

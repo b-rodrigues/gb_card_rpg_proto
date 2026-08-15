@@ -104,12 +104,12 @@ copy_isr:
 .wait_vbl_done:
 .vsync:
         ldh     a, (0xFF44)
-        cp      #0x91
+        cp      #0x90
         jr      nz, vsync_wait
         ret
 vsync_wait:
         ldh     a, (0xFF44)
-        cp      #0x91
+        cp      #0x90
         jr      nz, vsync_wait
         ret
 

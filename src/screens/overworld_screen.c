@@ -12,6 +12,8 @@
  * the Game struct layout stays untouched). */
 static uint8_t s_prev_scroll_x;
 static uint8_t s_prev_scroll_y;
+static uint8_t s_prev_player_tile_x;
+static uint8_t s_prev_player_tile_y;
 
 static void start_battle_from_world(Game *g)
 {
@@ -109,16 +111,15 @@ void overworld_screen_render(Game *g)
     if (!g) return;
     rc = &g->render_cache;
 
-    /* SCX/SCY every frame (the camera glides sub-tile between redraws);
-     * the sprite is positioned camera-relative because the BG scrolls under
-     * it. */
-    ui_update_camera(&g->world);
+    /* SCX/SCY is applied after any entering-edge tile writes below.  This
+     * keeps the newly visible edge off-screen while it is being populated. */
     px = (uint8_t)(world_player_px(&g->world) - g->world.camera_px_x);
     py = (uint8_t)(world_player_py(&g->world) - g->world.camera_px_y);
 
     /* Map transition, cache reset, or return from Battle/Dialogue */
     if (!rc->valid || rc->prev_screen != SCREEN_OVERWORLD ||
         g->world.map_id != rc->prev_map_id) {
+        ui_update_camera(&g->world);
         ui_draw_world_full(&g->world);
         telemetry_emit(EVENT_RENDER_SCREEN, (uint8_t)SCREEN_OVERWORLD, 0,
                        (uint8_t)g->world.map_id, 0);
@@ -127,6 +128,8 @@ void overworld_screen_render(Game *g)
         rc->prev_map_id = g->world.map_id;
         s_prev_scroll_x = g->world.scroll_x;
         s_prev_scroll_y = g->world.scroll_y;
+        s_prev_player_tile_x = g->world.player.position.x;
+        s_prev_player_tile_y = g->world.player.position.y;
         rc->prev_player_x = px;
         rc->prev_player_y = py;
         rc->prev_dialogue_active = false;
@@ -147,12 +150,22 @@ void overworld_screen_render(Game *g)
         rc->prev_player_y = py;
     }
 
-    /* Incremental overworld player movement (NO full screen clear): the
-     * sprite glides 1px/frame in camera-relative screen coordinates while
-     * the tile position only commits at the end of the walk. */
+    ui_update_camera(&g->world);
+
+    /* Sub-tile movement only changes the camera/sprite position.  The ASCII
+     * @ moves when the canonical tile position commits, using world
+     * coordinates rather than camera-relative pixels. */
+    if (g->world.player.position.x != s_prev_player_tile_x ||
+        g->world.player.position.y != s_prev_player_tile_y) {
+        ui_update_player_position(&g->world,
+                                   s_prev_player_tile_x, s_prev_player_tile_y,
+                                   g->world.player.position.x,
+                                   g->world.player.position.y);
+        s_prev_player_tile_x = g->world.player.position.x;
+        s_prev_player_tile_y = g->world.player.position.y;
+    }
+
     if (px != rc->prev_player_x || py != rc->prev_player_y) {
-        ui_update_player_position(&g->world, rc->prev_player_x, rc->prev_player_y,
-                                  px, py);
         rc->prev_player_x = px;
         rc->prev_player_y = py;
     }

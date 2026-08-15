@@ -137,6 +137,10 @@ void ui_hud_hide(void)
  * render positions it via ui_sprite_move(). */
 void ui_sprite_init(void)
 {
+    uint16_t i;
+    for (i = 0; i < (96 * 16); i++) {
+        ((volatile uint8_t *)0x8000)[i] = ((volatile uint8_t *)0x9000)[i];
+    }
     set_sprite_data(PLAYER_SPRITE_TILE_ID, 1, player_sprite_tile);
     set_sprite_tile(PLAYER_SPRITE_NUM, PLAYER_SPRITE_TILE_ID);
     SPRITES_8x8;

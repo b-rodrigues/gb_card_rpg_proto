@@ -313,7 +313,7 @@ static void ui_draw_world_cell_ex(const World *world, uint8_t col, uint8_t row,
 static void ui_draw_world_cell(const World *world, uint8_t col, uint8_t row)
 {
     ui_draw_world_cell_ex(world, col, row,
-                          world->player.position.x, world->player.position.y);
+                          255, 255);
 }
 
 /* Draw every cell in [c0,c1) x [r0,r1) into the tilemap ring. */
@@ -366,8 +366,9 @@ void ui_draw_world_map(const World *world)
     ui_refill_semantic(world);
 #endif
 
-    /* The ASCII overworld uses @ for the hero.  Keep the hardware sprite
-     * hidden so the player has one authoritative representation. */
+    /* The ASCII overworld adds @ separately at the camera-relative hero
+     * position.  Keep the hardware sprite hidden so the player has one
+     * authoritative representation. */
     ui_sprite_hide();
 }
 
@@ -466,8 +467,8 @@ void ui_update_player_position(const World *world, uint8_t old_x, uint8_t old_y,
 {
     if (!world) return;
 
-    /* Redraw old cell (erases '@' and restores terrain/actor) and new cell
-     * (draws '@') so hero position stays anchored without a full redraw. */
+    /* Coordinates are ring/world cells selected by the camera-relative
+     * renderer. Restore the old cell, then place @ at the new visible cell. */
     if (old_x == new_x && old_y == new_y) return;
 
     VBK_REG = 0;

@@ -12,8 +12,9 @@
  * the Game struct layout stays untouched). */
 static uint8_t s_prev_scroll_x;
 static uint8_t s_prev_scroll_y;
-static uint8_t s_prev_player_tile_x;
-static uint8_t s_prev_player_tile_y;
+static uint8_t s_prev_hero_ring_x;
+static uint8_t s_prev_hero_ring_y;
+static uint8_t s_hero_ring_valid;
 
 static void start_battle_from_world(Game *g)
 {
@@ -129,8 +130,18 @@ void overworld_screen_render(Game *g)
         rc->prev_map_id = g->world.map_id;
         s_prev_scroll_x = g->world.scroll_x;
         s_prev_scroll_y = g->world.scroll_y;
-        s_prev_player_tile_x = g->world.player.position.x;
-        s_prev_player_tile_y = g->world.player.position.y;
+        s_hero_ring_valid = 0;
+        curr_player_tile_x = (uint8_t)(g->world.scroll_x +
+                                       ((world_player_px(&g->world) -
+                                         g->world.camera_px_x + 4) >> 3));
+        curr_player_tile_y = (uint8_t)(g->world.scroll_y +
+                                       ((world_player_py(&g->world) -
+                                         g->world.camera_px_y + 4) >> 3));
+        ui_update_player_position(&g->world, 255, 255,
+                                  curr_player_tile_x, curr_player_tile_y);
+        s_prev_hero_ring_x = curr_player_tile_x;
+        s_prev_hero_ring_y = curr_player_tile_y;
+        s_hero_ring_valid = 1;
         rc->prev_player_x = px;
         rc->prev_player_y = py;
         rc->prev_dialogue_active = false;
@@ -152,20 +163,25 @@ void overworld_screen_render(Game *g)
 
     ui_update_camera(&g->world);
 
-    /* Compute current player tile from sub-tile pixel position rounded to the
-     * nearest tile midpoint (+4).  This updates the hero '@' symbol at the
-     * midpoint of movement steps so it tracks the camera smoothly without
-     * drifting or freezing. */
-    curr_player_tile_x = (uint8_t)((world_player_px(&g->world) + 4) >> 3);
-    curr_player_tile_y = (uint8_t)((world_player_py(&g->world) + 4) >> 3);
+    /* Compute the camera-relative hero tile in the background ring.  This
+     * moves @ with the viewport instead of leaving it attached to a stale
+     * world tile while SCX/SCY changes. */
+    curr_player_tile_x = (uint8_t)(g->world.scroll_x +
+                                   ((world_player_px(&g->world) -
+                                     g->world.camera_px_x + 4) >> 3));
+    curr_player_tile_y = (uint8_t)(g->world.scroll_y +
+                                   ((world_player_py(&g->world) -
+                                     g->world.camera_px_y + 4) >> 3));
 
-    if (curr_player_tile_x != s_prev_player_tile_x ||
-        curr_player_tile_y != s_prev_player_tile_y) {
+    if (!s_hero_ring_valid || curr_player_tile_x != s_prev_hero_ring_x ||
+        curr_player_tile_y != s_prev_hero_ring_y) {
         ui_update_player_position(&g->world,
-                                   s_prev_player_tile_x, s_prev_player_tile_y,
+                                   s_hero_ring_valid ? s_prev_hero_ring_x : 255,
+                                   s_hero_ring_valid ? s_prev_hero_ring_y : 255,
                                    curr_player_tile_x, curr_player_tile_y);
-        s_prev_player_tile_x = curr_player_tile_x;
-        s_prev_player_tile_y = curr_player_tile_y;
+        s_prev_hero_ring_x = curr_player_tile_x;
+        s_prev_hero_ring_y = curr_player_tile_y;
+        s_hero_ring_valid = 1;
     }
 
     if (px != rc->prev_player_x || py != rc->prev_player_y) {

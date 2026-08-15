@@ -8,13 +8,23 @@ be present, clean (no map tiles inside it), and the HUD window must be
 disabled while the dialogue is up.
 
 This boots the real release ROM headlessly, walks to the town guard (camera
-scrolled), triggers the dialogue, and decodes the actual BACKGROUND tilemap:
+scrolled, SCY > 0), triggers the dialogue by bumping the guard, and decodes
+the actual BACKGROUND tilemap:
 
   1. dialogue-bg-box: the box is present in the background at screen rows
      12-17 at the expected shape (+ border, speaker, line, [A] CONTINUE).
   2. dialogue-clean: the box contains only dialogue text -- no map tiles
      mixed in.
   3. dialogue-window-hidden: the HUD window is disabled during dialogue.
+  4. dialogue-second-line: pressing A advances to the later dialogue line.
+
+The walk is POSITION-based, not press-count based.  PyBoy's fixed button
+delays are lossy (an 8-tick hold drops ~30% of presses), and hold-to-move
+commits a fresh move on the same frame the previous one lands (a held
+button overshoots by one tile on walkable ground).  Instead, each step is a
+single 1-tick press edge followed by a wait for the tile commit; the player
+position is read back from WRAM after every press, so a dropped press is
+re-pressed and the route self-corrects.
 
 Run inside the Nix dev shell:
     nix develop --command python3 tools/vram_dialogue_check.py [--rom PATH]
@@ -29,6 +39,14 @@ import sys
 ROM_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                             "..", "build", "rpg_card_proto.gb")
 
+# Player Entity layout: position{x,y}, hp, max_hp, active, facing, id.
+# Located by scanning WRAM for the deterministic boot pattern (FIELD spawn
+# (4,4), hero 10/10, active, facing DOWN, id PLAYER) rather than hardcoding
+# the g_game offset (which shifts with the _DATA layout on each build).
+PLAYER_BOOT = bytes([4, 4, 10, 10, 1, 1, 1])
+WRAM_BASE = 0xC000
+WRAM_SIZE = 0x2000
+
 failures = []
 
 
@@ -42,19 +60,6 @@ def check(label, ok, detail=""):
 def raw_id(tm, x, y):
     ident = tm.tile_identifier(x, y)
     return ident - 256 if ident >= 256 else ident
-
-
-def window_row(tm, wy, ncols=20):
-    row = ""
-    for x in range(ncols):
-        t = raw_id(tm, x, wy)
-        if t >= 128:
-            row += "#"
-        elif t == 0:
-            row += " "
-        else:
-            row += chr(0x20 + t)
-    return row
 
 
 def background_row(bg, screen_y, scroll_y, ncols=20):
@@ -78,8 +83,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                   formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--rom", default=ROM_DEFAULT, help="ROM to boot (release build by default)")
-    ap.add_argument("--frames", type=int, default=180,
-                     help="frames to run before sampling (default: ~3s, past boot)")
+    ap.add_argument("--frames", type=int, default=300,
+                     help="frames to run before sampling (default: 300, ~5s past boot)")
     args = ap.parse_args()
 
     if not os.path.isfile(args.rom):
@@ -97,25 +102,72 @@ def main():
     for _ in range(args.frames):
         pb.tick()
 
-    def one_tile(btn, n=1):
-        for _ in range(n):
-            # Keep the press edge separate from the release. The redraw path
-            # may consume more host-side time than a fixed PyBoy button
-            # delay, but the game only needs one input edge to start its
-            # eight-frame walk.
-            pb.button_press(btn)
-            pb.tick()
-            pb.button_release(btn)
-            for _ in range(14):
-                pb.tick()
+    # Locate the player's position field in WRAM from the boot pattern.
+    pos_addr = None
+    wram = bytes(pb.memory[i] for i in range(WRAM_BASE, WRAM_BASE + WRAM_SIZE))
+    idx = wram.find(PLAYER_BOOT)
+    if idx < 0:
+        print("error: could not locate the player entity in WRAM after boot",
+              file=sys.stderr)
+        return 1
+    pos_addr = WRAM_BASE + idx
 
-    # Walk to the town guard (guarantees the camera is scrolled, SCY > 0).
-    one_tile("right", 27); one_tile("down", 3); one_tile("right", 1)
-    for _ in range(30): pb.tick()
-    one_tile("right", 7); one_tile("down", 1)
-    for _ in range(20): pb.tick()
-    pb.button("right", delay=8)   # bump the guard -> dialogue
-    for _ in range(30): pb.tick()
+    def pos():
+        return (pb.memory[pos_addr], pb.memory[pos_addr + 1])
+
+    def walk(btn, is_goal, budget=2000):
+        """Discrete one-tile presses until is_goal() holds.  Each press is a
+        4-tick edge (short enough that the 8-frame move commits after the
+        release, so exactly one tile) followed by a wait for the commit; a
+        press that produced no movement (dropped by PyBoy) is retried, so
+        the route converges regardless of host timing.  Returns whether the
+        goal was reached within the frame budget."""
+        for _ in range(budget):
+            if is_goal():
+                return True
+            x0, y0 = pos()
+            pb.button_press(btn)
+            for _ in range(4):
+                pb.tick()
+            pb.button_release(btn)
+            for _ in range(24):
+                pb.tick()
+                if pos() != (x0, y0):
+                    break
+        return is_goal()
+
+    def press(btn, settle=12):
+        """A 4-tick button press.  The game reads the physical joypad each
+        frame, and PyBoy applies queued events at frame boundaries, so a
+        one-tick press can miss the input_update window entirely (a stale
+        previous edge is never re-seen); a 4-tick hold guarantees the edge
+        lands inside a frame."""
+        pb.button_press(btn)
+        for _ in range(4):
+            pb.tick()
+        pb.button_release(btn)
+        for _ in range(settle):
+            pb.tick()
+
+    x, y = pos()
+    print(f"boot: player at ({x},{y}) (WRAM 0x{pos_addr:04X})")
+
+    # FIELD (4,4) -> east wall (30,4) -> south (30,7) -> east gate (31,7) ->
+    # TOWN (2,7) -> (2,8) -> west of the guard at (9,8).  The camera scrolls
+    # throughout (SCY > 0 in TOWN, y=8 keeps the ring scrolled vertically).
+    ok = walk("right", lambda: pos()[0] == 30)
+    ok = walk("down", lambda: pos()[1] == 7) and ok
+    ok = walk("right", lambda: pos()[0] == 2) and ok
+    ok = walk("down", lambda: pos()[1] == 8) and ok
+    ok = walk("right", lambda: pos()[0] == 9) and ok
+
+    x, y = pos()
+    print(f"guard approach: player at ({x},{y})")
+    if not ok:
+        print("warning: walk did not reach the guard; sampling anyway")
+
+    # Bump the guard at (10,8): a blocked RIGHT press engages the dialogue.
+    press("right")
 
     win = pb.tilemap_window
     bg = pb.tilemap_background
@@ -151,11 +203,7 @@ def main():
     # Advance once and verify the later line too.  The initial line is drawn
     # during the screen transition; this catches redraws that only fail when
     # the modal text changes on a live frame.
-    pb.button_press("a")
-    pb.tick()
-    pb.button_release("a")
-    for _ in range(30):
-        pb.tick()
+    press("a", settle=30)
     second_line = background_row(pb.tilemap_background, 14, 0)
     check("dialogue-second-line", "Watch for slimes." in second_line,
           "expected the second dialogue line, got: " + second_line)

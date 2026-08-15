@@ -99,7 +99,7 @@ def verify_battle_transition(sess):
 
     # 1. Overworld steady: player at (13,8), camera (24,16) ->
     #    OAM x = 13*8+8-24 = 88, y = 8*8+16-16 = 64.
-    check("overworld hero sprite hidden (shadow OAM)", (0, 255), shadow_oam(sess))
+    check("overworld @ sprite position (shadow OAM)", (64, 88), shadow_oam(sess))
 
     # 2. Walk right into the slime at (14,8): the encounter is decided once
     #    the hold-to-move commits the tile (MOVE_FRAMES=8).  The sprite is
@@ -193,8 +193,8 @@ def verify_dialogue_transition(sess):
     # Sprite stays visible behind the box at the player's position (9,5),
     # camera (0,0) -> OAM y=5*8+16=56, x=9*8+8=80.
     sess.step(1)
-    check("dialogue steady: hero sprite hidden (shadow OAM)",
-          (0, 255), shadow_oam(sess))
+    check("dialogue steady: @ sprite visible (shadow OAM)",
+          (56, 80), shadow_oam(sess))
 
 
 def verify_scene_transition(sess):
@@ -205,8 +205,8 @@ def verify_scene_transition(sess):
 
     # 1. FIELD steady: player at (30,7), camera (96,8) ->
     #    OAM x = 30*8+8-96 = 152, y = 7*8+16-8 = 64.
-    check("overworld steady: hero sprite hidden (shadow OAM)",
-          (0, 255), shadow_oam(sess))
+    check("overworld steady: @ sprite position (shadow OAM)",
+          (64, 152), shadow_oam(sess))
 
     # 2. Hold RIGHT through the gate at (31,7) into TOWN (spawn 2,7).  The
     #    map change triggers the transition hide/commit; the sprite lands at
@@ -214,8 +214,8 @@ def verify_scene_transition(sess):
     #    mid-scroll, so the exact x is the committed value, not the
     #    steady-camera calc).  (64,27) is the observed deterministic result.
     sess.hold("RIGHT", 14)
-    check("new map: hero sprite hidden (shadow OAM)",
-          (0, 255), shadow_oam(sess))
+    check("new map: @ sprite position (shadow OAM)",
+          (64, 27), shadow_oam(sess))
 
 
 def main():

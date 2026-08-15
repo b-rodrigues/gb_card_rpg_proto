@@ -126,8 +126,8 @@ void ui_hud_hide(void)
  * render positions it via ui_sprite_move(). */
 void ui_sprite_init(void)
 {
-    set_sprite_data(PLAYER_SPRITE_TILE_ID, 1, player_sprite_tile);
-    set_sprite_tile(PLAYER_SPRITE_NUM, PLAYER_SPRITE_TILE_ID);
+    set_sprite_tile(PLAYER_SPRITE_NUM,
+                    (uint8_t)(ui_font_tile_base + (uint8_t)('@' - ' ')));
     SPRITES_8x8;
     SHOW_SPRITES;
     hide_sprite(PLAYER_SPRITE_NUM);
@@ -271,14 +271,12 @@ void ui_format_int(int16_t value, char *out)
  * anchored semantic g_ui_screen_buf (harness get_screen_buf) is filled for
  * visible cells.  Written directly -- not through set_bkg_tiles -- to avoid
  * pulling the GBDK .set_xy_* helpers into the non-bankable _HOME area. */
-static void ui_draw_world_cell_ex(const World *world, uint8_t col, uint8_t row,
-                                  uint8_t hero_x, uint8_t hero_y)
+static void ui_draw_world_cell_ex(const World *world, uint8_t col, uint8_t row)
 {
     uint8_t t;
     uint8_t tile_idx;
     uint8_t sx;
     uint8_t sy;
-    uint8_t player_cell;
     const WorldActorDefinition *actor;
     volatile uint8_t *tilemap = (volatile uint8_t *)0x9800;
 
@@ -288,11 +286,8 @@ static void ui_draw_world_cell_ex(const World *world, uint8_t col, uint8_t row,
         t = world->map[row][col];
     }
 
-    player_cell = (col == hero_x && row == hero_y);
-    actor = player_cell ? NULL : actor_find_at(world, col, row);
-    if (player_cell) {
-        tile_idx = (uint8_t)(ui_font_tile_base + (uint8_t)('@' - ' '));
-    } else if (actor) {
+    actor = actor_find_at(world, col, row);
+    if (actor) {
         tile_idx = (uint8_t)(ui_font_tile_base + (uint8_t)(actor->visual - ' '));
     } else {
         tile_idx = (uint8_t)(ui_font_tile_base + (uint8_t)(g_sem_map[t] - ' '));
@@ -305,15 +300,13 @@ static void ui_draw_world_cell_ex(const World *world, uint8_t col, uint8_t row,
     sx = (uint8_t)(col - world->scroll_x);
     sy = (uint8_t)(row - world->scroll_y);
     if (sx < WORLD_VIEW_W && sy < WORLD_VIEW_H) {
-        g_ui_screen_buf[sy][sx] = player_cell ? '@' :
-                                   (actor ? actor->visual : g_sem_map[t]);
+        g_ui_screen_buf[sy][sx] = actor ? actor->visual : g_sem_map[t];
     }
 }
 
 static void ui_draw_world_cell(const World *world, uint8_t col, uint8_t row)
 {
-    ui_draw_world_cell_ex(world, col, row,
-                          255, 255);
+    ui_draw_world_cell_ex(world, col, row);
 }
 
 /* Draw every cell in [c0,c1) x [r0,r1) into the tilemap ring. */
@@ -366,10 +359,9 @@ void ui_draw_world_map(const World *world)
     ui_refill_semantic(world);
 #endif
 
-    /* The ASCII overworld adds @ separately at the camera-relative hero
-     * position.  Keep the hardware sprite hidden so the player has one
-     * authoritative representation. */
-    ui_sprite_hide();
+    /* The ASCII @ is an OAM glyph, not a BG tile. */
+    ui_sprite_move((uint8_t)(world_player_px(world) - world->camera_px_x),
+                   (uint8_t)(world_player_py(world) - world->camera_px_y));
 }
 
 void ui_update_camera(const World *world)
@@ -460,20 +452,6 @@ void ui_draw_world_full(const World *world)
     ui_draw_world_map(world);
     ui_draw_overworld_hud(world);
     ui_hud_show();
-}
-
-void ui_update_player_position(const World *world, uint8_t old_x, uint8_t old_y,
-                               uint8_t new_x, uint8_t new_y)
-{
-    if (!world) return;
-
-    /* Coordinates are ring/world cells selected by the camera-relative
-     * renderer. Restore the old cell, then place @ at the new visible cell. */
-    if (old_x == new_x && old_y == new_y) return;
-
-    VBK_REG = 0;
-    ui_draw_world_cell_ex(world, old_x, old_y, new_x, new_y);
-    ui_draw_world_cell_ex(world, new_x, new_y, new_x, new_y);
 }
 
 static void ui_put_char(uint8_t x, uint8_t y, char ch)

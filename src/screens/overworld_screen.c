@@ -12,9 +12,6 @@
  * the Game struct layout stays untouched). */
 static uint8_t s_prev_scroll_x;
 static uint8_t s_prev_scroll_y;
-static uint8_t s_prev_hero_ring_x;
-static uint8_t s_prev_hero_ring_y;
-static uint8_t s_hero_ring_valid;
 
 static void start_battle_from_world(Game *g)
 {
@@ -108,7 +105,6 @@ void overworld_screen_render(Game *g)
 {
     RenderCache *rc;
     uint8_t px, py;
-    uint8_t curr_player_tile_x, curr_player_tile_y;
 
     if (!g) return;
     rc = &g->render_cache;
@@ -130,18 +126,7 @@ void overworld_screen_render(Game *g)
         rc->prev_map_id = g->world.map_id;
         s_prev_scroll_x = g->world.scroll_x;
         s_prev_scroll_y = g->world.scroll_y;
-        s_hero_ring_valid = 0;
-        curr_player_tile_x = (uint8_t)(g->world.scroll_x +
-                                       ((world_player_px(&g->world) -
-                                         g->world.camera_px_x + 4) >> 3));
-        curr_player_tile_y = (uint8_t)(g->world.scroll_y +
-                                       ((world_player_py(&g->world) -
-                                         g->world.camera_px_y + 4) >> 3));
-        ui_update_player_position(&g->world, 255, 255,
-                                  curr_player_tile_x, curr_player_tile_y);
-        s_prev_hero_ring_x = curr_player_tile_x;
-        s_prev_hero_ring_y = curr_player_tile_y;
-        s_hero_ring_valid = 1;
+        ui_sprite_move(px, py);
         rc->prev_player_x = px;
         rc->prev_player_y = py;
         rc->prev_dialogue_active = false;
@@ -163,26 +148,9 @@ void overworld_screen_render(Game *g)
 
     ui_update_camera(&g->world);
 
-    /* Compute the camera-relative hero tile in the background ring.  This
-     * moves @ with the viewport instead of leaving it attached to a stale
-     * world tile while SCX/SCY changes. */
-    curr_player_tile_x = (uint8_t)(g->world.scroll_x +
-                                   ((world_player_px(&g->world) -
-                                     g->world.camera_px_x + 4) >> 3));
-    curr_player_tile_y = (uint8_t)(g->world.scroll_y +
-                                   ((world_player_py(&g->world) -
-                                     g->world.camera_px_y + 4) >> 3));
-
-    if (!s_hero_ring_valid || curr_player_tile_x != s_prev_hero_ring_x ||
-        curr_player_tile_y != s_prev_hero_ring_y) {
-        ui_update_player_position(&g->world,
-                                   s_hero_ring_valid ? s_prev_hero_ring_x : 255,
-                                   s_hero_ring_valid ? s_prev_hero_ring_y : 255,
-                                   curr_player_tile_x, curr_player_tile_y);
-        s_prev_hero_ring_x = curr_player_tile_x;
-        s_prev_hero_ring_y = curr_player_tile_y;
-        s_hero_ring_valid = 1;
-    }
+    /* OAM ignores SCX/SCY, so position the ASCII @ in camera-relative pixels
+     * every frame.  No background tile is rewritten during movement. */
+    ui_sprite_move(px, py);
 
     if (px != rc->prev_player_x || py != rc->prev_player_y) {
         rc->prev_player_x = px;

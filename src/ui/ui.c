@@ -323,35 +323,10 @@ static void ui_draw_world_rect(const World *world, uint8_t c0, uint8_t c1,
     }
 }
 
-void ui_draw_world_map(const World *world)
-{
-    uint8_t c1;
-    uint8_t r1;
-    uint8_t y;
-    if (!world) return;
-
-    /* Redraw the visible ring plus one entering row/column.  Full-screen
-     * transitions are LCD-safe, but rebuilding every cell in a 32-wide map
-     * is unnecessary: the incremental scroll path redraws the next edge
-     * whenever the camera moves. */
-    c1 = (uint8_t)(world->scroll_x + WORLD_VIEW_W + 1);
-    r1 = (uint8_t)(world->scroll_y + WORLD_VIEW_H + 1);
-    ui_draw_world_rect(world, world->scroll_x, c1,
-                       world->scroll_y, r1);
-    for (y = 0; y < WORLD_VIEW_H; y++) {
-        g_ui_screen_buf[y][WORLD_VIEW_W] = '\0';
-    }
-
-    /* The ASCII overworld uses @ for the hero.  Keep the hardware sprite
-     * hidden so the player has one authoritative representation. */
-    ui_sprite_hide();
-}
-
 /* Refill the semantic view from the tilemap ring mirror (DEBUG-only).  The
  * ring/mirror is the ground truth of what is rendered; every cell is an
  * ASCII console-font tile (terrain and actors both draw via the font), so
- * decoding back to a char is base + tile_index - ui_font_tile_base.  Called
- * after the entering-edge ring draw in ui_draw_world_scroll. */
+ * decoding back to a char is base + tile_index - ui_font_tile_base. */
 #ifdef DEBUG_BUILD
 static void ui_refill_semantic(const World *world)
 {
@@ -368,46 +343,26 @@ static void ui_refill_semantic(const World *world)
 }
 #endif
 
-/* Redraw when the camera crosses a tile boundary.  Incremental: only the
- * tilemap-ring column/row that entered the window is drawn (the ring holds
- * world tiles at wrapped (world & 31) addresses, so cells still in view are
- * already correct), then the semantic view is refilled from the mirror.
- * prev_sx/prev_sy are the previous scroll tile origin.  Falls back to a
- * full-window redraw on a diagonal or multi-tile scroll (debug teleports). */
-void ui_draw_world_scroll(const World *world, uint8_t prev_sx, uint8_t prev_sy)
+void ui_draw_world_map(const World *world)
 {
-    int8_t dx, dy;
-    uint8_t c0, c1, r0, r1;
-
+    uint8_t y;
     if (!world) return;
-    dx = (int8_t)(world->scroll_x - prev_sx);
-    dy = (int8_t)(world->scroll_y - prev_sy);
-    if (dx == 0 && dy == 0) return;
 
-    /* A diagonal or multi-tile scroll cannot be expressed as one entering
-     * edge; redraw the window in full. */
-    if ((dx != 0 && dy != 0) || dx < -1 || dx > 1 || dy < -1 || dy > 1) {
-        ui_draw_world_map(world);
-        return;
+    /* Populate the entire 32-column x 18-row background ring during LCD-safe
+     * full map redraw. Field: all 32 x 18 cells. Smaller maps: col 20..31 are
+     * filled with floor tiles in ui_draw_world_cell. */
+    ui_draw_world_rect(world, 0, 32, 0, 18);
+    for (y = 0; y < WORLD_VIEW_H; y++) {
+        g_ui_screen_buf[y][WORLD_VIEW_W] = '\0';
     }
-
-    /* The ring covers [scroll_x, scroll_x+VIEW_W] x [scroll_y, scroll_y+VIEW_H].
-     * The entering edge is the new offset column/row when the camera moved
-     * right/down, or the new left/top column/row when it moved left/up. */
-    c0 = world->scroll_x;
-    c1 = (uint8_t)(world->scroll_x + WORLD_VIEW_W + 1);
-    r0 = world->scroll_y;
-    r1 = (uint8_t)(world->scroll_y + WORLD_VIEW_H + 1);
-    if (dx > 0) c0 = (uint8_t)(world->scroll_x + WORLD_VIEW_W);
-    else if (dx < 0) c1 = (uint8_t)(world->scroll_x + 1);
-    if (dy > 0) r0 = (uint8_t)(world->scroll_y + WORLD_VIEW_H);
-    else if (dy < 0) r1 = (uint8_t)(world->scroll_y + 1);
-    ui_draw_world_rect(world, c0, c1, r0, r1);
 
 #ifdef DEBUG_BUILD
     ui_refill_semantic(world);
 #endif
 
+    /* The ASCII overworld uses @ for the hero.  Keep the hardware sprite
+     * hidden so the player has one authoritative representation. */
+    ui_sprite_hide();
 }
 
 void ui_update_camera(const World *world)
@@ -415,6 +370,9 @@ void ui_update_camera(const World *world)
     if (!world) return;
     SCX_REG = world->camera_px_x;
     SCY_REG = world->camera_px_y;
+#ifdef DEBUG_BUILD
+    ui_refill_semantic(world);
+#endif
 }
 
 /* Write one char to the HUD window tilemap (0x9C00) row `y` (0-5, displayed

@@ -41,19 +41,14 @@ testable, save/load works, and the memory budget is understood.
   console font base (`ibm_font + ch`).  B4 made the camera player-centred
   (`camera_px = player_px - view/2`, clamped at the scene edges); covered by
   `large_map_scroll`, `field_east_scroll` and `camera_boundary_clamp`.
-  Render verification: the overworld background uses a proper ring buffer
-  (tiles written at `(world & 31)` so SCX/SCY = absolute camera pixel reads
-  the right tiles; `ui_draw_world_scroll` redraws the window on tile moves;
-  `VBK_REG=0` guards every VRAM write).  The debug build mirrors the ring
-  into `g_tilemap_mirror` (WRAM) so the harness can assert the rendered map
-  (mGBA cannot read VRAM); `scroll_render_alignment` verifies SCX/SCY-vs-ring
-  alignment, and the snapshot exposes `camera_px_x/y`.  The tile-boundary
-  redraw is currently a full-window ring redraw (VIEW_W+1 x VIEW_H+1 cells,
-  ~273 writes per boundary — correct with the wrapped addressing).  A planned
-  optimization is an incremental edge redraw (only the entering column/row,
-  ~21-27 writes) using the `prev_sx/prev_sy` already passed to
-  `ui_draw_world_scroll`; it needs ~250 B freed from the fixed `_CODE` bank
-  (candidate: the debug-only scenario/rng region in `src/debug/scenarios.c`).
+  Render verification: the overworld background uses a 32-column background ring
+  (populated across all 32 columns x 18 rows during LCD-safe full map redraws,
+  with unused columns in <32-wide maps filled with floor tiles). Camera scrolling
+  only updates SCX/SCY (0 VRAM writes during movement). Tile commits execute
+  exactly 2 VRAM writes inside VBlank (restore old tile, draw hero '@'). The
+  debug build mirrors the ring into `g_tilemap_mirror` (WRAM) so the harness can
+  assert the rendered map (mGBA cannot read VRAM); `scroll_render_alignment`
+  verifies SCX/SCY-vs-ring alignment, and the snapshot exposes `camera_px_x/y`.
 - Graphics pipeline (tile/sprite renderer, DMG+CGB, screen rewiring, asset
   converter + validation) — spec'd in `docs/graphics.md`; the `sprites`
   branch has landed the player OAM sprite + the `png2gb.py` PNG→tileset

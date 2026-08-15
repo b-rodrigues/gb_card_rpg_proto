@@ -35,15 +35,8 @@ void ui_update_player_position(const World *world, uint8_t old_x, uint8_t old_y,
                                uint8_t new_x, uint8_t new_y);
 void ui_draw_text_line(uint8_t x, uint8_t y, const char *text, uint8_t max_chars);
 
-/* Overworld redraw when the camera crosses a tile boundary.  Incremental:
- * only the tilemap-ring column/row that entered the window is drawn (the
- * ring holds world tiles at wrapped (world & 31) addresses, so cells still
- * in view stay correct), then the DEBUG semantic view is refilled from the
- * ring mirror.  prev_sx/prev_sy are the previous scroll tile origin. */
-void ui_draw_world_scroll(const World *world, uint8_t prev_sx, uint8_t prev_sy);
-
 /* Set SCX/SCY from the overworld camera pixel position.  Called every
- * overworld frame so the background glides smoothly between tile redraws. */
+ * overworld frame so the background glides smoothly. */
 void ui_update_camera(const World *world);
 
 /* HUD window layer (0x9C00): fixed at the bottom of the overworld display,

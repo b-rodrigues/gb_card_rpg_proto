@@ -138,12 +138,11 @@ void overworld_screen_render(Game *g)
         return;
     }
 
-    /* Camera crossed a tile boundary.  The entering edge is a small bounded
-     * redraw and runs in the VBlank opened by main.c; do not toggle the LCD
-     * here or the player sees a blank frame on every camera step. */
+    /* Camera crossed a tile boundary.  Scrolling updates SCX/SCY with zero
+     * VRAM writes because the full 32-column background ring is pre-populated
+     * on LCD-safe full map redraws. */
     if (g->world.scroll_x != s_prev_scroll_x ||
         g->world.scroll_y != s_prev_scroll_y) {
-        ui_draw_world_scroll(&g->world, s_prev_scroll_x, s_prev_scroll_y);
         s_prev_scroll_x = g->world.scroll_x;
         s_prev_scroll_y = g->world.scroll_y;
         rc->prev_player_x = px;

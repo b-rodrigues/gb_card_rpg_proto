@@ -95,8 +95,15 @@ void ui_init(void)
 
     /* Set CGB Palette 0 if running on CGB hardware */
     if (_cpu == CGB_TYPE) {
-        set_bkg_palette(0, 1, cgb_palette);
-        set_sprite_palette(0, 1, cgb_sprite_palette);
+        uint8_t p;
+        BCPS_REG = 0x80;
+        for (p = 0; p < 8; p++) {
+            BCPD_REG = ((const uint8_t *)cgb_palette)[p];
+        }
+        OCPS_REG = 0x80;
+        for (p = 0; p < 8; p++) {
+            OCPD_REG = ((const uint8_t *)cgb_sprite_palette)[p];
+        }
     }
 
     SHOW_BKG;
@@ -287,12 +294,13 @@ static void ui_draw_text_line_ring(uint8_t x, uint8_t y, const char *text,
     }
 }
 
+static const uint16_t s_powers10[4] = { 1000, 100, 10, 1 };
+
 void ui_format_int(int16_t value, char *out)
 {
-    char tmp[6];
-    uint8_t i = 0;
-    uint8_t j = 0;
     uint16_t uval;
+    uint8_t i, digit, started = 0;
+    uint8_t j = 0;
 
     if (!out) return;
     if (value < 0) {
@@ -302,17 +310,16 @@ void ui_format_int(int16_t value, char *out)
         uval = (uint16_t)value;
     }
 
-    if (uval == 0) {
-        out[j++] = '0';
-        out[j] = '\0';
-        return;
-    }
-    while (uval > 0) {
-        tmp[i++] = (char)('0' + (uint8_t)(uval % 10));
-        uval /= 10;
-    }
-    while (i > 0) {
-        out[j++] = tmp[--i];
+    for (i = 0; i < 4; i++) {
+        digit = 0;
+        while (uval >= s_powers10[i]) {
+            uval -= s_powers10[i];
+            digit++;
+        }
+        if (digit > 0 || started || i == 3) {
+            out[j++] = (char)('0' + digit);
+            started = 1;
+        }
     }
     out[j] = '\0';
 }
@@ -494,18 +501,15 @@ static void ui_hud_text_line(uint8_t y, const char *text, uint8_t max_chars)
     }
 }
 
-/* Draw a value right-aligned in a 2-wide field (space padded) into the HUD
- * window row `y`. */
 static void ui_hud_num2(uint8_t x, uint8_t y, uint8_t val)
 {
-    char c;
-    if (val >= 10) {
-        c = '0' + (val / 10);
-    } else {
-        c = ' ';
+    uint8_t d = 0;
+    while (val >= 10) {
+        val -= 10;
+        d++;
     }
-    ui_hud_put_char(x, y, c);
-    ui_hud_put_char(x + 1, y, '0' + (val % 10));
+    ui_hud_put_char(x, y, d ? (char)('0' + d) : ' ');
+    ui_hud_put_char(x + 1, y, (char)('0' + val));
 }
 
 void ui_draw_overworld_hud(const World *world)
@@ -558,17 +562,15 @@ static void ui_put_char(uint8_t x, uint8_t y, char ch)
     }
 }
 
-/* Draw a value right-aligned in a 2-wide field (space padded) at (x,y). */
 static void ui_draw_num2(uint8_t x, uint8_t y, uint8_t val)
 {
-    char c;
-    if (val >= 10) {
-        c = '0' + (val / 10);
-    } else {
-        c = ' ';
+    uint8_t d = 0;
+    while (val >= 10) {
+        val -= 10;
+        d++;
     }
-    ui_put_char(x, y, c);
-    ui_put_char(x + 1, y, '0' + (val % 10));
+    ui_put_char(x, y, d ? (char)('0' + d) : ' ');
+    ui_put_char(x + 1, y, (char)('0' + val));
 }
 
 /* Draw a battle HP line: "  HP: <hp>/<max>" at row y. */
@@ -654,29 +656,32 @@ void ui_draw_dialogue(const DialogueState *dialogue, uint8_t scroll_x, uint8_t s
 void ui_draw_game_over(uint8_t choice)
 {
     ui_clear_screen();
-    ui_draw_text_line(0, 3, "    GAME OVER", 20);
-    ui_draw_text_line(0, 8, "   CONTINUE?", 20);
-    ui_draw_text_line(0, 11, choice == 0 ? "> YES" : "  YES", 20);
-    ui_draw_text_line(0, 12, choice == 0 ? "  NO" : "> NO", 20);
-    ui_draw_text_line(0, 16, " [A] CONFIRM", 20);
+    ui_draw_text_line(4, 3, "GAME OVER", 9);
+    ui_draw_text_line(3, 8, "CONTINUE?", 9);
+    ui_draw_text_line(0, 11, choice ? "  YES" : "> YES", 5);
+    ui_draw_text_line(0, 12, choice ? "> NO" : "  NO", 4);
+    ui_draw_text_line(1, 16, "[A] CONFIRM", 11);
 }
 
 void ui_draw_thanks(void)
 {
     ui_clear_screen();
-    ui_draw_text_line(0, 8, " THANKS FOR PLAYING!", 20);
+    ui_draw_text_line(1, 8, "THANKS FOR PLAYING!", 19);
 }
 
 #ifdef DEBUG_BUILD
 void ui_draw_font_test(void)
 {
+    uint8_t ch, row = 0, col = 0;
     ui_clear_screen();
-    ui_draw_text_line(0, 0, "=== FONT TEST ===", 20);
-    ui_draw_text_line(0, 2, "ABCDEFGHIJKLMNOPQRST", 20);
-    ui_draw_text_line(0, 4, "UVWXYZ", 20);
-    ui_draw_text_line(0, 6, "abcdefghijklmnopqrst", 20);
-    ui_draw_text_line(0, 8, "uvwxyz", 20);
-    ui_draw_text_line(0, 10, "0123456789", 20);
-    ui_draw_text_line(0, 12, "!?.,:-'[]+=", 20);
+    for (ch = ' '; ch <= '~'; ch++) {
+        ((volatile uint8_t *)0x9800)[row * 32 + col] = (uint8_t)(ui_font_tile_base + (uint8_t)(ch - ' '));
+        g_ui_screen_buf[row][col] = (char)ch;
+        col++;
+        if (col == 20) {
+            col = 0;
+            row += 2;
+        }
+    }
 }
 #endif

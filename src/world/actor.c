@@ -1,4 +1,5 @@
 #include "actor.h"
+#include "world.h"
 #include "game_ids.h"
 #include "banked.h"
 #include <stddef.h>
@@ -13,7 +14,7 @@ static const WorldActorTable *g_actor_tables = NULL;
 static uint8_t g_actor_table_count = 0;
 static uint8_t g_actor_bank = 0;
 
-static WorldActorDefinition g_static_actors[4];
+static WorldActorDefinition g_static_actors[6];
 static uint8_t g_static_actor_count = 0;
 
 void actor_register_tables(const WorldActorTable *tables, uint8_t count, uint8_t bank)
@@ -27,6 +28,7 @@ static const char *actor_name_for_visual(uint8_t visual)
 {
     if (visual == 'V') return "BAT";
     if (visual == 'L') return "LORD OF SLIMES";
+    if (visual == 'W') return "WIZARD";
     return "SLIME";
 }
 
@@ -73,8 +75,7 @@ uint8_t actor_find_hostile_slot(const World *world, uint8_t x, uint8_t y)
 const WorldActorDefinition *actor_find_at(const World *world, uint8_t x, uint8_t y)
 {
     uint8_t i;
-    if (!world) return NULL;
-
+    (void)world;
     for (i = 0; i < g_static_actor_count; i++) {
         if (g_static_actors[i].x == x && g_static_actors[i].y == y) {
             return &g_static_actors[i];
@@ -97,6 +98,10 @@ ActorEngageResult actor_engage(const WorldActorDefinition *actor, DialogueState 
 
     if (actor->interaction == INTERACTION_SHOP) {
         return ENGAGE_SHOP;
+    }
+
+    if (actor->interaction == INTERACTION_SAVE) {
+        return ENGAGE_SAVE;
     }
 
     return ENGAGE_NONE;
@@ -145,7 +150,7 @@ void actor_load_scene(World *world, MapId map_id, const GameState *state)
                     if (slot < MAX_WORLD_ACTORS) {
                         actor_spawn(&world->actors[slot++], &s_load_def);
                     }
-                } else if (g_static_actor_count < 4) {
+                } else if (g_static_actor_count < 6) {
                     g_static_actors[g_static_actor_count++] = s_load_def;
                 }
             }
@@ -154,6 +159,7 @@ void actor_load_scene(World *world, MapId map_id, const GameState *state)
     }
 }
 
+#ifdef DEBUG_BUILD
 uint8_t actor_write_snapshot(const World *world, uint8_t *out, uint8_t max_actors)
 {
     uint8_t i, n = 0;
@@ -186,3 +192,4 @@ uint8_t actor_write_snapshot(const World *world, uint8_t *out, uint8_t max_actor
 
     return n;
 }
+#endif

@@ -76,6 +76,13 @@ void overworld_screen_update(Game *g)
         screen_change(g, SCREEN_ITEM);
         return;
     }
+    if (input_pressed(INPUT_SELECT)) {
+        g->save_slot_mode = 0;
+        g->save_slot_index = 0;
+        g->save_slot_message = 0;
+        screen_change(g, SCREEN_SAVE_LOAD);
+        return;
+    }
 
     /* Hold-to-move: input_held starts a move whenever the previous one has
      * finished animating; a held button stays active across frames (a fresh
@@ -108,6 +115,12 @@ void overworld_screen_update(Game *g)
     } else if (engage == ENGAGE_SHOP) {
         g->item_menu_index = 0;
         screen_change(g, SCREEN_SHOP);
+        return;
+    } else if (engage == ENGAGE_SAVE) {
+        g->save_slot_mode = 1;
+        g->save_slot_index = 0;
+        g->save_slot_message = 0;
+        screen_change(g, SCREEN_SAVE_LOAD);
         return;
     }
 }

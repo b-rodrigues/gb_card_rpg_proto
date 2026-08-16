@@ -3,17 +3,21 @@
 #include "rpg/currency.h"
 #include "rpg/party.h"
 #include "telemetry.h"
+#include "banked.h"
 #include <stddef.h>
 
 /* The item catalog is game content, registered at boot via
  * item_register_defs() (see src/game/items.c). */
 static const ItemDefinition *g_items = NULL;
 static uint8_t g_item_count = 0;
+static uint8_t g_item_bank = 0;
+static ItemDefinition s_item_scratch;
 
-void item_register_defs(const ItemDefinition *table, uint8_t count)
+void item_register_defs(const ItemDefinition *table, uint8_t count, uint8_t bank)
 {
     g_items = table;
     g_item_count = count;
+    g_item_bank = bank;
 }
 
 uint8_t item_def_count(void)
@@ -24,7 +28,12 @@ uint8_t item_def_count(void)
 const ItemDefinition *item_get_def_at(uint8_t idx)
 {
     if (!g_items || idx >= g_item_count) return NULL;
-    return &g_items[idx];
+    if (g_item_bank != 0) {
+        banked_copy(g_item_bank, &s_item_scratch, &g_items[idx], sizeof(ItemDefinition));
+    } else {
+        s_item_scratch = g_items[idx];
+    }
+    return &s_item_scratch;
 }
 
 const ItemDefinition *item_get_def(ItemId id)
@@ -32,8 +41,13 @@ const ItemDefinition *item_get_def(ItemId id)
     uint8_t i;
     if (!g_items) return NULL;
     for (i = 0; i < g_item_count; i++) {
-        if (g_items[i].id == id) {
-            return &g_items[i];
+        if (g_item_bank != 0) {
+            banked_copy(g_item_bank, &s_item_scratch, &g_items[i], sizeof(ItemDefinition));
+        } else {
+            s_item_scratch = g_items[i];
+        }
+        if (s_item_scratch.id == id) {
+            return &s_item_scratch;
         }
     }
     return NULL;

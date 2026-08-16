@@ -19,19 +19,19 @@ typedef enum {
 
 typedef struct {
     uint8_t id;                 /* stable quest id */
-    const char *name;           /* display label, e.g. "MONSTER HUNT" */
+    char name[14];              /* display label, e.g. "MONSTER HUNT" */
     VariableId status_variable; /* quest status variable (see QuestStatus) */
     int16_t status_active;      /* var == this -> ACTIVE */
     int16_t status_complete;    /* var == this -> COMPLETE */
     VariableId progress_variable;  /* 0 = none; counter shown when ACTIVE */
     int16_t progress_target;
-    const char *progress_label; /* e.g. "monsters" -> "monsters: X/3" */
-    const char *complete_note;  /* reward shown as "complete - <note>" */
+    char progress_label[10];    /* e.g. "monsters" -> "monsters: X/3" */
+    char complete_note[10];     /* reward shown as "complete - <note>" */
 } QuestDefinition;
 
 /* Register the game's quest table.  The engine is generic; the game layer
  * supplies its content table at boot. */
-void quest_init(const QuestDefinition *table, uint8_t count);
+void quest_init(const QuestDefinition *table, uint8_t count, uint8_t bank);
 
 /* Iterate the registered quest table. */
 uint8_t quest_count(void);

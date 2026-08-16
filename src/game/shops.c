@@ -1,18 +1,16 @@
 #include "shops.h"
 #include "game_ids.h"
+#include "banked.h"
 #include <stddef.h>
 
-/* ── Shop stock lists (game content) ───────────────────────────────
- * Shop 1: the town shopkeeper (POTION).
- * Shop 2: the Lost Merchant -- reachable only after the amulet is returned
- * (the merchant's quest dialogue events block the fallback SHOP interaction
- * until then), sells cheap NUTS. */
-static const ShopDefinition g_shops[] = {
-    { 1, 1, { ITEM_POTION } },
-    { 2, 1, { ITEM_NUT } }
-};
+extern const ShopDefinition g_shops[];
+
+static ShopDefinition s_shop_scratch;
 
 const ShopDefinition *game_shop_for_id(uint8_t id)
 {
-    return (id == 2) ? &g_shops[1] : ((id == 1) ? &g_shops[0] : NULL);
+    uint8_t idx = (id == 2) ? 1 : ((id == 1) ? 0 : 0xFF);
+    if (idx == 0xFF) return NULL;
+    banked_copy(GAME_CONTENT_BANK, &s_shop_scratch, &g_shops[idx], sizeof(ShopDefinition));
+    return &s_shop_scratch;
 }

@@ -275,12 +275,12 @@ static void debug_run_action(void)
             item_equip(&g_game.state, (ItemId)a0);
             break;
         case DBG_ACT_SAVE:
-            save_game(&g_game.state);
+            save_game_slot(a0 < SAVE_SLOT_COUNT ? a0 : 0, &g_game.state);
             break;
         case DBG_ACT_LOAD:
             /* Restore the canonical state from SRAM, then rebuild the world
              * copy so scene/actors/position stay consistent with the state. */
-            if (load_game(&g_game.state)) {
+            if (load_game_slot(a0 < SAVE_SLOT_COUNT ? a0 : 0, &g_game.state)) {
                 uint8_t x = g_game.state.scene.player_x;
                 uint8_t y = g_game.state.scene.player_y;
                 world_init(&g_game.world, &g_game.state);

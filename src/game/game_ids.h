@@ -23,6 +23,7 @@
 #define ENTITY_ID_SLIME_LORD  (ENTITY_ID_FIRST_GAME + 5)
 #define ENTITY_ID_MERCHANT    (ENTITY_ID_FIRST_GAME + 6)
 #define ENTITY_ID_AMULET      (ENTITY_ID_FIRST_GAME + 7)
+#define ENTITY_ID_WIZARD      (ENTITY_ID_FIRST_GAME + 8)
 
 /* ── Items (engine range: NONE=0; game range >= 0x80) ── */
 #define ITEM_POTION  (ITEM_FIRST_GAME + 0)

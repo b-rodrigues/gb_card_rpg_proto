@@ -1,4 +1,5 @@
 #include "quest.h"
+#include "banked.h"
 #include <stddef.h>
 
 /* ── Quest engine ──────────────────────────────────────────────────
@@ -8,11 +9,14 @@
  * the game's event table, not engine code. */
 static const QuestDefinition *g_quests = NULL;
 static uint8_t g_quest_count = 0;
+static uint8_t g_quest_bank = 0;
+static QuestDefinition s_quest_scratch;
 
-void quest_init(const QuestDefinition *table, uint8_t count)
+void quest_init(const QuestDefinition *table, uint8_t count, uint8_t bank)
 {
     g_quests = table;
     g_quest_count = count;
+    g_quest_bank = bank;
 }
 
 uint8_t quest_count(void)
@@ -23,7 +27,12 @@ uint8_t quest_count(void)
 const QuestDefinition *quest_at(uint8_t idx)
 {
     if (!g_quests || idx >= g_quest_count) return NULL;
-    return &g_quests[idx];
+    if (g_quest_bank != 0) {
+        banked_copy(g_quest_bank, &s_quest_scratch, &g_quests[idx], sizeof(QuestDefinition));
+    } else {
+        s_quest_scratch = g_quests[idx];
+    }
+    return &s_quest_scratch;
 }
 
 QuestStatus quest_status(const GameState *state, const QuestDefinition *q)

@@ -27,6 +27,8 @@ def main():
     test_parser = subparsers.add_parser("test", help="Run all scenarios")
     test_parser.add_argument("--state", action="store_true",
                              help="Print semantic state for every scenario")
+    test_parser.add_argument("--jobs", default="auto",
+                             help="Parallel scenario workers: 'auto' or a positive integer")
 
     scen_parser = subparsers.add_parser("scenario", help="Run a specific scenario")
     scen_parser.add_argument("name", help="Name of scenario")
@@ -44,7 +46,10 @@ def main():
     args = parser.parse_args()
 
     if args.command == "test":
-        sys.exit(run_all("tools/scenarios", show_state=args.state))
+        try:
+            sys.exit(run_all("tools/scenarios", show_state=args.state, jobs=args.jobs))
+        except ValueError as e:
+            parser.error(str(e))
     elif args.command == "scenario":
         scenarios = load_scenarios("tools/scenarios")
         matched = [s for s in scenarios if s.get("name") == args.name]

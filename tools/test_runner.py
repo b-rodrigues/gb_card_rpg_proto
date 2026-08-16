@@ -8,8 +8,10 @@ and prints structured PASS/FAIL diagnostic reports per dev-harness.md specificat
 
 import json
 import glob
+import multiprocessing
 import os
 import sys
+from concurrent.futures import ProcessPoolExecutor
 from emulator import (EmulatorSession, STORY_FLAG_ID_MAP, DIALOGUE_ID_MAP,
                       SCENARIO_IDS, ENTITY_ID_MAP, STATE_FLAG_ID_MAP,
                       VARIABLE_ID_MAP, ITEM_ID_MAP, ACTOR_ID_MAP,
@@ -804,7 +806,45 @@ def print_result(result, show_state=False):
 
     print()
 
-def run_all(scenarios_dir="tools/scenarios", show_state=False):
+def resolve_jobs(jobs, scenario_count):
+    """Resolve a CLI jobs value into a bounded worker count."""
+    if scenario_count <= 0:
+        return 1
+
+    normalized_jobs = jobs.lower() if isinstance(jobs, str) else jobs
+    if normalized_jobs is None or normalized_jobs == "auto":
+        count = os.cpu_count() or 1
+    else:
+        try:
+            count = int(normalized_jobs)
+        except ValueError:
+            raise ValueError("jobs must be 'auto' or a positive integer")
+        if count < 1:
+            raise ValueError("jobs must be 'auto' or a positive integer")
+
+    return min(count, scenario_count)
+
+
+def run_scenarios(scenarios, jobs=1):
+    """Run scenarios serially or in parallel while preserving result order."""
+    if jobs <= 1:
+        return [run_scenario(s) for s in scenarios]
+
+    # Use fork on POSIX so worker startup does not require re-importing a
+    # synthetic __main__ path (Python 3.14 defaults to forkserver).  The
+    # harness runs on Linux in the Nix dev shell and each scenario owns a
+    # separate emulator process, so forked workers remain isolated at the
+    # scenario boundary.
+    try:
+        context = multiprocessing.get_context("fork")
+    except ValueError:
+        context = None
+
+    with ProcessPoolExecutor(max_workers=jobs, mp_context=context) as executor:
+        return list(executor.map(run_scenario, scenarios))
+
+
+def run_all(scenarios_dir="tools/scenarios", show_state=False, jobs="auto"):
     """Run all standard test scenarios and return exit code 0 on PASS, 1 on FAIL."""
     all_scenarios = load_scenarios(scenarios_dir)
     # Exclude non-test / demonstration scenarios (test == False or in examples/)
@@ -816,12 +856,14 @@ def run_all(scenarios_dir="tools/scenarios", show_state=False):
         print("No test scenarios found in", scenarios_dir)
         return 0
 
-    print(f"Running {len(scenarios)} test scenario(s) in mGBA...\n")
+    worker_count = resolve_jobs(jobs, len(scenarios))
+    mode = "parallel" if worker_count > 1 else "serial"
+    print(f"Running {len(scenarios)} test scenario(s) in mGBA ({mode}, jobs={worker_count})...\n")
     passed = 0
     failed = 0
 
-    for s in scenarios:
-        res = run_scenario(s)
+    results = run_scenarios(scenarios, jobs=worker_count)
+    for res in results:
         print_result(res, show_state=show_state)
         if res["status"] == "PASS":
             passed += 1

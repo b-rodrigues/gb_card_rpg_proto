@@ -61,11 +61,14 @@ gfx:
 	@python3 tools/png2gb.py assets/player_demo.png --name player_sprite_tile \
 		-o $(GFX_OUT_DIR)/player_sprite_tile.h
 	@python3 tools/png2gb.py assets/RPG_exterior.png --name rpg_exterior_tiles \
-		--palette gb_green --tile-coords "1,2 8,1 8,2 0,5" \
+		--palette gb_green --tile-coords "1,9 8,1 8,2 0,5" \
 		-o $(GFX_OUT_DIR)/rpg_exterior_tiles.h
 	@python3 tools/png2gb.py assets/RPG_interior.png --name rpg_interior_tiles \
 		--palette gb_green --tile-coords "1,1 1,0 8,4 6,3" \
 		-o $(GFX_OUT_DIR)/rpg_interior_tiles.h
+	@python3 tools/png2gb.py assets/RPG_exterior.png --name rpg_forest_tiles \
+		--palette gb_green --tile-coords "1,9 0,5 8,2 1,14" \
+		-o $(GFX_OUT_DIR)/rpg_forest_tiles.h
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)

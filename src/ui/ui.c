@@ -84,9 +84,9 @@ void ui_init(void)
     font_set(ibm_font);
     ui_font_tile_base = ((pmfont_handle)ibm_font)->first_tile;
 
-    /* Load world background tiles from Bank 2 (8 tiles = 128 bytes) using g_ui_screen_buf as temporary buffer */
-    banked_copy(2, g_ui_screen_buf, g_rpg_world_tiles, 128);
-    set_bkg_data(RPG_TILE_BASE_EXTERIOR, 8, (const uint8_t *)g_ui_screen_buf);
+    /* Load world background tiles from Bank 2 (12 tiles = 192 bytes) using g_ui_screen_buf as temporary buffer */
+    banked_copy(2, g_ui_screen_buf, g_rpg_world_tiles, 192);
+    set_bkg_data(RPG_TILE_BASE_EXTERIOR, 12, (const uint8_t *)g_ui_screen_buf);
 
     /* Disable GBDK console auto-scroll.  When putchar() advances the cursor
      * past the bottom-right tile, the console normally scrolls the whole

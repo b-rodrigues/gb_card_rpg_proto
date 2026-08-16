@@ -20,7 +20,8 @@ typedef struct {
 
 typedef enum {
     WORLD_TILESET_EXTERIOR = 0,
-    WORLD_TILESET_INTERIOR = 1
+    WORLD_TILESET_INTERIOR = 1,
+    WORLD_TILESET_FOREST   = 2
 } WorldTilesetKind;
 
 /* Data-driven scene definition.  Terrain generation is dispatched inside

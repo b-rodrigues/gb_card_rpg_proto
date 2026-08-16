@@ -332,6 +332,38 @@ def main():
     shoot(pb, "11-battle-run")
     pb.stop()
 
+    # ─────────────────────────────────────────────────────────────
+    # Walk C: Walk north to Forest map
+    # ─────────────────────────────────────────────────────────────
+    pb = PyBoy(ROM, window="null")
+    for _ in range(300):
+        pb.tick()
+
+    px_off3 = find_player(pb)
+    def pos3():
+        return (pb.memory[WRAM_BASE + px_off3],
+                pb.memory[WRAM_BASE + px_off3 + 1])
+
+    def step3(btn):
+        pb.button_press(btn)
+        for _ in range(4):
+            pb.tick()
+        pb.button_release(btn)
+        for _ in range(24):
+            pb.tick()
+
+    # FIELD (4,4) -> right to col 12 (8 steps) -> up to row 1 (3 steps) -> up into north gate (12,0)
+    for _ in range(8):
+        step3("right")
+    for _ in range(3):
+        step3("up")
+    step3("up")
+    for _ in range(40):
+        pb.tick()
+
+    shoot(pb, "14-forest-arrived")
+    pb.stop()
+
     print()
     if failures:
         print(f"{len(failures)} check(s) failed: {', '.join(failures)}")

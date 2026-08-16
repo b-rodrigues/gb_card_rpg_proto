@@ -16,9 +16,9 @@ const SceneExit g_all_exits[] = {
 const SceneDefinition g_scenes[] = {
     { MAP_FIELD,         MUSIC_OVERWORLD, 32, 18, &g_all_exits[0], 2, WORLD_TILESET_EXTERIOR },
     { MAP_TOWN,          MUSIC_OVERWORLD, 20, 18, &g_all_exits[2], 1, WORLD_TILESET_EXTERIOR },
-    { MAP_FOREST,        MUSIC_OVERWORLD, 20, 18, &g_all_exits[3], 2, WORLD_TILESET_EXTERIOR },
+    { MAP_FOREST,        MUSIC_OVERWORLD, 20, 18, &g_all_exits[3], 2, WORLD_TILESET_FOREST },
     { MAP_MOUNTAIN_PASS, MUSIC_OVERWORLD, 20, 18, &g_all_exits[5], 2, WORLD_TILESET_EXTERIOR },
-    { MAP_CASTLE,        MUSIC_OVERWORLD, 20, 18, &g_all_exits[7], 1, WORLD_TILESET_EXTERIOR }
+    { MAP_CASTLE,        MUSIC_OVERWORLD, 20, 18, &g_all_exits[7], 1, WORLD_TILESET_INTERIOR }
 };
 
 const uint8_t s_forest_trees[22] = {

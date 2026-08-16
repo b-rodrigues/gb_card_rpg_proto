@@ -13,10 +13,16 @@
 #define INTERIOR_TILE_DOOR           2u
 #define INTERIOR_TILE_SOLID_PROP     3u
 
+#define FOREST_TILE_FLOOR            0u
+#define FOREST_TILE_TREE             1u
+#define FOREST_TILE_GATE             2u
+#define FOREST_TILE_STUMP            3u
+
 #define RPG_TILE_BASE_EXTERIOR       128u
 #define RPG_TILE_BASE_INTERIOR       132u
+#define RPG_TILE_BASE_FOREST         136u
 
-extern const uint8_t g_rpg_world_tiles[128];
+extern const uint8_t g_rpg_world_tiles[192];
 
 static inline uint8_t rpg_lookup_tile_id(uint8_t tileset_kind, char glyph)
 {

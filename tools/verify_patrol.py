@@ -103,10 +103,10 @@ def main():
         0: (14, 8),  # Step 7 result
     }
 
-    # Observe steps over 1200 frames (~30 steps)
+    # Observe steps over 1600 frames (~40 steps)
     observed_steps = {}
     prev_step = pb.memory[ACTOR0_ADDR + 18]
-    for _ in range(1200):
+    for _ in range(1600):
         pb.tick()
         raw_step = pb.memory[ACTOR0_ADDR + 18]
         if raw_step != prev_step:

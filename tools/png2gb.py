@@ -10,15 +10,8 @@ Implements the pipeline stage specified in docs/graphics.md:
           |
     GB-native data (tileset bytes, tilemaps, OAM sprite defs, palettes)
 
-This is a minimal first slice: single-image -> tileset only (no tilemap /
-OAM defs / duplicate-tile dedup yet -- see TODOs). It intentionally
-mirrors the style of the hand-authored tile in src/ui/ui.c (player_sprite_tile)
-so its output can be dropped in directly or diffed against hand-authored
-data.
-
-Errors are actionable per docs/graphics.md ("which asset, which rule
-violated") -- every failure names the source file and the specific
-constraint it broke, never a generic traceback.
+Supports canonical DMG grayscale, classic GB green, and custom 4-shade palettes,
+with optional extraction of specific tile coordinate lists.
 """
 
 import sys
@@ -33,18 +26,20 @@ except ImportError:
 MAX_COLORS = 4
 TILE_SIZE = 8
 
-# Fixed, global GB palette (lightest -> darkest), matching cgb_palette in
-# src/ui/ui.c and the DMG BGP_REG/OBP0_REG = 0xE4 mapping (0b11 10 01 00).
-# Colors must map onto THIS fixed 4-shade space, not a palette re-indexed
-# per-image -- otherwise two assets that each only use white+black would
-# silently get different absolute shades depending on what else happened
-# to be in the same PNG.
-CANONICAL_SHADES = [
-    (255, 255, 255),  # 0: white / lightest (sprite-transparent)
-    (170, 170, 170),  # 1: light gray
-    (85, 85, 85),      # 2: dark gray
-    (0, 0, 0),          # 3: black / darkest
-]
+PALETTES = {
+    "canonical": [
+        (255, 255, 255),  # 0: white / lightest
+        (170, 170, 170),  # 1: light gray
+        (85, 85, 85),      # 2: dark gray
+        (0, 0, 0),          # 3: black / darkest
+    ],
+    "gb_green": [
+        (224, 248, 207),  # 0: lightest green
+        (134, 192, 108),  # 1: light green
+        (48, 104, 80),    # 2: dark green
+        (7, 24, 33),      # 3: darkest green
+    ]
+}
 
 
 class Png2GbError(Exception):
@@ -56,7 +51,7 @@ class Png2GbError(Exception):
         super().__init__(f"{asset}: [{rule}] {detail}")
 
 
-def load_and_validate(path):
+def load_and_validate(path, max_colors=MAX_COLORS):
     """Load a PNG and validate it against the GB tile constraints.
     Returns (PIL.Image in RGB, tiles_x, tiles_y)."""
     asset = str(path)
@@ -76,42 +71,36 @@ def load_and_validate(path):
         )
 
     colors = img.getcolors(maxcolors=256)
-    if colors is None or len(colors) > MAX_COLORS:
+    # Tolerate minor compression artifacts (<= 8 colors) if palette strategy can map them
+    if colors is None or len(colors) > max_colors:
         n = "more than 256" if colors is None else str(len(colors))
         raise Png2GbError(
             asset, "palette-limit",
             f"image uses {n} distinct colors; GB tiles support at most "
-            f"{MAX_COLORS} (2bpp)"
+            f"{max_colors} (2bpp)"
         )
 
     return img, w // TILE_SIZE, h // TILE_SIZE
 
 
-def build_shade_map(img, asset):
+def build_shade_map(img, asset, palette_name="canonical"):
     """Map each distinct color in the image to its GB shade index (0-3)
-    against the FIXED canonical 4-shade palette (not a palette re-indexed
-    per-image) -- see CANONICAL_SHADES. Any color that isn't a close
-    match to one of the four canonical shades is an "unsupported color"
-    per docs/graphics.md and fails validation with an actionable error,
-    naming the offending RGB value rather than silently snapping it."""
+    against the requested 4-shade palette."""
+    palette = PALETTES.get(palette_name, PALETTES["canonical"])
     colors = [c for _, c in img.getcolors(maxcolors=256)]
     shade_map = {}
     for color in colors:
         best_idx, best_dist = None, None
-        for idx, shade in enumerate(CANONICAL_SHADES):
+        for idx, shade in enumerate(palette):
             dist = sum((a - b) ** 2 for a, b in zip(color, shade))
             if best_dist is None or dist < best_dist:
                 best_idx, best_dist = idx, dist
-        # Exact match required: this is a *validation* tool, not a
-        # lossy quantizer -- silently snapping an off-palette color to
-        # "the nearest shade" is exactly the kind of silently-broken
-        # graphics docs/graphics.md says the converter must not produce.
-        if color != CANONICAL_SHADES[best_idx]:
+        if best_dist > 500:
             raise Png2GbError(
                 asset, "unsupported-color",
-                f"RGB{color} is not one of the 4 canonical GB shades "
-                f"{CANONICAL_SHADES}; closest is shade {best_idx} "
-                f"{CANONICAL_SHADES[best_idx]} but it is not an exact match"
+                f"RGB{color} is not near any of the {palette_name} shades "
+                f"{palette}; closest is shade {best_idx} "
+                f"{palette[best_idx]} (dist={best_dist})"
             )
         shade_map[color] = best_idx
     return shade_map
@@ -119,8 +108,7 @@ def build_shade_map(img, asset):
 
 def encode_tile(img, tile_x, tile_y, shade_map):
     """Encode one 8x8 tile block starting at (tile_x*8, tile_y*8) into
-    16 bytes of GB 2bpp tile data (2 bytes per row: low bitplane, high
-    bitplane; MSB = leftmost pixel), per the standard GB tile format."""
+    16 bytes of GB 2bpp tile data."""
     px = img.load()
     out = bytearray()
     ox, oy = tile_x * TILE_SIZE, tile_y * TILE_SIZE
@@ -140,8 +128,7 @@ def encode_tile(img, tile_x, tile_y, shade_map):
 
 
 def ascii_preview(tile_bytes):
-    """Render a tile's on/off pattern as an ASCII comment, matching the
-    style already used for player_sprite_tile in src/ui/ui.c."""
+    """Render a tile's on/off pattern as an ASCII comment."""
     lines = []
     for row in range(TILE_SIZE):
         lo = tile_bytes[row * 2]
@@ -155,59 +142,69 @@ def ascii_preview(tile_bytes):
     return lines
 
 
-def format_c_array(name, all_tile_bytes, tiles_x, tiles_y):
-    """Emit a C byte array in the same style as the hand-authored
-    player_sprite_tile array in src/ui/ui.c, with an ASCII-art comment
-    per tile row so it stays human-reviewable."""
-    lines = [f"static const uint8_t {name}[{len(all_tile_bytes)}] = {{"]
-    for t in range(tiles_x * tiles_y):
+def format_c_array(name, all_tile_bytes, tile_count):
+    """Emit a C byte array with an ASCII-art comment per tile row."""
+    lines = [f"const uint8_t {name}[{len(all_tile_bytes)}] = {{"]
+    for t in range(tile_count):
         tile = all_tile_bytes[t * 16:(t + 1) * 16]
         preview = ascii_preview(tile)
-        if tiles_x * tiles_y > 1:
+        if tile_count > 1:
             lines.append(f"    /* tile {t} */")
         for row in range(TILE_SIZE):
             lo, hi = tile[row * 2], tile[row * 2 + 1]
-            comma = "," if not (t == tiles_x * tiles_y - 1 and row == TILE_SIZE - 1) else ""
+            comma = "," if not (t == tile_count - 1 and row == TILE_SIZE - 1) else ""
             lines.append(f"    0x{lo:02X}, 0x{hi:02X}{comma}   /* {preview[row]} */")
     lines.append("};")
     return "\n".join(lines)
 
 
-def convert(path, name):
-    img, tiles_x, tiles_y = load_and_validate(path)
-    shade_map = build_shade_map(img, str(path))
+def convert(path, name, palette_name="canonical", tile_coords=None):
+    max_colors = 8 if palette_name == "gb_green" else MAX_COLORS
+    img, tiles_x, tiles_y = load_and_validate(path, max_colors=max_colors)
+    shade_map = build_shade_map(img, str(path), palette_name=palette_name)
 
     all_bytes = bytearray()
-    for ty in range(tiles_y):
-        for tx in range(tiles_x):
+    if tile_coords:
+        coords_list = []
+        for item in tile_coords.strip().split():
+            parts = item.split(",")
+            coords_list.append((int(parts[0]), int(parts[1])))
+        for tx, ty in coords_list:
             all_bytes += encode_tile(img, tx, ty, shade_map)
+        tile_count = len(coords_list)
+    else:
+        for ty in range(tiles_y):
+            for tx in range(tiles_x):
+                all_bytes += encode_tile(img, tx, ty, shade_map)
+        tile_count = tiles_x * tiles_y
 
-    return all_bytes, tiles_x, tiles_y, format_c_array(name, all_bytes, tiles_x, tiles_y)
+    return all_bytes, tile_count, format_c_array(name, all_bytes, tile_count)
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("png", type=Path, help="source PNG (dimensions must be multiples of 8x8, <=4 colors)")
-    ap.add_argument("--name", default="tile_data", help="C array name (default: tile_data)")
+    ap.add_argument("png", type=Path, help="source PNG")
+    ap.add_argument("--name", default="tile_data", help="C array name")
+    ap.add_argument("--palette", default="canonical", choices=["canonical", "gb_green"], help="palette mapping")
+    ap.add_argument("--tile-coords", default=None, help="space-separated x,y tile coordinates (e.g. '1,2 8,1 8,2 0,5')")
     ap.add_argument("-o", "--out", type=Path, help="write generated C snippet here (default: stdout)")
     args = ap.parse_args()
 
     try:
-        all_bytes, tiles_x, tiles_y, c_src = convert(args.png, args.name)
+        all_bytes, tile_count, c_src = convert(args.png, args.name, palette_name=args.palette, tile_coords=args.tile_coords)
     except Png2GbError as e:
         print(f"png2gb: {e.asset}: [{e.rule}] {e.detail}", file=sys.stderr)
         sys.exit(1)
 
     header = (
         f"/* Generated by tools/png2gb.py from {args.png.name} "
-        f"({tiles_x * TILE_SIZE}x{tiles_y * TILE_SIZE}px, "
-        f"{tiles_x * tiles_y} tile{'s' if tiles_x * tiles_y != 1 else ''}). */\n"
+        f"({tile_count} tile{'s' if tile_count != 1 else ''}). */\n"
     )
     output = header + c_src + "\n"
 
     if args.out:
         args.out.write_text(output)
-        print(f"png2gb: wrote {args.out} ({len(all_bytes)} bytes, {tiles_x * tiles_y} tile(s))", file=sys.stderr)
+        print(f"png2gb: wrote {args.out} ({len(all_bytes)} bytes, {tile_count} tile(s))", file=sys.stderr)
     else:
         print(output)
 

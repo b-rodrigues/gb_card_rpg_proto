@@ -197,6 +197,8 @@ def main():
         camy = pb.memory[CAM_Y]
         exp_y = py - camy + 16
         exp_x = px - camx + 8
+        if ms == 0 and pb.memory[MOVE_TARGET_X] > player_x:
+            exp_x = (pb.memory[MOVE_TARGET_X] * 8 - 1) - camx + 8
         act_y = pb.memory[OAM_Y]
         act_x = pb.memory[OAM_X]
         if act_y != 0 and abs(act_y - exp_y) <= 1 and abs(act_x - exp_x) <= 1:

@@ -213,9 +213,16 @@ def main():
         # at vsync before game_update advances move_progress / commits position.
         # On the completion frame where game_update just committed the move (ms becomes 0),
         # shadow OAM still holds the rendered position from the final sub-pixel step:
-        # (tgt_x * 8 - 1) - camx + 8.
-        if ms == 0 and tgt_x > player_x:
-            exp_x = (tgt_x * 8 - 1) - camx + 8
+        # (tgt * 8 ± 1) - cam + offset.
+        if ms == 0:
+            if tgt_x > player_x:
+                exp_x = (tgt_x * 8 - 1) - camx + 8
+            elif tgt_x < player_x and tgt_x != 0:
+                exp_x = (tgt_x * 8 + 1) - camx + 8
+            if tgt_y > player_y:
+                exp_y = (tgt_y * 8 - 1) - camy + 16
+            elif tgt_y < player_y and tgt_y != 0:
+                exp_y = (tgt_y * 8 + 1) - camy + 16
         act_y = pb.memory[OAM_Y]
         act_x = pb.memory[OAM_X]
         if act_y != 0 and abs(act_y - exp_y) <= 1 and abs(act_x - exp_x) <= 1:

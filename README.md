@@ -1,355 +1,169 @@
-# Game Boy RPG Prototype & Foundation (`gb_card_rpg_proto`)
+# Game Boy RPG Foundation & LLM-First Development Template
 
-A deterministic, Nix-based Game Boy RPG development project targeting authentic Nintendo Game Boy (DMG) and Game Boy Color (CGB) constraints.
+A deterministic, Nix-based Game Boy RPG development template targeting authentic Nintendo Game Boy (DMG) and Game Boy Color (CGB) hardware constraints.
 
-The project began as a prototype for a **Baten Kaitos-inspired, card-based RPG**, but is deliberately evolving into something broader: a small, reusable **Game Boy RPG foundation** that can eventually serve as the starting point for future RPG projects.
+This repository serves as a **reusable template and foundation for Game Boy RPG development**, designed from the ground up to demonstrate and enable **LLM-first game development feasibility**. AI coding agents can build, execute, inspect, test, and debug gameplay loops through deterministic, machine-readable interfaces without requiring a human to manually play through the game or interpret the screen.
 
-This is **not intended to become a general-purpose game engine**. The architecture is developed pragmatically: when the game exposes a reusable RPG problem, we build a clean foundation for it.
+---
 
-> **Build the game first. Generalize only where the game demonstrates a reusable problem.**
+## What This Repository Is
 
-## Current State
+1. **An LLM-First Retro Development Template**: A full Game Boy RPG codebase engineered for automated agent development. Every subsystem provides semantic observability, deterministic state injection, frame-level control, and automated assertion testing.
+2. **A Reusable Game Boy RPG Foundation**: A generic, modular RPG engine cleanly separated from game content. When creating a new RPG, developers or AI agents can define new maps, actors, dialogue, items, quests, and combat mechanics in `src/game/` without rewriting engine primitives.
+3. **A Hardware-Accurate, Production-Grade Toolchain**: Zero host dependency drift via Nix flakes, targeting GBDK-4 (`lcc`), RGBDS (`rgbasm`, `rgblink`, `rgbfix`), and verified across SameBoy and mGBA.
 
-The project has a complete, playable vertical slice — a small but complete
-RPG:
+---
 
-```text
-Town → Mayor → Monster Hunt quest → kill 3 monsters
-   → return → SWORD → equip → Castle → Lord of Slimes → Ending
-```
+## LLM-First Development Architecture
 
-plus a second, structurally different quest (the Lost Merchant:
-fetch/deliver/unlock his shop) that proves the quest/event abstraction is
-reusable.  The full state/flow is deterministic and driven by the debug
-harness.
+Developing Game Boy games with AI agents requires solving retro hardware opacity: LLMs cannot reliably play real-time games with a joypad or interpret low-resolution pixels.
 
-Current status (Foundation 1.0, non-graphical):
-
-- GameState + persistent world actor lifecycle + progression;
-- overworld scenes, actors, movement, collision, interaction;
-- scripted events, dialogue, quests (registered engine modules);
-- items, inventory, equipment, per-shop stock;
-- battle flow + results back into GameState;
-- battery-backed SRAM save/load (versioned format);
-- game/content separation (`src/game/` registered against a generic engine);
-- deterministic debug harness (scenarios, telemetry, assertions, RNG);
-- memory budget (`make memmap`), lint, release validation.
-
-The **card system is not yet implemented**.  The current battle
-implementation proves the battle lifecycle and keeps the combat boundary
-clean so the card mechanics can plug in later.
-
-Graphics are still the ASCII console-font prototype; a graphics pipeline is a
-specified but deferred milestone (see `docs/graphics.md`).
-
-## Architectural Direction
-
-The repository is being designed around the common denominator of small RPGs rather than around the rules of one specific game.
-
-The emerging foundation includes:
-
-### World
-
-- scenes/maps;
-- stable scene IDs;
-- actors/entities;
-- movement;
-- collision;
-- scene transitions;
-- actor interaction.
-
-### Story
-
-- dialogue;
-- scripted events/scenes;
-- event triggers;
-- game flags;
-- game variables.
-
-### RPG State
-
-- party state;
-- character stats;
-- progression;
-- items;
-- inventory;
-- equipment;
-- persistent world state.
-
-### Gameplay
-
-- encounter lifecycle;
-- combatants;
-- battle entry/exit;
-- rewards;
-- game-specific combat rules.
-
-### Persistence
-
-Save/load is intended to serialize persistent game state rather than individual screens.
-
-### Development Infrastructure
-
-- deterministic state injection;
-- scenario testing;
-- telemetry;
-- assertions;
-- LLM-readable debug state;
-- emulator automation;
-- reproducible builds.
-
-See [`docs/rpg-foundation.md`](docs/rpg-foundation.md) for the architecture and [`docs/DEBUG_PROTOCOL.md`](docs/DEBUG_PROTOCOL.md) for the debug contract.
-
-## Development Philosophy
-
-The repository deliberately separates **foundation mechanisms** from **game-specific content**.
-
-For example:
+This repository solves that by making **semantic observability a first-class subsystem**:
 
 ```text
-Foundation                  Game
-────────────────────────────────────────
-Actor                       Mayor
-Actor                       Guard
-Actor                       Slime
-
-Scene                       Town
-Scene                       Forest
-
-Dialogue                    Mayor greeting
-Dialogue                    Guard warning
-
-Item                        Potion
-Item                        Phoenix Sword
-
-Battle lifecycle            Baten Kaitos-style rules
-Progression                 Game-specific XP formula
+Host-Side AI Agent / Test Runner (Python)
+                  │
+                  ▼  PTY / Debug Protocol
+     mGBA / SameBoy Emulator Session
+                  │
+                  ▼  Memory & Registers
+     Game Boy Debug ROM (rpg_card_proto_debug.gb)
+   ┌──────────────────────────────────────────────┐
+   │ • Declarative State Injection (Scene/Player) │
+   │ • Bounded Telemetry Ring Buffer (Events)     │
+   │ • Semantic State Snapshots (Game/World/Party)│
+   │ • Hardware Timer Sound Clock (TIMA ISR)      │
+   │ • Deterministic RNG Seeding                  │
+   └──────────────────────────────────────────────┘
 ```
 
-The foundation should provide reusable primitives without hard-coding the story, characters, items, maps, or combat rules of this particular RPG.
+### Key LLM-First Capabilities
 
-Generalization follows demonstrated need rather than speculation.
+- **Declarative Scenario Fixtures**: Over 100 deterministic scenarios in `tools/scenarios/*.json` that configure map coordinates, story flags, party stats, inventory, and enemy states before running scripted inputs.
+- **Parallel Test Harness**: Runs test scenarios concurrently across host CPU cores (`make test-harness JOBS=16`), achieving over 7x speedup compared to serial execution.
+- **Structured Telemetry**: Every state transition, map crossing, collision, dialogue event, quest update, and battle action emits structured telemetry into a bounded ring buffer.
+- **Semantic State Snapshots**: Agents inspect exact world coordinates, active screens, dialogue trees, story flags, and combat stats rather than parsing pixel frames.
+- **Deterministic Randomness**: RNG is fully seeded and reproducible across test runs.
+
+See [`docs/DEBUG_PROTOCOL.md`](docs/DEBUG_PROTOCOL.md) and [`AGENTS.md`](AGENTS.md) for full protocol and operational contracts.
+
+---
+
+## Engine Features & Vertical Slice
+
+The repository includes a complete, playable vertical slice proving all core RPG systems:
+
+- **World & Overworld**:
+  - Tile-based maps with smooth sub-tile hardware scrolling;
+  - Collision detection, walkability allowlists, and warp gates;
+  - Persistent actors, NPC patrolling, and proximity interaction.
+- **Story & Events**:
+  - Dialogue player with multi-step choices and branch conditions;
+  - Scripted quest system with multi-stage state tracking;
+  - Global story flags and variables.
+- **RPG State & Progression**:
+  - Party stats, leveling, and XP progression;
+  - Inventory management, item usage, and equipment slots;
+  - Shop system with per-shop stock and currency handling.
+- **Turn-Based Battle Lifecycle**:
+  - Transition into combat, turn management, damage calculation, and victory/defeat resolution;
+  - Pluggable combat mechanics cleanly separated from the battle screen lifecycle.
+- **Persistence**:
+  - Battery-backed SRAM save/load with versioned formats and slot management.
+- **Audio Architecture**:
+  - Hardware Timer-driven music clock (`TIMA` overflow ISR) running at fixed 256 Hz tempo regardless of main loop load or LCD redraws.
+
+---
+
+## Engine vs. Game Content Separation
+
+The codebase strictly enforces the separation of generic engine primitives from game-specific data:
+
+```text
+src/
+├── core/       Generic boot glue, event engine, dialogue runner, story flags, quests
+├── rpg/        Generic GameState, inventory, items, currency, party, progression, save
+├── world/      Generic scene loader, actors, movement, collision, interactions
+├── battle/     Generic battle lifecycle, turn controller, combatant stats
+├── ui/         Generic screen renderer, menu frame layouts, font rendering
+├── screens/    Overworld, battle, dialogue, item/status, shop, save/load screens
+├── input/      Joypad abstraction and programmatic debug input injection
+├── audio/      Timer-driven audio ISR and sound registers
+├── debug/      Harness telemetry, scenario loader, assertions, RNG control
+│
+└── game/       GAME CONTENT (All game-specific tables live here)
+    ├── game_ids.h          Named story flags, variables, currencies, and actors
+    ├── content.c           New game initialization and victory hooks
+    ├── events_content.c    Scripted events and quest triggers
+    ├── dialogue_content.c  Dialogue scripts and NPC lines
+    ├── actors_content.c    Per-map actor spawn tables and behaviors
+    ├── items_content.c     Item catalog and equipment definitions
+    ├── scenes_content.c    Scene definitions and map layouts
+    ├── shops_content.c     Shop inventories and pricing
+    └── tiles_content.c     World tilesets and graphical definitions
+```
+
+When creating a new game from this template, developers and agents modify `src/game/` while leaving the engine subsystems in `src/core/`, `src/world/`, `src/rpg/`, and `src/ui/` untouched.
+
+---
 
 ## Hardware & Toolchain
 
 - **Target Hardware**: Nintendo Game Boy (DMG) / Game Boy Color (CGB)
-- **C Toolchain**: GBDK-4 (`lcc`)
+- **C Toolchain**: GBDK-4 (`lcc` / SDCC)
 - **Assembly Toolchain**: RGBDS (`rgbasm`, `rgblink`, `rgbfix`)
-- **Environment**: Nix flakes
-- **Primary development/debug emulator**: mGBA
-- **Compatibility testing**: Gambatte and other available Game Boy emulators
+- **Environment**: Nix flakes (100% reproducible, zero host dependencies)
+- **Development Emulator**: SameBoy & mGBA
 
-The project is developed against **mGBA** for debugging and automated development workflows. Compatibility is also checked against other emulators because emulator behavior can differ, particularly around low-level Game Boy behavior and error reporting.
+---
 
-The Nix environment also provides tools such as SameBoy where available.
+## Quick Start
 
-## Requirements
-
-- Nix with flakes enabled.
-
-No host-level package installation should be necessary.
-
-## Development Setup
-
-Enter the reproducible development environment:
+### 1. Enter the Nix Development Shell
 
 ```bash
 nix develop
 ```
 
-## Commands
+All build tools, compilers, emulators, and test runners are automatically provided.
 
-Common development tasks are exposed through `make` targets.
+### 2. Primary Make Targets
 
-### Build Release ROM
+| Target | Description | Output |
+| :--- | :--- | :--- |
+| `make release` | Build optimized release ROM | `build/rpg_card_proto.gb` |
+| `make debug` | Build debug ROM with harness & telemetry | `build/rpg_card_proto_debug.gb` |
+| `make test-harness` | Run all 100+ scenarios in parallel | Parallel test results (PASS/FAIL) |
+| `make test` | Validate ROM header and checksums | ROM verification |
+| `make memmap` | Check ROM and WRAM memory budget | Invariant check (`_HOME < 0x8000`) |
+| `make run` | Launch release ROM in emulator | Game window |
+| `make run-debug` | Launch debug ROM in emulator | Debug game window |
+| `make screenshot` | Capture headless emulator screenshot | `build/screenshot.png` |
+| `make clean` | Remove all generated build artifacts | Clean directory |
 
-```bash
-make release
-```
+### 3. Running Scenario Tests
 
-Produces `build/rpg_card_proto.gb`.
-
-### Build Debug ROM
-
-```bash
-make debug
-```
-
-Produces `build/rpg_card_proto_debug.gb` with the development harness, telemetry, assertions, deterministic scenario support, and debug metadata enabled.
-
-### Run the ROM
+Run all scenarios in parallel (defaults to all host cores, or specify `JOBS`):
 
 ```bash
-make run
+make test-harness JOBS=16
 ```
 
-The Makefile detects an available emulator from the development environment.
-
-### Run the Debug ROM
+Run a single scenario with full diagnostic trace:
 
 ```bash
-make run-debug
+make test-scenario SCENARIO=town_arrival
 ```
 
-### Run the Full Harness
-
-```bash
-make test-harness
-```
-
-Builds the debug ROM and executes the scenario tests through the host-side development harness.
-
-### Run One Scenario
-
-```bash
-make test-scenario SCENARIO=first_encounter
-```
-
-The scenario name corresponds to a scenario definition under `tools/scenarios/`.
-
-### Validate the Release ROM
-
-```bash
-make test
-```
-
-Builds the release ROM and validates its Game Boy header/checksum integrity.
-
-### Memory Budget
-
-```bash
-make memmap
-```
-
-Prints the reproducible ROM/WRAM budget and fails on a `_HOME` >= 0x8000
-violation.
-
-### Save/Load Roundtrip (host descriptor check)
-
-```bash
-make roundtrip SCENARIO=save_load_roundtrip
-```
-
-### Capture a Screenshot
-
-```bash
-make screenshot
-```
-
-Produces `build/screenshot.png` for visual inspection.
-
-### Clean Build Artifacts
-
-```bash
-make clean
-```
-
-## Development Harness
-
-A major architectural goal is that an LLM should be able to test the game without manually playing through the entire RPG to reach a scenario.
-
-Instead, scenarios can establish a deterministic initial state such as:
-
-```text
-Scene: TOWN
-Player: (8, 6)
-Flag: MET_MAYOR = false
-```
-
-and then execute actions such as:
-
-```text
-UP
-A
-```
-
-The harness can inspect telemetry, assertions, state snapshots, and scenario results to determine what happened.
-
-This allows agents to test situations such as:
-
-- talking to a specific NPC;
-- entering combat with a specific enemy;
-- triggering a scripted scene;
-- testing a scene transition;
-- starting from a particular progression state;
-- testing game-over behavior;
-- reproducing a bug without replaying the entire game.
-
-The debug protocol is documented in [`docs/DEBUG_PROTOCOL.md`](docs/DEBUG_PROTOCOL.md), with the broader harness design in [`docs/dev-harness.md`](docs/dev-harness.md).
-
-## Project Structure
-
-```text
-src/
-├── core/       Boot glue, events, dialogue, story, quests
-├── rpg/        GameState, items, inventory, currency, party, progression, save
-├── world/      Scenes, actors, movement and collision
-├── battle/     Battle lifecycle and combatants
-├── input/      Joypad handling and debug input
-├── audio/      Game Boy audio/music infrastructure
-├── ui/         Screen and UI rendering
-├── screens/    Individual game screens
-├── debug/      Telemetry, scenarios, assertions and deterministic debug support
-└── game/       Game-specific content (events, dialogue, actors, items, quests, shops)
-
-build/          Generated ROMs and build artifacts
-docs/           Architecture and development documentation
-tools/          Host-side development and emulator harness
-```
+---
 
 ## Documentation
 
-- [`docs/architecture.md`](docs/architecture.md) — module layout, dependency
-  direction, state ownership, content registration.
-- [`docs/FOUNDATION_CONTRACT.md`](docs/FOUNDATION_CONTRACT.md) — what the
-  foundation provides, what it does not, and the golden rule.
-- [`docs/game-vs-engine.md`](docs/game-vs-engine.md) — how to decide where a
-  feature belongs.
-- [`docs/save-format.md`](docs/save-format.md) — the SRAM save format and
-  versioning policy.
-- [`docs/memory-budget.md`](docs/memory-budget.md) — the memory budget.
-- [`docs/graphics.md`](docs/graphics.md) — the deferred graphics pipeline spec.
-- [`docs/testing.md`](docs/testing.md) — how the foundation is validated.
-- [`docs/roadmap.md`](docs/roadmap.md) — status (DONE / NEXT / LATER) and the
-  detailed historical plan.
-- [`docs/DEBUG_PROTOCOL.md`](docs/DEBUG_PROTOCOL.md) — debug protocol and
-  LLM-readable game state contract.
-- [`docs/dev-harness.md`](docs/dev-harness.md) — deterministic scenario and
-  development harness design.
-- [`AGENTS.md`](AGENTS.md) — operational instructions for AI coding agents
-  working on the repository.
-
-## Long-Term Direction
-
-The eventual goal is not to turn this repository into a large standalone engine.
-
-Instead, once the common RPG infrastructure becomes sufficiently stable, this repository may become a **Game Boy RPG template/foundation** from which future games can be created:
-
-```text
-             Game Boy RPG Foundation
-                       │
-          ┌────────────┼────────────┐
-          ▼            ▼            ▼
-        RPG #1        RPG #2       RPG #3
-```
-
-A future game should be able to replace:
-
-- maps;
-- characters;
-- enemies;
-- items;
-- dialogue;
-- story;
-- quests;
-- progression rules;
-- combat rules;
-
-while retaining reusable infrastructure such as screens, scenes, actors, input, audio, persistence, debugging, telemetry, and the scenario harness.
-
-The repository has reached **Foundation 1.0 (non-graphical)**: the generic
-runtime is cleanly separated from game content, the vertical slice is complete
-and deterministically testable, save/load works, and the memory budget is
-understood.  The next milestones are the graphics pipeline (spec'd in
-`docs/graphics.md`), then the card battle system — at which point this
-repository is the template a real game is forked from.
+- [`AGENTS.md`](AGENTS.md) — Operational contract and rules for AI coding agents.
+- [`docs/DEBUG_PROTOCOL.md`](docs/DEBUG_PROTOCOL.md) — Authoritative debug protocol and LLM state inspection contract.
+- [`docs/dev-harness.md`](docs/dev-harness.md) — Deterministic scenario design and emulator bridge.
+- [`docs/architecture.md`](docs/architecture.md) — Subsystem architecture and dependency direction.
+- [`docs/FOUNDATION_CONTRACT.md`](docs/FOUNDATION_CONTRACT.md) — Foundation boundaries and golden rules.
+- [`docs/save-format.md`](docs/save-format.md) — SRAM save format and versioning specification.
+- [`docs/memory-budget.md`](docs/memory-budget.md) — ROM and WRAM memory budgets.
+- [`docs/graphics.md`](docs/graphics.md) — Graphics conversion pipeline (`png2gb.py`) and tile layout.

@@ -1,30 +1,28 @@
 #include "scene.h"
 #include "actor.h"
+#include "banked.h"
 
-/* ── Scene data ──────────────────────────────────────────────────── */
+/* ── Scene data (resident in ROM Bank 2) ─────────────────────────── */
 
-static const SceneExit g_all_exits[] = {
-    { 31, 7, 2, 7,  SCENE_TOWN,          '>' },
-    { 12, 0, 12, 10, SCENE_FOREST,        '>' },
-    { 1, 7, 17, 7, SCENE_FIELD, '<' },
-    { 12, 11, 12, 1,  SCENE_FIELD,          '<' },
-    { 12, 0,  12, 10, SCENE_MOUNTAIN_PASS, '>' },
-    { 12, 11, 12, 1,  SCENE_FOREST, '<' },
-    { 12, 0,  10, 10, SCENE_CASTLE, '>' },
-    { 12, 11, 12, 1, SCENE_MOUNTAIN_PASS, '<' }
-};
+extern const SceneExit g_all_exits[];
+extern const SceneDefinition g_scenes[];
 
-static const SceneDefinition g_scenes[] = {
-    { MAP_FIELD,         MUSIC_OVERWORLD, 32, 18, &g_all_exits[0], 2 },
-    { MAP_TOWN,          MUSIC_OVERWORLD, 20, 18, &g_all_exits[2], 1 },
-    { MAP_FOREST,        MUSIC_OVERWORLD, 20, 18, &g_all_exits[3], 2 },
-    { MAP_MOUNTAIN_PASS, MUSIC_OVERWORLD, 20, 18, &g_all_exits[5], 2 },
-    { MAP_CASTLE,        MUSIC_OVERWORLD, 20, 18, &g_all_exits[7], 1 }
-};
+static SceneDefinition s_scene_scratch;
+static SceneExit s_exit_scratch;
+static SceneTerrainBlock s_block_scratch;
 
 const SceneDefinition *scene_definition_for_map(MapId map_id)
 {
-    return (map_id <= MAP_CASTLE) ? &g_scenes[map_id] : NULL;
+    if (map_id > MAP_CASTLE) return NULL;
+    banked_copy(2, &s_scene_scratch, &g_scenes[map_id], sizeof(SceneDefinition));
+    return &s_scene_scratch;
+}
+
+WorldTilesetKind scene_get_tileset(MapId map_id)
+{
+    if (map_id == MAP_CASTLE) return WORLD_TILESET_INTERIOR;
+    if (map_id == MAP_FOREST) return WORLD_TILESET_FOREST;
+    return WORLD_TILESET_EXTERIOR;
 }
 
 const SceneExit *scene_exit_at(const SceneDefinition *def, uint8_t x, uint8_t y)
@@ -32,49 +30,18 @@ const SceneExit *scene_exit_at(const SceneDefinition *def, uint8_t x, uint8_t y)
     uint8_t i;
     if (!def) return NULL;
     for (i = 0; i < def->exit_count; i++) {
-        if (def->exits[i].gate_x == x && def->exits[i].gate_y == y) {
-            return &def->exits[i];
+        banked_copy(2, &s_exit_scratch, &def->exits[i], sizeof(SceneExit));
+        if (s_exit_scratch.gate_x == x && s_exit_scratch.gate_y == y) {
+            return &s_exit_scratch;
         }
     }
     return NULL;
 }
 
-/* Fill terrain features for a scene.  A direct switch (not a function
- * pointer) so the code stays in bank 0 and works under the harness. */
-static const uint8_t s_forest_trees[] = {4,2, 5,2, 4,3, 10,6, 11,6, 9,7, 14,2, 15,2, 3,8, 8,9, 13,9};
-
-static void scene_fill_terrain(World *w, MapId map_id)
-{
-    uint8_t x, y;
-
-    if (map_id == MAP_TOWN || map_id == MAP_CASTLE) {
-        uint8_t y_max = (map_id == MAP_TOWN) ? 6 : 8;
-        uint8_t l_max = (map_id == MAP_TOWN) ? 8 : 6;
-        uint8_t r_min = (map_id == MAP_TOWN) ? 12 : 13;
-        for (y = 3; y <= y_max; y++) {
-            for (x = 3; x <= 16; x++) {
-                if (x <= l_max || x >= r_min) w->map[y][x] = TILE_BUILDING;
-            }
-        }
-    } else if (map_id == MAP_FOREST) {
-        for (y = 0; y < sizeof(s_forest_trees); y += 2) {
-            w->map[s_forest_trees[y+1]][s_forest_trees[y]] = TILE_WALL;
-        }
-    } else if (map_id == MAP_MOUNTAIN_PASS) {
-        for (y = 0; y < 18; y++) {
-            for (x = 0; x < 20; x++) {
-                if (x <= 3 || x >= 16 || ((y & 3) == 2 && (x == 9 || x == 10))) {
-                    w->map[y][x] = TILE_WALL;
-                }
-            }
-        }
-    }
-}
-
 void scene_load_tiles(World *w, MapId map_id)
 {
     const SceneDefinition *def;
-    uint8_t x, y;
+    uint8_t i, x, y;
 
     if (!w) return;
     def = scene_definition_for_map(map_id);
@@ -86,10 +53,23 @@ void scene_load_tiles(World *w, MapId map_id)
         }
     }
 
-    scene_fill_terrain(w, map_id);
+    if (def->terrain_blocks) {
+        for (i = 0; ; i++) {
+            banked_copy(2, &s_block_scratch, &def->terrain_blocks[i], sizeof(SceneTerrainBlock));
+            if (s_block_scratch.w == 0) break;
+            for (y = s_block_scratch.y; y < s_block_scratch.y + s_block_scratch.h; y++) {
+                for (x = s_block_scratch.x; x < s_block_scratch.x + s_block_scratch.w; x++) {
+                    if (x < w->width && y < w->height) {
+                        w->map[y][x] = s_block_scratch.tile;
+                    }
+                }
+            }
+        }
+    }
 
     for (x = 0; x < def->exit_count; x++) {
-        w->map[def->exits[x].gate_y][def->exits[x].gate_x] = TILE_EXIT;
+        banked_copy(2, &s_exit_scratch, &def->exits[x], sizeof(SceneExit));
+        w->map[s_exit_scratch.gate_y][s_exit_scratch.gate_x] = TILE_EXIT;
     }
 }
 

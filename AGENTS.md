@@ -1382,12 +1382,35 @@ rgbfix -C
 
 header flags for CGB compatibility.
 
-Header byte `0x143` should indicate dual compatibility appropriately.
+Header byte `0x143` should indicate compatibility appropriately (`0xC0` for CGB-exclusive, `0x80` for dual compatibility).
 
-Before initializing CGB palettes:
+### 38.1 Avoid Red/Blue Boot ROM Fallback: Program CGB Palettes Unconditionally
+
+Per Pan Docs (`src/Palettes.md`, "LCD Color Palettes"): on CGB hardware / CGB emulators, if CGB Palette RAM (`0xFF68`–`0xFF6B`) is left uninitialized, the Game Boy Color PPU falls back to the built-in Nintendo Boot ROM compatibility palette table (Table index `0x1C`).
+This turns all background graphics **red/orange** (`#D85840`) and sprites **blue** (`#0000F8`).
+
+**Why this bug recurs**:
+1. `_cpu` is set from register `A` on boot (`0x11` on CGB). When emulators or test harnesses skip the Nintendo boot animation, register `A` can be `0x00`.
+2. Guarding CGB palette initialization with `if (_cpu == CGB_TYPE)` causes the entire palette setup to be skipped whenever `_cpu == 0`, immediately triggering the red/blue boot ROM fallback.
+3. On DMG hardware, writing to `0xFF68`–`0xFF6B` (`BCPS`/`BCPD`/`OCPS`/`OCPD`) is completely harmless (these registers are unmapped no-ops on DMG).
+
+**Rule**: In `ui_init()`, **always program both DMG palettes and all 8 CGB BG and OBJ palettes unconditionally** with explicit per-byte indexing (`0x80 | p`), ensuring clean grayscale/configured colors on every emulator and hardware model:
 
 ```c
-if (_cpu == CGB_TYPE)
+    /* Set DMG palettes: 0xE4 = 11 10 01 00 (Lightest to Darkest) */
+    BGP_REG = 0xE4;
+    OBP0_REG = 0xE4;
+    OBP1_REG = 0xE4;
+
+    /* Set CGB Palettes 0-7 unconditionally. Safe on both DMG and CGB. */
+    for (p = 0; p < 64; p++) {
+        BCPS_REG = (uint8_t)(0x80 | p);
+        BCPD_REG = ((const uint8_t *)cgb_palette)[p & 7];
+    }
+    for (p = 0; p < 64; p++) {
+        OCPS_REG = (uint8_t)(0x80 | p);
+        OCPD_REG = ((const uint8_t *)cgb_sprite_palette)[p & 7];
+    }
 ```
 
 Always reset:
@@ -1398,34 +1421,13 @@ VBK_REG = 0;
 
 after writing tile attributes to VRAM Bank 1.
 
-Do not assume CGB hardware when running on DMG.
+Do not assume CGB hardware when reading CGB-only features on DMG.
 
-### 38.1 CGB object palettes are NOT initialized by the boot ROM
+### 38.2 CGB object palettes are NOT initialized by the boot ROM
 
-Per Pan Docs (`src/Palettes.md`, "LCD Color Palettes"): in CGB mode the boot
-ROM leaves all object colors uninitialized ("somewhat random/unreliable",
-aside from the unused byte of OBJ0 color #0).  `FF48–FF49` (`OBP0`/`OBP1`)
-are **Non-CGB-Mode only** registers; on CGB hardware they do not drive sprite
-colors at all.
+Per Pan Docs (`src/Palettes.md`): in CGB mode the boot ROM leaves all object colors uninitialized ("somewhat random/unreliable"). `FF48–FF49` (`OBP0`/`OBP1`) are **Non-CGB-Mode only** registers; on CGB hardware they do not drive sprite colors at all.
 
-Consequence: a sprite without an explicit `set_sprite_palette()` renders with
-emulator-dependent garbage from uninitialized CRAM.  This bit the hero: the
-ROM is CGB-only (header `0x143 = 0xC0`) and wrote `OBP0_REG = 0xE4`, yet the
-hero rendered purple (SameBoy), brown (PyBoy CGB), or white (some viewers)
-until `set_sprite_palette()` was added in `ui_init()`.
-
-Rule: every visible sprite must be given an explicit CGB OBJ palette, guarded
-by `_cpu == CGB_TYPE`, alongside the BG palette:
-
-```c
-if (_cpu == CGB_TYPE) {
-    set_bkg_palette(0, 1, cgb_palette);
-    set_sprite_palette(0, 1, cgb_sprite_palette);   /* required */
-}
-```
-
-The hero tile's ink is color index 3 (both bit planes set), so entry 3 of the
-sprite palette controls the hero color.
+Consequence: every visible sprite must have a valid CGB OBJ palette programmed in CRAM (as done in `ui_init()`), with full 4-shade contrast matching the background.
 
 Reference: local Pan Docs checkout at `/home/brodrigues/Documents/repos/pandocs`
 (`src/Palettes.md`, `src/Power_Up_Sequence.md`).

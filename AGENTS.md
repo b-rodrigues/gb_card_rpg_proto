@@ -75,18 +75,31 @@ The debug ROM includes development harness functionality such as:
 make test-harness
 ```
 
+Runs all test scenarios in parallel using the host CPU cores (or up to 16 workers on capable development workstations):
+
+```bash
+make test-harness JOBS=16
+```
+
+On CI (GitHub Actions), parallel workers must be limited to **4 cores** (`JOBS=4`) to avoid runner resource exhaustion:
+
+```bash
+make test-harness JOBS=4
+```
+
 This must:
 
 1. build the debug ROM;
-2. execute the host-side harness;
+2. execute the host-side harness across worker processes;
 3. run all scenarios in `tools/scenarios/`;
 4. evaluate their assertions;
 5. return a non-zero exit code if any scenario fails.
 
-Equivalent underlying command:
+Equivalent underlying commands:
 
 ```bash
-python3 tools/dev.py test
+python3 tools/dev.py test --jobs 16
+python3 tools/dev.py test --jobs 4   # CI
 ```
 
 ---

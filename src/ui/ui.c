@@ -294,7 +294,7 @@ static void ui_draw_text_line_ring(uint8_t x, uint8_t y, const char *text,
     }
 }
 
-static const uint16_t s_powers10[4] = { 1000, 100, 10, 1 };
+static const uint16_t s_powers10[5] = { 10000, 1000, 100, 10, 1 };
 
 void ui_format_int(int16_t value, char *out)
 {
@@ -310,13 +310,13 @@ void ui_format_int(int16_t value, char *out)
         uval = (uint16_t)value;
     }
 
-    for (i = 0; i < 4; i++) {
+    for (i = 0; i < 5; i++) {
         digit = 0;
         while (uval >= s_powers10[i]) {
             uval -= s_powers10[i];
             digit++;
         }
-        if (digit > 0 || started || i == 3) {
+        if (digit > 0 || started || i == 4) {
             out[j++] = (char)('0' + digit);
             started = 1;
         }

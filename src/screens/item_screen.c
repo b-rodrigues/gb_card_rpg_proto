@@ -155,20 +155,27 @@ static void menu_draw(Game *g)
         return;
     }
 
-    for (i = 0; i < inv->count && i < MAX_INVENTORY_ITEMS && vis_count < 6; i++) {
+    uint8_t scroll = 0;
+    if (g->item_menu_index >= 8) {
+        scroll = (uint8_t)(g->item_menu_index - 7);
+    }
+
+    for (i = 0; i < inv->count && i < MAX_INVENTORY_ITEMS; i++) {
         const ItemDefinition *def = item_get_def(inv->entries[i].item_id);
         if (menu_item_visible(g->item_menu_tab, def)) {
-            y = (uint8_t)(5 + vis_count);
-            ui_draw_text_line(0, y, (g->item_menu_index == vis_count) ? ">" : " ", 1);
-            ui_draw_text_line(1, y, def->name ? def->name : "???", 8);
-            if (def->kind == ITEM_KIND_CONSUMABLE) {
-                ui_format_int((int16_t)inv->entries[i].quantity, buf);
-                ui_draw_text_line(10, y, "x", 1);
-                ui_draw_text_line(11, y, buf, 4);
-            } else if (g->state.equipment.weapon == inv->entries[i].item_id) {
-                ui_draw_text_line(10, y, "EQUIPPED", 8);
-            } else {
-                ui_draw_text_line(10, y, "EQUIP", 5);
+            if (vis_count >= scroll && (uint8_t)(vis_count - scroll) < 8) {
+                y = (uint8_t)(5 + (vis_count - scroll));
+                ui_draw_text_line(0, y, (g->item_menu_index == vis_count) ? ">" : " ", 1);
+                ui_draw_text_line(1, y, def->name, 8);
+                if (def->kind == ITEM_KIND_CONSUMABLE) {
+                    ui_format_int((int16_t)inv->entries[i].quantity, buf);
+                    ui_draw_text_line(10, y, "x", 1);
+                    ui_draw_text_line(11, y, buf, 4);
+                } else if (g->state.equipment.weapon == inv->entries[i].item_id) {
+                    ui_draw_text_line(10, y, "EQUIPPED", 8);
+                } else {
+                    ui_draw_text_line(10, y, "EQUIP", 5);
+                }
             }
             vis_count++;
         }

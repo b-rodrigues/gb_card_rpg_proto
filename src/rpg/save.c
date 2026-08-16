@@ -21,6 +21,8 @@
 #define SAVE_SRAM_BASE          0xA000
 #define SAVE_SLOT_STRIDE        0x0100
 
+typedef char check_save_slot_size[(sizeof(GameState) <= (SAVE_SLOT_STRIDE - SAVE_SRAM_STATE_OFF)) ? 1 : -1];
+
 static uint16_t save_slot_base(uint8_t slot)
 {
     return (uint16_t)(SAVE_SRAM_BASE + (slot * SAVE_SLOT_STRIDE));

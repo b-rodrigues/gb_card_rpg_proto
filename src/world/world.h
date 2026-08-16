@@ -64,7 +64,11 @@ typedef enum {
     TILE_FLOOR    = 0,
     TILE_WALL     = 1,
     TILE_EXIT     = 2,
-    TILE_BUILDING = 3
+    TILE_BUILDING = 3,
+    TILE_STUMP_TL = 4,
+    TILE_STUMP_TR = 5,
+    TILE_STUMP_BL = 6,
+    TILE_STUMP_BR = 7
 } TileType;
 
 /* Frames between autonomous patrol steps for hostile actors (~0.53 seconds). */

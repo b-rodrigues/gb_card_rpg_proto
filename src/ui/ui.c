@@ -67,7 +67,7 @@ static const palette_color_t cgb_sprite_palette[4] = {
  * overworld renders these via the console font (ui_font_tile_base + (ch -
  * ' ')); this branch is ASCII-only -- real terrain tiles live on the gfx
  * branch. */
-static const char g_sem_map[4] = { '.', '#', '>', 'B' };
+static const char g_sem_map[8] = { '.', '#', '>', 'B', '1', '2', '3', '4' };
 
 void ui_init(void)
 {
@@ -84,9 +84,10 @@ void ui_init(void)
     font_set(ibm_font);
     ui_font_tile_base = ((pmfont_handle)ibm_font)->first_tile;
 
-    /* Load world background tiles from Bank 2 (12 tiles = 192 bytes) using g_ui_screen_buf as temporary buffer */
-    banked_copy(2, g_ui_screen_buf, g_rpg_world_tiles, 192);
-    set_bkg_data(RPG_TILE_BASE_EXTERIOR, 12, (const uint8_t *)g_ui_screen_buf);
+    /* Load world background tiles from Bank 2 (16 tiles = 256 bytes) using g_ui_screen_buf as temporary buffer */
+    banked_copy(2, g_ui_screen_buf, g_rpg_world_tiles, 128);
+    banked_copy(2, (uint8_t *)g_ui_screen_buf + 128, g_rpg_world_tiles + 128, 128);
+    set_bkg_data(RPG_TILE_BASE_EXTERIOR, 16, (const uint8_t *)g_ui_screen_buf);
 
     /* Disable GBDK console auto-scroll.  When putchar() advances the cursor
      * past the bottom-right tile, the console normally scrolls the whole

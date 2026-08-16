@@ -18,15 +18,22 @@ typedef struct {
     char tile_char;
 } SceneExit;
 
+typedef struct {
+    uint8_t x;
+    uint8_t y;
+    uint8_t w;
+    uint8_t h;
+    uint8_t tile;
+} SceneTerrainBlock;
+
 typedef enum {
     WORLD_TILESET_EXTERIOR = 0,
     WORLD_TILESET_INTERIOR = 1,
     WORLD_TILESET_FOREST   = 2
 } WorldTilesetKind;
 
-/* Data-driven scene definition.  Terrain generation is dispatched inside
- * scene_load_tiles() by map_id (a direct switch, avoiding banked function
- * pointers); exit placement is applied automatically from the exits table.
+/* Data-driven scene definition.  Terrain generation is driven by banked
+ * terrain_blocks; exit placement is applied automatically from the exits table.
  * width/height set the scene's tile bounds (<= WORLD_WIDTH/HEIGHT); the
  * overworld camera clamps its view window to them. */
 typedef struct {
@@ -37,6 +44,7 @@ typedef struct {
     const SceneExit *exits;
     uint8_t exit_count;
     WorldTilesetKind tileset;
+    const SceneTerrainBlock *terrain_blocks;
 } SceneDefinition;
 
 /* Look up a scene definition by its map id. */
@@ -48,10 +56,12 @@ WorldTilesetKind scene_get_tileset(MapId map_id);
 /* Find the exit whose gate tile sits at (x, y), or NULL. */
 const SceneExit *scene_exit_at(const SceneDefinition *def, uint8_t x, uint8_t y);
 
-/* Fill a world's tile map for the given map id (border, terrain, exits). */
+/* Populate a World struct's map[][] with boundary walls, terrain features,
+ * and exit gates for map_id.  Uses map bounds from the scene definition. */
 void scene_load_tiles(World *w, MapId map_id);
 
-/* SceneId <-> MapId conversion. */
+/* MapId and SceneId 1:1 identity mappings (MAP_FIELD==SCENE_FIELD .. MAP_CASTLE==SCENE_CASTLE).
+ * Range checked to guarantee valid values within [0..MAP_CASTLE]. */
 MapId scene_id_to_map(SceneId scene);
 SceneId map_to_scene_id(MapId map);
 

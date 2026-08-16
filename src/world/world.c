@@ -86,7 +86,7 @@ bool world_is_walkable(const World *w, uint8_t x, uint8_t y)
     uint8_t tile;
     if (!w || x >= w->width || y >= w->height) return false;
     tile = w->map[y][x];
-    return (tile != TILE_WALL && tile != TILE_BUILDING);
+    return (tile == TILE_FLOOR || tile == TILE_EXIT);
 }
 
 WorldMoveResult world_try_begin_move(World *w, int8_t dx, int8_t dy,

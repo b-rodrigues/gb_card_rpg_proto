@@ -358,7 +358,7 @@ def main():
     for _ in range(3):
         step3("up")
     step3("up")
-    for _ in range(40):
+    for _ in range(120):
         pb.tick()
 
     shoot(pb, "14-forest-arrived")

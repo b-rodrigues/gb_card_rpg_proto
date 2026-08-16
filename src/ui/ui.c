@@ -93,16 +93,16 @@ void ui_init(void)
     OBP0_REG = 0xE4;
     OBP1_REG = 0xE4;
 
-    /* Set CGB Palette 0 if running on CGB hardware */
+    /* Set CGB Palettes 0-7 if running on CGB hardware */
     if (_cpu == CGB_TYPE) {
         uint8_t p;
         BCPS_REG = 0x80;
-        for (p = 0; p < 8; p++) {
-            BCPD_REG = ((const uint8_t *)cgb_palette)[p];
+        for (p = 0; p < 64; p++) {
+            BCPD_REG = ((const uint8_t *)cgb_palette)[p & 7];
         }
         OCPS_REG = 0x80;
-        for (p = 0; p < 8; p++) {
-            OCPD_REG = ((const uint8_t *)cgb_sprite_palette)[p];
+        for (p = 0; p < 64; p++) {
+            OCPD_REG = ((const uint8_t *)cgb_sprite_palette)[p & 7];
         }
     }
 

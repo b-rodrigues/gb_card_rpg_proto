@@ -48,9 +48,9 @@ static const palette_color_t cgb_palette[4] = {
  * hero is visible against the white floor on CGB. */
 static const palette_color_t cgb_sprite_palette[4] = {
     RGB8(255, 255, 255),
-    RGB8(255, 255, 255),
-    RGB8(255, 255, 255),
-    RGB8(170, 170, 170)
+    RGB8(170, 170, 170),
+    RGB8(85, 85, 85),
+    RGB8(0, 0, 0)
 };
 
 /* ── Player sprite ─────────────────────────────────────────────────
@@ -71,6 +71,8 @@ static const char g_sem_map[8] = { '.', '#', '>', 'B', '1', '2', '3', '4' };
 
 void ui_init(void)
 {
+    uint8_t p;
+
     /* Turn the LCD off before loading the font so that display_off() inside
      * set_bkg_data() returns immediately (it waits for VBlank otherwise).
      * The CRT0 boot already leaves the LCD off; the harness (which skips
@@ -100,17 +102,16 @@ void ui_init(void)
     OBP0_REG = 0xE4;
     OBP1_REG = 0xE4;
 
-    /* Set CGB Palettes 0-7 if running on CGB hardware */
-    if (_cpu == CGB_TYPE) {
-        uint8_t p;
-        BCPS_REG = 0x80;
-        for (p = 0; p < 64; p++) {
-            BCPD_REG = ((const uint8_t *)cgb_palette)[p & 7];
-        }
-        OCPS_REG = 0x80;
-        for (p = 0; p < 64; p++) {
-            OCPD_REG = ((const uint8_t *)cgb_sprite_palette)[p & 7];
-        }
+    /* Set CGB Palettes 0-7.  Writing BCPS/BCPD and OCPS/OCPD with explicit
+     * indexing is safe on both CGB and DMG (hardware no-ops on DMG), ensuring
+     * CGB palettes are always set and never fall back to GBC BIOS red/blue colors. */
+    for (p = 0; p < 64; p++) {
+        BCPS_REG = (uint8_t)(0x80 | p);
+        BCPD_REG = ((const uint8_t *)cgb_palette)[p & 7];
+    }
+    for (p = 0; p < 64; p++) {
+        OCPS_REG = (uint8_t)(0x80 | p);
+        OCPD_REG = ((const uint8_t *)cgb_sprite_palette)[p & 7];
     }
 
     SHOW_BKG;

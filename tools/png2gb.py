@@ -30,14 +30,14 @@ PALETTES = {
     "canonical": [
         (255, 255, 255),  # 0: white / lightest
         (170, 170, 170),  # 1: light gray
-        (85, 85, 85),      # 2: dark gray
-        (0, 0, 0),          # 3: black / darkest
+        (85, 85, 85),     # 2: dark gray
+        (0, 0, 0),        # 3: black / darkest
     ],
     "gb_green": [
-        (224, 248, 207),  # 0: lightest green
-        (134, 192, 108),  # 1: light green
-        (48, 104, 80),    # 2: dark green
-        (7, 24, 33),      # 3: darkest green
+        (224, 248, 207),  # 0: lightest green (#E0F8CF)
+        (134, 192, 108),  # 1: light green (#86C06C)
+        (48, 104, 80),    # 2: dark green (#306850)
+        (7, 24, 33),      # 3: darkest green (#071821)
     ]
 }
 
@@ -71,7 +71,6 @@ def load_and_validate(path, max_colors=MAX_COLORS):
         )
 
     colors = img.getcolors(maxcolors=256)
-    # Tolerate minor compression artifacts (<= 8 colors) if palette strategy can map them
     if colors is None or len(colors) > max_colors:
         n = "more than 256" if colors is None else str(len(colors))
         raise Png2GbError(
@@ -84,25 +83,19 @@ def load_and_validate(path, max_colors=MAX_COLORS):
 
 
 def build_shade_map(img, asset, palette_name="canonical"):
-    """Map each distinct color in the image to its GB shade index (0-3)
-    against the requested 4-shade palette."""
+    """Map each distinct color in the image to its exact GB shade index (0-3)
+    against the requested 4-shade palette. Fails strictly on any off-palette pixel."""
     palette = PALETTES.get(palette_name, PALETTES["canonical"])
     colors = [c for _, c in img.getcolors(maxcolors=256)]
     shade_map = {}
     for color in colors:
-        best_idx, best_dist = None, None
-        for idx, shade in enumerate(palette):
-            dist = sum((a - b) ** 2 for a, b in zip(color, shade))
-            if best_dist is None or dist < best_dist:
-                best_idx, best_dist = idx, dist
-        if best_dist > 500:
+        if color in palette:
+            shade_map[color] = palette.index(color)
+        else:
             raise Png2GbError(
                 asset, "unsupported-color",
-                f"RGB{color} is not near any of the {palette_name} shades "
-                f"{palette}; closest is shade {best_idx} "
-                f"{palette[best_idx]} (dist={best_dist})"
+                f"RGB{color} is not in the {palette_name} palette {palette}"
             )
-        shade_map[color] = best_idx
     return shade_map
 
 
@@ -142,9 +135,11 @@ def ascii_preview(tile_bytes):
     return lines
 
 
-def format_c_array(name, all_tile_bytes, tile_count):
+def format_c_array(name, all_tile_bytes, tile_count, raw_inc=False):
     """Emit a C byte array with an ASCII-art comment per tile row."""
-    lines = [f"const uint8_t {name}[{len(all_tile_bytes)}] = {{"]
+    lines = []
+    if not raw_inc:
+        lines.append(f"const uint8_t {name}[{len(all_tile_bytes)}] = {{")
     for t in range(tile_count):
         tile = all_tile_bytes[t * 16:(t + 1) * 16]
         preview = ascii_preview(tile)
@@ -152,15 +147,15 @@ def format_c_array(name, all_tile_bytes, tile_count):
             lines.append(f"    /* tile {t} */")
         for row in range(TILE_SIZE):
             lo, hi = tile[row * 2], tile[row * 2 + 1]
-            comma = "," if not (t == tile_count - 1 and row == TILE_SIZE - 1) else ""
+            comma = "," if not (not raw_inc and t == tile_count - 1 and row == TILE_SIZE - 1) else ""
             lines.append(f"    0x{lo:02X}, 0x{hi:02X}{comma}   /* {preview[row]} */")
-    lines.append("};")
+    if not raw_inc:
+        lines.append("};")
     return "\n".join(lines)
 
 
-def convert(path, name, palette_name="canonical", tile_coords=None):
-    max_colors = 8 if palette_name == "gb_green" else MAX_COLORS
-    img, tiles_x, tiles_y = load_and_validate(path, max_colors=max_colors)
+def convert(path, name, palette_name="canonical", tile_coords=None, raw_inc=False):
+    img, tiles_x, tiles_y = load_and_validate(path, max_colors=MAX_COLORS)
     shade_map = build_shade_map(img, str(path), palette_name=palette_name)
 
     all_bytes = bytearray()
@@ -178,7 +173,7 @@ def convert(path, name, palette_name="canonical", tile_coords=None):
                 all_bytes += encode_tile(img, tx, ty, shade_map)
         tile_count = tiles_x * tiles_y
 
-    return all_bytes, tile_count, format_c_array(name, all_bytes, tile_count)
+    return all_bytes, tile_count, format_c_array(name, all_bytes, tile_count, raw_inc=raw_inc)
 
 
 def main():
@@ -187,11 +182,17 @@ def main():
     ap.add_argument("--name", default="tile_data", help="C array name")
     ap.add_argument("--palette", default="canonical", choices=["canonical", "gb_green"], help="palette mapping")
     ap.add_argument("--tile-coords", default=None, help="space-separated x,y tile coordinates (e.g. '1,2 8,1 8,2 0,5')")
+    ap.add_argument("--raw", action="store_true", help="output raw comma-separated byte lines suitable for #include inside an array initializer")
     ap.add_argument("-o", "--out", type=Path, help="write generated C snippet here (default: stdout)")
     args = ap.parse_args()
 
     try:
-        all_bytes, tile_count, c_src = convert(args.png, args.name, palette_name=args.palette, tile_coords=args.tile_coords)
+        all_bytes, tile_count, c_src = convert(
+            args.png, args.name,
+            palette_name=args.palette,
+            tile_coords=args.tile_coords,
+            raw_inc=args.raw
+        )
     except Png2GbError as e:
         print(f"png2gb: {e.asset}: [{e.rule}] {e.detail}", file=sys.stderr)
         sys.exit(1)

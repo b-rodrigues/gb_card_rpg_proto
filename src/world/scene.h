@@ -47,7 +47,11 @@ typedef struct {
     const SceneTerrainBlock *terrain_blocks;
 } SceneDefinition;
 
-/* Look up a scene definition by its map id. */
+/* Look up a scene definition by its map id.
+ * NOTE: Returns a pointer to an internal static scratch buffer (WRAM),
+ * populated on each call via banked_copy() from ROM Bank 2. The returned
+ * pointer is valid only until the next call to scene_definition_for_map().
+ * Do not retain this pointer across nested or subsequent scene lookups. */
 const SceneDefinition *scene_definition_for_map(MapId map_id);
 
 /* Get the tileset kind for a given map id. */

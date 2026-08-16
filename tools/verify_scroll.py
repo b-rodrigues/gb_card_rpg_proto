@@ -118,6 +118,7 @@ def main():
     SCROLL_Y = game_addr + 1270
     MOVE_STATE = game_addr + 1271
     MOVE_TARGET_X = game_addr + 1272
+    MOVE_TARGET_Y = game_addr + 1273
     MOVE_PROGRESS = game_addr + 1274
 
     # Shadow-OAM slot 0 = the player sprite (y, x).  Read before the frame's
@@ -188,17 +189,33 @@ def main():
         # allow that ±1 px sampling phase.
         player_x = pb.memory[POS_X]
         player_y = pb.memory[POS_Y]
-        px = player_x * 8
+        tgt_x = pb.memory[MOVE_TARGET_X]
+        tgt_y = pb.memory[MOVE_TARGET_Y]
+        prog = pb.memory[MOVE_PROGRESS]
         ms = pb.memory[MOVE_STATE]
-        if ms == 1 and pb.memory[MOVE_TARGET_X] > player_x:
-            px += pb.memory[MOVE_PROGRESS]
+        px = player_x * 8
         py = player_y * 8
+        if ms == 1:
+            if tgt_x > player_x:
+                px += prog
+            elif tgt_x < player_x:
+                px -= prog
+            if tgt_y > player_y:
+                py += prog
+            elif tgt_y < player_y:
+                py -= prog
         camx = pb.memory[CAM_X]
         camy = pb.memory[CAM_Y]
         exp_y = py - camy + 16
         exp_x = px - camx + 8
-        if ms == 0 and pb.memory[MOVE_TARGET_X] > player_x:
-            exp_x = (pb.memory[MOVE_TARGET_X] * 8 - 1) - camx + 8
+        # Game loop order in main.c is: vsync() -> game_render() -> game_update().
+        # Therefore, shadow OAM sampled after pb.tick() reflects the state rendered
+        # at vsync before game_update advances move_progress / commits position.
+        # On the completion frame where game_update just committed the move (ms becomes 0),
+        # shadow OAM still holds the rendered position from the final sub-pixel step:
+        # (tgt_x * 8 - 1) - camx + 8.
+        if ms == 0 and tgt_x > player_x:
+            exp_x = (tgt_x * 8 - 1) - camx + 8
         act_y = pb.memory[OAM_Y]
         act_x = pb.memory[OAM_X]
         if act_y != 0 and abs(act_y - exp_y) <= 1 and abs(act_x - exp_x) <= 1:

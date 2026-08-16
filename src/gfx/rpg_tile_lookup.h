@@ -34,7 +34,9 @@ static inline uint8_t rpg_lookup_tile_id(uint8_t tileset_kind, char glyph)
     if (glyph == '#') return (uint8_t)(128 + (tileset_kind << 2) + 1);
     if (glyph == '>' || glyph == '<') return (uint8_t)(128 + (tileset_kind << 2) + 2);
     if (glyph == 'B') return (uint8_t)(128 + (tileset_kind << 2) + 3);
-    if (glyph >= '1' && glyph <= '4') return (uint8_t)(139 + (glyph - '1'));
+    if (tileset_kind == 2 && glyph >= '1' && glyph <= '4') {
+        return (uint8_t)(139 + (glyph - '1'));
+    }
     return 0;
 }
 

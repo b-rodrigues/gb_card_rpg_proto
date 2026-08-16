@@ -9,6 +9,8 @@ SRC_DIR = src
 TARGET = $(BUILD_DIR)/rpg_card_proto.gb
 TARGET_DEBUG = $(BUILD_DIR)/rpg_card_proto_debug.gb
 
+JOBS ?= auto
+
 # sdldgb links entire archives; trimmed closures keep the non-bankable
 # _HOME area below 0x8000 on MBC5 (see docs/roadmap.md state foundation).
 GB_LITE = $(BUILD_DIR)/gb_lite.lib
@@ -129,7 +131,7 @@ test: $(TARGET)
 	@echo "ROM validation successful: $(TARGET)"
 
 test-harness: debug
-	python3 tools/dev.py test
+	python3 tools/dev.py test --jobs $(JOBS)
 
 test-scenario: debug
 	@python3 tools/dev.py scenario $(SCENARIO)

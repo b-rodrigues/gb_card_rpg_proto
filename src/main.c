@@ -28,10 +28,21 @@ volatile uint8_t g_harness_mode = 0;
  */
 volatile uint8_t g_boot_phase = 0;
 
+extern void timer_isr_init(void);
+extern void oam_dma_init(void);
+extern void banked_copy_init(void);
+
 int main(void)
 {
+    __asm
+        di
+        ld sp, #0xE000
+    __endasm;
     *(volatile uint8_t *)0x2000 = 1;
     *(volatile uint8_t *)0x3000 = 0;
+    timer_isr_init();
+    oam_dma_init();
+    banked_copy_init();
     g_boot_phase = 1;
 
     if (!g_harness_mode) {

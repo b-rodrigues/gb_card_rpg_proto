@@ -210,9 +210,11 @@ def run_scenario(scenario):
                                      ITEM_ID_MAP[act.get("item")],
                                      0, act.get("member", 1))
             elif act_type == "save":
-                session.debug_action(session.DBG_ACT_SAVE)
+                slot = act.get("slot", 1) - 1 if "slot" in act else 0
+                session.debug_action(session.DBG_ACT_SAVE, slot, 0, 0)
             elif act_type == "load":
-                session.debug_action(session.DBG_ACT_LOAD)
+                slot = act.get("slot", 1) - 1 if "slot" in act else 0
+                session.debug_action(session.DBG_ACT_LOAD, slot, 0, 0)
 
         # Read final snapshot, canonical state buffer and telemetry
         snap = session.snapshot()

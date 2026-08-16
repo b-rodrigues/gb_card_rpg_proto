@@ -13,7 +13,7 @@ TELEMETRY_EVENT_SIZE = 13
 
 GAME_STATE_MAP = {0: "OVERWORLD", 1: "BATTLE", 2: "GAME_OVER", 3: "THANKS"}
 SCREEN_MAP = {0: "OVERWORLD", 1: "DIALOGUE", 2: "BATTLE", 3: "GAME_OVER", 4: "THANKS",
-              5: "SHOP", 6: "ITEM", 7: "ENDING"}
+              5: "SHOP", 6: "ITEM", 7: "ENDING", 8: "SAVE_LOAD"}
 SCENE_MAP = {0: "FIELD", 1: "TOWN", 2: "FOREST", 3: "MOUNTAIN_PASS", 4: "CASTLE"}
 MUSIC_TRACK_MAP = {0: "NONE", 1: "OVERWORLD", 2: "BATTLE"}
 BATTLE_TURN_MAP = {0: "PLAYER", 1: "ENEMY_DELAY", 2: "ENEMY", 3: "RESULT"}
@@ -26,8 +26,9 @@ ENTITY_ID_MAP = {0: "NONE", 1: "PLAYER",
                  GAME_ID_BASE + 0: "SLIME", GAME_ID_BASE + 1: "MAYOR",
                  GAME_ID_BASE + 2: "GUARD", GAME_ID_BASE + 3: "SHOPKEEPER",
                  GAME_ID_BASE + 4: "BAT", GAME_ID_BASE + 5: "SLIME_LORD",
-                 GAME_ID_BASE + 6: "MERCHANT", GAME_ID_BASE + 7: "AMULET"}
-INTERACTION_ID_MAP = {0: "NONE", 1: "DIALOGUE", 2: "COMBAT"}
+                 GAME_ID_BASE + 6: "MERCHANT", GAME_ID_BASE + 7: "AMULET",
+                 GAME_ID_BASE + 8: "WIZARD"}
+INTERACTION_ID_MAP = {0: "NONE", 1: "DIALOGUE", 2: "COMBAT", 3: "SHOP", 4: "SAVE"}
 DIALOGUE_ID_MAP = {0: "NONE",
                    GAME_ID_BASE + 0: "MAYOR_GREETING",
                    GAME_ID_BASE + 1: "GUARD_GREETING",
@@ -57,7 +58,7 @@ EVENT_TYPE_MAP = {
     32: "ITEM_USED", 33: "ITEM_USE_FAILED", 34: "ITEM_PURCHASED",
     35: "ITEM_PURCHASE_FAILED", 36: "CURRENCY_ADDED", 37: "CURRENCY_SPENT",
     38: "PROGRESSION_GAINED", 39: "LEVEL_UP", 40: "ITEM_EQUIPPED",
-    41: "BATTLE_FLED"
+    41: "BATTLE_FLED", 42: "GAME_SAVED", 43: "GAME_LOADED"
 }
 EVENT_ID_MAP = {GAME_ID_BASE + 0: "TOWN_ARRIVAL",
                 GAME_ID_BASE + 1: "QUEST_START",
@@ -474,12 +475,17 @@ class EmulatorSession:
 
         game_render_addr = self.get_symbol("game_render")
         main_addr = self.get_symbol("main")
-
-        # Enable harness mode before main() runs, and verify it applied.  If
-        # the write is dropped the ROM runs the normal boot (audio_init +
-        # enable_interrupts), which can hang a headless CI runner before
-        # game_render is ever reached.
         hm_addr = self.get_symbol("g_harness_mode")
+
+        # Break at main entry (allows CRT0 init to run cleanly: zeroing WRAM, setting stack, IE).
+        self._cmd(f'b 0x{main_addr:04X}')
+        self._send('c')
+        out_main = self._read_until(timeout=10.0)
+        if b'Hit breakpoint' not in out_main and f'{main_addr:04X}'.encode() not in out_main:
+            self._set_pc(main_addr)
+            self._cmd('w/r sp 0xE000')
+
+        # Enable harness mode after CRT0 WRAM clear has executed.
         harness_ok = False
         for _ in range(5):
             self._memwrite(hm_addr, 0x01)
@@ -490,29 +496,10 @@ class EmulatorSession:
         if not harness_ok:
             raise RuntimeError("connect: could not set g_harness_mode=1 (readback failed)")
 
-        # Jump to main (bypasses CRT0 blocking calls: display_off, DMA) and
-        # verify PC actually moved there.
-        pc_ok = False
-        pc_val = None
-        for _ in range(5):
-            self._set_pc(main_addr)
-            pc_val = self._read_pc()
-            if pc_val == main_addr:
-                pc_ok = True
-                break
-            time.sleep(0.1)
-        if not pc_ok:
-            raise RuntimeError(
-                f"connect: could not set PC to main 0x{main_addr:04X} "
-                f"(readback pc=0x{pc_val:04X if pc_val is not None else '????'})"
-            )
-
-        # Set frame-sync breakpoint and run to first frame.  The game_render
-        # breakpoint is re-issued every attempt.
-        boot_phase_addr = self.get_symbol("g_boot_phase")
+        # Set frame-sync breakpoint and run to first frame.
         hit = False
         any_hit = False
-        attempts_log = []
+        self.attempts_log = attempts_log = []
         for attempt in range(8):
             brk = self._cmd(f'break 0x{game_render_addr:04X}')
             attempts_log.append(b'break: ' + brk)
@@ -524,8 +511,6 @@ class EmulatorSession:
                 if f'{game_render_addr:04X}'.encode() in out:
                     hit = True
                     break
-            # Not game_render: re-sync to main and retry.
-            self._set_pc(main_addr)
             time.sleep(0.1)
         if not hit:
             tail = attempts_log[-1].decode(errors='replace')[-200:] if attempts_log else "(no output)"
@@ -534,7 +519,7 @@ class EmulatorSession:
             raise RuntimeError(
                 f"connect: game_render breakpoint not hit "
                 f"(responsive={responsive}, harness_mode={self._memread(hm_addr)}, "
-                f"pc_set={pc_ok}, any_breakpoint_hit={any_hit}, "
+                f"any_breakpoint_hit={any_hit}, "
                 f"main_canary_hit={main_canary}, last_output_tail={tail!r})"
             )
 
@@ -548,14 +533,15 @@ class EmulatorSession:
                 "main() or ui_init() may not have executed"
             )
 
-        # Advance to next game_render (from main loop, after game_init returns)
-        self._send('next')
-        time.sleep(0.005)
-        self._drain()
-        self._send('c')
-        out = self._read_until(timeout=10.0)
+        if boot_phase < 4:
+            # Advance to next game_render (from main loop, after game_init returns)
+            self._send('next')
+            time.sleep(0.005)
+            self._drain()
+            self._send('c')
+            out = self._read_until(timeout=10.0)
+            boot_phase = self._memread(boot_phase_addr)
 
-        boot_phase = self._memread(boot_phase_addr)
         if boot_phase != 4:
             raise RuntimeError(
                 f"connect: g_boot_phase={boot_phase}, expected 4. "
@@ -596,10 +582,13 @@ class EmulatorSession:
     def step(self, frames=1):
         """Advance N frames using breakpoint at _game_render."""
         for _ in range(frames):
-            self._cmd('next')
-            out = self._cmd('c', timeout=10.0)
+            self._send('next')
+            time.sleep(0.005)
+            self._drain()
+            self._send('c')
+            out = self._read_until(timeout=10.0)
             if b'Hit breakpoint' not in out:
-                raise RuntimeError("Frame step failed: breakpoint not hit")
+                raise RuntimeError(f"Frame step failed: breakpoint not hit (out={out!r})")
 
     def wait(self, frames):
         self.step(frames)

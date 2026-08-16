@@ -19,6 +19,8 @@ Two sessions, each starting from a fresh boot (fresh persistent state):
     06-item-menu         START quick screen (ITEM tab)
     07-quests-tab        QUEST tab
     08-status-tab        STATUS tab
+    12-wizard-save       wizard interaction (save game menu)
+    13-wizard-saved      game state saved to slot 1
 
   Walk B (battle):
     09-battle            slime encounter (battle screen)
@@ -261,6 +263,20 @@ def main():
     shoot(pb, "07-quests-tab")
     tab_to(15)
     shoot(pb, "08-status-tab")
+
+    # Close the quick screen with B (window layer comes back on overworld)
+    press_until("b", lambda: window_enabled(pb), settle=30)
+
+    # Walk to the Wizard at (6,10): from (9,4) down to (6,11), then bump UP
+    # to open the Save Menu (window layer disabled = save screen up).
+    ok = walk("down", lambda: pos()[1] == 11)
+    ok = walk("left", lambda: pos()[0] == 6) and ok
+    press_until("up", lambda: not window_enabled(pb), settle=30)
+    shoot(pb, "12-wizard-save")
+
+    # Press A to save the current game state to Slot 1 (message "SAVED TO SLOT 1")
+    press("a", settle=30)
+    shoot(pb, "13-wizard-saved")
     pb.stop()
 
     # ── Walk B: slime battle on FIELD ────────────────────────────────

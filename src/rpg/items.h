@@ -25,7 +25,7 @@ typedef enum {
 
 typedef struct {
     ItemId id;
-    const char *name;
+    char name[8];
     uint16_t price;   /* shop price (0 = not sold) */
     CurrencyId currency;  /* currency charged by item_purchase (e.g. GOLD) */
     ItemKind kind;
@@ -45,7 +45,7 @@ const ItemDefinition *item_get_def(ItemId id);
 
 /* Register the game's item catalog (content, provided by the game layer).
  * The mechanics below are generic over whatever catalog is registered. */
-void item_register_defs(const ItemDefinition *table, uint8_t count);
+void item_register_defs(const ItemDefinition *table, uint8_t count, uint8_t bank);
 
 /* Iterate the registered catalog.  item_def_count() returns the number of
  * definitions; item_get_def_at(idx) returns the idx-th definition or NULL. */

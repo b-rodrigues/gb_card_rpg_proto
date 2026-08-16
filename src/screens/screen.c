@@ -94,30 +94,32 @@ void screen_change(Game *g, ScreenId screen)
 
 void screen_update(Game *g)
 {
-    ScreenId s;
     if (!g) return;
-    s = g->screen;
-    if (s == SCREEN_OVERWORLD) overworld_screen_update(g);
-    else if (s == SCREEN_DIALOGUE) dialogue_screen_update(g);
-    else if (s == SCREEN_BATTLE) battle_screen_update(g);
-    else if (s == SCREEN_ITEM) item_screen_update(g);
-    else if (s == SCREEN_SHOP) shop_screen_update(g);
-    else if (s == SCREEN_GAME_OVER) game_over_screen_update(g);
-    else if (s == SCREEN_ENDING) ending_screen_update(g);
-    else if (s == SCREEN_THANKS) thanks_screen_update(g);
+    switch (g->screen) {
+        case SCREEN_OVERWORLD: overworld_screen_update(g); break;
+        case SCREEN_DIALOGUE:  dialogue_screen_update(g); break;
+        case SCREEN_BATTLE:    battle_screen_update(g); break;
+        case SCREEN_GAME_OVER: game_over_screen_update(g); break;
+        case SCREEN_THANKS:    thanks_screen_update(g); break;
+        case SCREEN_SHOP:      shop_screen_update(g); break;
+        case SCREEN_ITEM:      item_screen_update(g); break;
+        case SCREEN_ENDING:    ending_screen_update(g); break;
+        case SCREEN_SAVE_LOAD: save_load_screen_update(g); break;
+    }
 }
 
 void screen_render(Game *g)
 {
-    ScreenId s;
     if (!g) return;
-    s = g->screen;
-    if (s == SCREEN_OVERWORLD) overworld_screen_render(g);
-    else if (s == SCREEN_DIALOGUE) dialogue_screen_render(g);
-    else if (s == SCREEN_BATTLE) battle_screen_render(g);
-    else if (s == SCREEN_ITEM) item_screen_render(g);
-    else if (s == SCREEN_SHOP) shop_screen_render(g);
-    else if (s == SCREEN_GAME_OVER) game_over_screen_render(g);
-    else if (s == SCREEN_ENDING) ending_screen_render(g);
-    else if (s == SCREEN_THANKS) thanks_screen_render(g);
+    switch (g->screen) {
+        case SCREEN_OVERWORLD: overworld_screen_render(g); break;
+        case SCREEN_DIALOGUE:  dialogue_screen_render(g); break;
+        case SCREEN_BATTLE:    battle_screen_render(g); break;
+        case SCREEN_GAME_OVER: game_over_screen_render(g); break;
+        case SCREEN_THANKS:    thanks_screen_render(g); break;
+        case SCREEN_SHOP:      shop_screen_render(g); break;
+        case SCREEN_ITEM:      item_screen_render(g); break;
+        case SCREEN_ENDING:    ending_screen_render(g); break;
+        case SCREEN_SAVE_LOAD: save_load_screen_render(g); break;
+    }
 }

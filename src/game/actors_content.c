@@ -34,6 +34,12 @@ static const WorldActorDefinition g_town_actors[] = {
         0, ENTITY_ID_MERCHANT, 11, 3, DIRECTION_DOWN,
         ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
         'M', "MERCHANT", INTERACTION_SHOP, 2, DIALOGUE_ID_NONE, BATTLE_NONE, AI_NONE, 0, 0, 0, 0, 0, 0
+    },
+    /* Wizard: offers saving the game status to one of 3 slots */
+    {
+        0, ENTITY_ID_WIZARD, 6, 10, DIRECTION_DOWN,
+        ACTOR_FLAG_BLOCKING | ACTOR_FLAG_INTERACTABLE,
+        'W', "WIZARD", INTERACTION_SAVE, 0, DIALOGUE_ID_NONE, BATTLE_NONE, AI_NONE, 0, 0, 0, 0, 0, 0
     }
 };
 

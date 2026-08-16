@@ -47,20 +47,17 @@ static const EventDefinition *event_get_row(uint8_t i)
 static bool event_condition_met(const GameState *state, const EventCond *cond)
 {
     int16_t v;
-    switch (cond->type) {
-        case EVENT_COND_FLAG:
-            return story_has_flag(state, (FlagId)cond->id) == cond->flag_set;
-        case EVENT_COND_VARIABLE:
-            v = game_variable_get(state, (VariableId)cond->id);
-            if (cond->at_least) return v >= cond->value;
-            return v == cond->value;
-        case EVENT_COND_ITEM_COUNT:
-            v = (int16_t)inventory_count(&state->inventory, (ItemId)cond->id);
-            if (cond->at_least) return v >= cond->value;
-            return v == cond->value;
-        default:
-            return true;
+    if (cond->type == EVENT_COND_FLAG) {
+        return story_has_flag(state, (FlagId)cond->id) == cond->flag_set;
     }
+    if (cond->type == EVENT_COND_VARIABLE) {
+        v = game_variable_get(state, (VariableId)cond->id);
+    } else if (cond->type == EVENT_COND_ITEM_COUNT) {
+        v = (int16_t)inventory_count(&state->inventory, (ItemId)cond->id);
+    } else {
+        return true;
+    }
+    return cond->at_least ? (v >= cond->value) : (v == cond->value);
 }
 
 static bool event_conds_met(const GameState *state, const EventDefinition *def)
@@ -78,37 +75,26 @@ static void event_execute_actions(Game *g, const EventDefinition *def,
     uint8_t i;
     for (i = 0; i < def->action_count; i++) {
         const EventAction *a = &def->actions[i];
-        switch (a->type) {
-            case EVENT_ACTION_DIALOGUE:
-                dialogue_start_def(&g->dialogue, (DialogueId)a->arg0);
-                if (dialogue_started) *dialogue_started = true;
-                break;
-            case EVENT_ACTION_SET_FLAG:
-                story_set_flag(&g->state, (FlagId)a->arg0);
-                break;
-            case EVENT_ACTION_CLEAR_FLAG:
-                story_clear_flag(&g->state, (FlagId)a->arg0);
-                break;
-            case EVENT_ACTION_SET_VARIABLE:
-                game_variable_set(&g->state, (VariableId)a->arg0, a->arg1);
-                break;
-            case EVENT_ACTION_ADD_VARIABLE:
-                game_variable_add(&g->state, (VariableId)a->arg0, a->arg1);
-                break;
-            case EVENT_ACTION_SCENE_CHANGE:
-                scene_load(g, (SceneId)a->arg0, (uint8_t)a->arg1, (uint8_t)a->arg2);
-                break;
-            case EVENT_ACTION_ADD_ITEM:
-                inventory_add(&g->state.inventory, (ItemId)a->arg0, (uint8_t)a->arg1);
-                break;
-            case EVENT_ACTION_ADD_CURRENCY:
-                currency_add(&g->state, (CurrencyId)a->arg0, a->arg1);
-                break;
-            case EVENT_ACTION_REMOVE_ITEM:
-                inventory_remove(&g->state.inventory, (ItemId)a->arg0, (uint8_t)a->arg1);
-                break;
-            default:
-                break;
+        uint8_t t = a->type;
+        if (t == EVENT_ACTION_DIALOGUE) {
+            dialogue_start_def(&g->dialogue, (DialogueId)a->arg0);
+            if (dialogue_started) *dialogue_started = true;
+        } else if (t == EVENT_ACTION_SET_FLAG) {
+            story_set_flag(&g->state, (FlagId)a->arg0);
+        } else if (t == EVENT_ACTION_CLEAR_FLAG) {
+            story_clear_flag(&g->state, (FlagId)a->arg0);
+        } else if (t == EVENT_ACTION_SET_VARIABLE) {
+            game_variable_set(&g->state, (VariableId)a->arg0, a->arg1);
+        } else if (t == EVENT_ACTION_ADD_VARIABLE) {
+            game_variable_add(&g->state, (VariableId)a->arg0, a->arg1);
+        } else if (t == EVENT_ACTION_SCENE_CHANGE) {
+            scene_load(g, (SceneId)a->arg0, (uint8_t)a->arg1, (uint8_t)a->arg2);
+        } else if (t == EVENT_ACTION_ADD_ITEM) {
+            inventory_add(&g->state.inventory, (ItemId)a->arg0, (uint8_t)a->arg1);
+        } else if (t == EVENT_ACTION_ADD_CURRENCY) {
+            currency_add(&g->state, (CurrencyId)a->arg0, a->arg1);
+        } else if (t == EVENT_ACTION_REMOVE_ITEM) {
+            inventory_remove(&g->state.inventory, (ItemId)a->arg0, (uint8_t)a->arg1);
         }
     }
 }

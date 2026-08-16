@@ -173,7 +173,7 @@ WorldMoveResult world_update_move(World *w, const GameState *state)
             /* The player does not occupy the enemy tile; battle starts from
              * the pre-move position (matches the legacy instant behavior).
              * The hostile slot was persisted by world_try_begin_move. */
-            if (w->encounter_actor_index != NO_ACTOR_INDEX) {
+            if (w->encounter_actor_index < MAX_WORLD_ACTORS) {
                 telemetry_emit(EVENT_ACTOR_COLLISION, target_x, target_y,
                                (uint8_t)w->actors[w->encounter_actor_index].id, 0);
                 telemetry_emit(EVENT_ENCOUNTER_STARTED,
